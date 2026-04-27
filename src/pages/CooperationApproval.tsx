@@ -1,0 +1,68 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { ChevronRight, Search, CheckCircle, XCircle, Eye } from "lucide-react";
+
+const items = [
+  { id: "CO-001", name: "三方联合建模", initiator: "银行A", partners: "保险B,征信C", status: "待审批" },
+  { id: "CO-002", name: "医疗数据共享", initiator: "医院A", partners: "医院B,研究院", status: "已通过" },
+];
+
+export default function CooperationApproval() {
+  const [search, setSearch] = useState("");
+  const filtered = items.filter(i => i.name.includes(search) || i.id.includes(search));
+  const statusColor: Record<string, string> = { "待审批": "bg-amber-100 text-amber-700", "已通过": "bg-green-100 text-green-700", "已拒绝": "bg-red-100 text-red-700" };
+
+  return (
+    <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem><BreadcrumbLink href="/privacy">隐私计算</BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbSeparator><ChevronRight className="h-4 w-4" /></BreadcrumbSeparator>
+          <BreadcrumbItem><BreadcrumbLink>合作审批</BreadcrumbLink></BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h1 className="text-2xl font-bold text-gray-900 tracking-tight">合作审批</h1>
+
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-gray-500">待审批</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">1</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-gray-500">已通过</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold text-green-600">1</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-gray-500">总计</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold text-gray-600">2</div></CardContent></Card>
+      </div>
+
+      <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <CardHeader className="pb-3"><Input placeholder="搜索关键词" value={search} onChange={e => setSearch(e.target.value)} className="w-64" /></CardHeader>
+        <CardContent>
+          <Table className="unified-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>单号</TableHead><TableHead>合作项目</TableHead><TableHead>发起方</TableHead><TableHead>合作方</TableHead><TableHead>状态</TableHead><TableHead>操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map(i => (
+                <TableRow key={i.id}>
+                  <TableCell className="font-mono text-xs text-gray-500">{i.id}</TableCell>
+                  <TableCell className="font-medium">{i.name}</TableCell>
+                  <TableCell>{i.initiator}</TableCell>
+                  <TableCell className="text-xs">{i.partners}</TableCell>
+                  <TableCell><span className={`px-2 py-1 rounded text-xs ${statusColor[i.status]}`}>{i.status}</span></TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all duration-200"><Eye className="h-4 w-4" /></Button>
+                      {i.status === "待审批" && <><Button variant="ghost" size="icon" className="h-8 w-8 text-green-600"><CheckCircle className="h-4 w-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-red-600"><XCircle className="h-4 w-4" /></Button></>}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

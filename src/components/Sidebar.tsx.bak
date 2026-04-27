@@ -1,0 +1,357 @@
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  Globe,
+  Database,
+  FolderTree,
+  GitBranch,
+  Package,
+  Users,
+  FlaskConical,
+  ClipboardList,
+  ShieldCheck,
+  ChevronDown,
+  Settings,
+  BarChart3,
+  Lock,
+  Server,
+  Eye,
+  Cpu,
+  HardDrive,
+  Network,
+  FileCode,
+  Key,
+  Shield,
+  Layers,
+  Activity,
+  BookOpen,
+  CloudCog,
+  Bell,
+  Monitor,
+  Box,
+  Tag,
+  Wrench,
+  Download,
+  Terminal,
+  Link2,
+  Bug,
+  Play,
+  Zap,
+  Filter,
+  CheckCircle,
+  Hash,
+  Blocks,
+  FileCheck,
+  AlertTriangle,
+  Rocket,
+  Beaker,
+  ShoppingCart,
+  Scale,
+  Scan,
+  ArrowLeftRight,
+} from "lucide-react";
+
+interface MenuItem {
+  label: string;
+  icon: React.ReactNode;
+  path?: string;
+  children?: MenuItem[];
+}
+
+const menuItems: MenuItem[] = [
+  {
+    label: "工作台",
+    icon: <Monitor className="w-5 h-5" />,
+    children: [
+      { label: "工作台首页", icon: <Monitor className="w-4 h-4" />, path: "/workbench" },
+      { label: "项目管理", icon: <FolderTree className="w-4 h-4" />, path: "/workbench/projects" },
+      { label: "资产登记", icon: <FileCheck className="w-4 h-4" />, path: "/workbench/registration" },
+      { label: "消息中心", icon: <Bell className="w-4 h-4" />, path: "/workbench/notifications" },
+    ],
+  },
+  { label: "互联互通", icon: <Link2 className="w-5 h-5" />, path: "/interconnection" },
+  { label: "数据资产驾驶舱", icon: <LayoutDashboard className="w-5 h-5" />, path: "/cockpit" },
+  { label: "服务门户", icon: <Globe className="w-5 h-5" />, path: "/portal" },
+  { label: "数据资产概览", icon: <Database className="w-5 h-5" />, path: "/" },
+  { label: "数据资源目录", icon: <FolderTree className="w-5 h-5" />, path: "/resources" },
+  { label: "血缘图谱", icon: <GitBranch className="w-5 h-5" />, path: "/lineage" },
+  { label: "数据产品管理", icon: <Package className="w-5 h-5" />, path: "/products" },
+  { label: "资产账户管理", icon: <Users className="w-5 h-5" />, path: "/accounts" },
+  {
+    label: "抽样管理",
+    icon: <FlaskConical className="w-5 h-5" />,
+    children: [
+      { label: "抽样标准库", icon: <BookOpen className="w-4 h-4" />, path: "/sampling/standards" },
+      { label: "抽样规则配置", icon: <FileCode className="w-4 h-4" />, path: "/sampling/rules" },
+      { label: "抽样任务管理", icon: <ClipboardList className="w-4 h-4" />, path: "/sampling/tasks" },
+      { label: "质检审核", icon: <ShieldCheck className="w-4 h-4" />, path: "/sampling/inspection" },
+      { label: "质检报告", icon: <BarChart3 className="w-4 h-4" />, path: "/sampling/reports" },
+      { label: "样品管理", icon: <Package className="w-4 h-4" />, path: "/sampling/samples" },
+      { label: "问题统计", icon: <AlertTriangle className="w-4 h-4" />, path: "/sampling/problems" },
+      { label: "数据源管理", icon: <Server className="w-4 h-4" />, path: "/sampling/datasources" },
+    ],
+  },
+  {
+    label: "数据沙箱管理",
+    icon: <Box className="w-5 h-5" />,
+    children: [
+      { label: "沙箱工作台", icon: <Monitor className="w-4 h-4" />, path: "/sandbox/projects" },
+      { label: "IDE编辑器", icon: <FileCode className="w-4 h-4" />, path: "/sandbox/ide" },
+      { label: "数据预览", icon: <Eye className="w-4 h-4" />, path: "/sandbox/preview" },
+      { label: "调试环境", icon: <Bug className="w-4 h-4" />, path: "/sandbox/debug" },
+      { label: "运行环境", icon: <Play className="w-4 h-4" />, path: "/sandbox/run" },
+      { label: "数据预处理", icon: <Filter className="w-4 h-4" />, path: "/sandbox/preprocess" },
+      { label: "数据对齐", icon: <GitBranch className="w-4 h-4" />, path: "/sandbox/align" },
+      { label: "模型训练", icon: <Zap className="w-4 h-4" />, path: "/sandbox/train" },
+      { label: "对比模式", icon: <BarChart3 className="w-4 h-4" />, path: "/sandbox/compare" },
+      { label: "建模组件库", icon: <Cpu className="w-4 h-4" />, path: "/sandbox/components" },
+      { label: "脱敏环境", icon: <ShieldCheck className="w-4 h-4" />, path: "/sandbox/masking" },
+      { label: "脱敏规则", icon: <FileCode className="w-4 h-4" />, path: "/sandbox/masking-rules" },
+      { label: "沙箱审计", icon: <BookOpen className="w-4 h-4" />, path: "/sandbox/audit" },
+      { label: "结果审查", icon: <CheckCircle className="w-4 h-4" />, path: "/sandbox/review" },
+    ],
+  },
+  {
+    label: "智能建模",
+    icon: <Layers className="w-5 h-5" />,
+    children: [
+      { label: "建模项目", icon: <FolderTree className="w-4 h-4" />, path: "/privacy/projects" },
+      { label: "模型管理", icon: <Layers className="w-4 h-4" />, path: "/privacy/models" },
+      { label: "模型预测", icon: <Eye className="w-4 h-4" />, path: "/privacy/model-prediction" },
+      { label: "发布服务", icon: <Globe className="w-4 h-4" />, path: "/privacy/publish-service" },
+      { label: "模型版本", icon: <GitBranch className="w-4 h-4" />, path: "/privacy/model-version" },
+      { label: "下载切片模型", icon: <Download className="w-4 h-4" />, path: "/privacy/model-slice-download" },
+      { label: "联邦评估", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/federated-evaluation" },
+      { label: "联邦预测", icon: <Network className="w-4 h-4" />, path: "/privacy/federated-prediction" },
+    ],
+  },
+  {
+    label: "联合计算",
+    icon: <Link2 className="w-5 h-5" />,
+    children: [
+      { label: "集合运算", icon: <Link2 className="w-4 h-4" />, path: "/privacy/set-operations" },
+      { label: "联合统计", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/joint-stats" },
+      { label: "评分卡计算", icon: <Activity className="w-4 h-4" />, path: "/privacy/scorecard" },
+      { label: "自定义查询", icon: <Eye className="w-4 h-4" />, path: "/privacy/custom-query" },
+    ],
+  },
+  {
+    label: "数据处理",
+    icon: <Database className="w-5 h-5" />,
+    children: [
+      { label: "数据处理", icon: <Database className="w-4 h-4" />, path: "/privacy/data-processing" },
+      { label: "数据质量", icon: <ShieldCheck className="w-4 h-4" />, path: "/privacy/data-quality" },
+      { label: "Notebook专家模式", icon: <Terminal className="w-4 h-4" />, path: "/privacy/notebook-processing" },
+      { label: "算法管理", icon: <Cpu className="w-4 h-4" />, path: "/privacy/algorithms" },
+      { label: "数据标签", icon: <Tag className="w-4 h-4" />, path: "/privacy/data-labels" },
+      { label: "资源用量", icon: <HardDrive className="w-4 h-4" />, path: "/privacy/resource-usage" },
+    ],
+  },
+  {
+    label: "审批中心",
+    icon: <FileCheck className="w-5 h-5" />,
+    children: [
+      { label: "资源审批", icon: <FileCheck className="w-4 h-4" />, path: "/privacy/approval/resources" },
+      { label: "代码审批", icon: <FileCode className="w-4 h-4" />, path: "/privacy/approval/code" },
+      { label: "报告审批", icon: <BookOpen className="w-4 h-4" />, path: "/privacy/approval/reports" },
+      { label: "合作审批", icon: <Users className="w-4 h-4" />, path: "/privacy/approval/cooperation" },
+      { label: "算法包审批", icon: <Package className="w-4 h-4" />, path: "/privacy/approval/algorithm-packages" },
+      { label: "模型下载审批", icon: <Download className="w-4 h-4" />, path: "/privacy/approval/model-download" },
+      { label: "联合SQL审批", icon: <Database className="w-4 h-4" />, path: "/privacy/approval/joint-sql" },
+    ],
+  },
+  {
+    label: "服务与监控",
+    icon: <Activity className="w-5 h-5" />,
+    children: [
+      { label: "服务报表", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/service-reports" },
+      { label: "调用日志", icon: <BookOpen className="w-4 h-4" />, path: "/privacy/call-logs" },
+      { label: "任务监控", icon: <Monitor className="w-4 h-4" />, path: "/privacy/task-monitor" },
+      { label: "项目监控", icon: <Monitor className="w-4 h-4" />, path: "/privacy/project-monitor" },
+      { label: "用量监控", icon: <Activity className="w-4 h-4" />, path: "/privacy/usage-monitor" },
+      { label: "数据统计", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/data-stats" },
+      { label: "审计日志", icon: <BookOpen className="w-4 h-4" />, path: "/privacy/audit" },
+      { label: "预警管理", icon: <Bell className="w-4 h-4" />, path: "/privacy/alerts" },
+    ],
+  },
+  {
+    label: "密态计算",
+    icon: <Shield className="w-5 h-5" />,
+    children: [
+      { label: "项目管理", icon: <FolderTree className="w-4 h-4" />, path: "/secret/projects" },
+      { label: "任务管理", icon: <ClipboardList className="w-4 h-4" />, path: "/secret/tasks" },
+      { label: "参与方与审计", icon: <Key className="w-4 h-4" />, path: "/secret/parties" },
+      { label: "隐私求交", icon: <Link2 className="w-4 h-4" />, path: "/secret/psi" },
+      { label: "隐匿查询", icon: <Eye className="w-4 h-4" />, path: "/secret/pir" },
+      { label: "密态监控", icon: <Monitor className="w-4 h-4" />, path: "/secret/monitor" },
+      { label: "密态资源池", icon: <HardDrive className="w-4 h-4" />, path: "/secret/resource-pool" },
+    ],
+  },
+  {
+    label: "区块链可信存证",
+    icon: <ShieldCheck className="w-5 h-5" />,
+    children: [
+      { label: "运维监控", icon: <HardDrive className="w-4 h-4" />, path: "/blockchain/ops" },
+      { label: "主机管理", icon: <Server className="w-4 h-4" />, path: "/blockchain/hosts" },
+      { label: "区块链网络", icon: <Network className="w-4 h-4" />, path: "/blockchain/networks" },
+      { label: "节点与核心", icon: <Cpu className="w-4 h-4" />, path: "/blockchain/nodes" },
+      { label: "通道管理", icon: <Layers className="w-4 h-4" />, path: "/blockchain/channels" },
+      { label: "网关管理", icon: <Scan className="w-4 h-4" />, path: "/blockchain/gateway" },
+      { label: "智能合约市场", icon: <ShoppingCart className="w-4 h-4" />, path: "/blockchain/contract-market" },
+      { label: "合约管理", icon: <FileCode className="w-4 h-4" />, path: "/blockchain/contracts" },
+      { label: "合约生命周期", icon: <GitBranch className="w-4 h-4" />, path: "/contract-lifecycle" },
+      { label: "合约部署", icon: <Rocket className="w-4 h-4" />, path: "/blockchain/contract-deploy" },
+      { label: "合约测试", icon: <Beaker className="w-4 h-4" />, path: "/blockchain/contract-testing" },
+      { label: "跨链路由", icon: <ArrowLeftRight className="w-4 h-4" />, path: "/blockchain/cross-chain-router" },
+      { label: "跨链浏览器", icon: <Globe className="w-4 h-4" />, path: "/blockchain/cross-chain-explorer" },
+      { label: "治理链", icon: <Scale className="w-4 h-4" />, path: "/blockchain/governance" },
+      { label: "区块链浏览器", icon: <Blocks className="w-4 h-4" />, path: "/blockchain/explorer" },
+      { label: "系统与组件", icon: <Lock className="w-4 h-4" />, path: "/blockchain/system" },
+    ],
+  },
+  { label: "统计报表中心", icon: <BarChart3 className="w-5 h-5" />, path: "/reports" },
+  {
+    label: "资产运营",
+    icon: <Settings className="w-5 h-5" />,
+    children: [
+      { label: "规则配置", icon: <Wrench className="w-4 h-4" />, path: "/workbench/rules" },
+      { label: "场景配置", icon: <Layers className="w-4 h-4" />, path: "/workbench/scenes" },
+    ],
+  },
+  {
+    label: "资产账户",
+    icon: <Users className="w-5 h-5" />,
+    children: [
+      { label: "企业账户", icon: <Users className="w-4 h-4" />, path: "/accounts/enterprise" },
+      { label: "行业账户", icon: <Globe className="w-4 h-4" />, path: "/accounts/industry" },
+    ],
+  },
+  {
+    label: "平台管理",
+    icon: <Server className="w-5 h-5" />,
+    children: [
+      { label: "审计日志", icon: <BookOpen className="w-4 h-4" />, path: "/platform/audit" },
+      { label: "机构管理", icon: <Server className="w-4 h-4" />, path: "/platform/institutions" },
+      { label: "角色权限", icon: <ShieldCheck className="w-4 h-4" />, path: "/platform/roles" },
+      { label: "操作日志", icon: <BookOpen className="w-4 h-4" />, path: "/platform/operation-log" },
+    ],
+  },
+];
+
+export default function Sidebar() {
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(false);
+  const [expandedMenus, setExpandedMenus] = useState<string[]>(["抽样管理"]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail) setCollapsed(detail.collapsed);
+    };
+    window.addEventListener("toggle-sidebar" as never, handler);
+    return () => window.removeEventListener("toggle-sidebar" as never, handler);
+  }, []);
+
+  const toggleSubmenu = (label: string) => {
+    setExpandedMenus((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]
+    );
+  };
+
+  const isActive = (path?: string) => {
+    if (!path) return false;
+    return location.pathname === path;
+  };
+
+  const isParentActive = (item: MenuItem) => {
+    if (item.children) {
+      return item.children.some((child) => isActive(child.path));
+    }
+    return false;
+  };
+
+  const renderMenuItem = (item: MenuItem, level = 0) => {
+    const hasChildren = item.children && item.children.length > 0;
+    const active = isActive(item.path) || isParentActive(item);
+    const isExpanded = expandedMenus.includes(item.label);
+
+    if (collapsed && level === 0) {
+      return (
+        <div key={item.label} className="relative group">
+          <Link
+            to={item.path || "#"}
+            onClick={(e) => {
+              if (hasChildren) {
+                e.preventDefault();
+                toggleSubmenu(item.label);
+              }
+            }}
+            className={cn(
+              "flex items-center justify-center h-10 mx-2 rounded-lg transition-all duration-200",
+              active
+                ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+                : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#273548] hover:text-slate-700 dark:hover:text-slate-200"
+            )}
+          >
+            {item.icon}
+          </Link>
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-slate-800 dark:bg-[#273548] text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50 shadow-lg">
+            {item.label}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div key={item.label}>
+        <Link
+          to={item.path || "#"}
+          onClick={(e) => {
+            if (hasChildren) {
+              e.preventDefault();
+              toggleSubmenu(item.label);
+            }
+          }}
+          className={cn(
+            "flex items-center h-10 rounded-lg transition-all duration-200 text-sm",
+            level === 0 ? "mx-2 px-3" : "mx-2 px-3 ml-8",
+            active
+              ? "bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400"
+              : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#273548] hover:text-slate-700 dark:hover:text-slate-200"
+          )}
+        >
+          {level === 0 && <span className="mr-3">{item.icon}</span>}
+          <span className="flex-1 truncate">{item.label}</span>
+          {hasChildren && level === 0 && (
+            <ChevronDown
+              className={cn(
+                "w-4 h-4 transition-transform duration-200",
+                isExpanded && "rotate-180"
+              )}
+            />
+          )}
+        </Link>
+        {hasChildren && isExpanded && !collapsed && (
+          <div className="mt-0.5 animate-fadeIn">
+            {item.children!.map((child) => renderMenuItem(child, level + 1))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <aside
+      className={cn(
+        "fixed top-14 left-0 bottom-0 z-40 bg-slate-50 dark:bg-[#0B1120] border-r border-slate-200 dark:border-[#334155] transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-y-auto",
+        collapsed ? "w-16" : "w-60"
+      )}
+    >
+      <nav className="py-3 space-y-0.5">
+        {menuItems.map((item) => renderMenuItem(item))}
+      </nav>
+    </aside>
+  );
+}

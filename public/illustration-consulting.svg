@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Background card -->
+  <rect x="50" y="40" width="300" height="220" rx="12" fill="#F8FAFC" stroke="#E2E8F0"/>
+  <!-- Person 1 -->
+  <circle cx="130" cy="110" r="25" fill="#EEF2FF" stroke="#6366F1"/>
+  <path d="M105 155 Q130 140 155 155 L155 200 L105 200 Z" fill="#EEF2FF" stroke="#6366F1"/>
+  <!-- Person 2 -->
+  <circle cx="270" cy="110" r="25" fill="#ECFDF5" stroke="#10B981"/>
+  <path d="M245 155 Q270 140 295 155 L295 200 L245 200 Z" fill="#ECFDF5" stroke="#10B981"/>
+  <!-- Chart between them -->
+  <rect x="165" y="120" width="70" height="50" rx="6" fill="white" stroke="#CBD5E1"/>
+  <rect x="175" y="145" width="8" height="15" rx="2" fill="#6366F1"/>
+  <rect x="188" y="135" width="8" height="25" rx="2" fill="#3B82F6"/>
+  <rect x="201" y="140" width="8" height="20" rx="2" fill="#10B981"/>
+  <rect x="214" y="130" width="8" height="30" rx="2" fill="#F59E0B"/>
+  <!-- Connection lines -->
+  <line x1="155" y1="150" x2="165" y2="145" stroke="#CBD5E1"/>
+  <line x1="235" y1="150" x2="235" y2="145" stroke="#CBD5E1"/>
+  <!-- Speech bubbles -->
+  <circle cx="110" cy="75" r="12" fill="white" stroke="#6366F1" opacity="0.5"/>
+  <circle cx="290" cy="75" r="12" fill="white" stroke="#10B981" opacity="0.5"/>
+  <!-- Decorative elements -->
+  <circle cx="80" cy="70" r="4" fill="#6366F1" opacity="0.3"/>
+  <circle cx="320" cy="80" r="4" fill="#10B981" opacity="0.3"/>
+  <circle cx="85" cy="230" r="4" fill="#F59E0B" opacity="0.3"/>
+  <circle cx="315" cy="220" r="4" fill="#3B82F6" opacity="0.3"/>
+</svg>
