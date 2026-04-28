@@ -43,8 +43,7 @@ import BlockchainGateway from "./pages/BlockchainGateway";
 import ContractVersions from "./pages/ContractVersions";
 import ContractDeploy from "./pages/ContractDeploy";
 import ContractTesting from "./pages/ContractTesting";
-import CrossChainRouter from "./pages/CrossChainRouter";
-import CrossChainExplorer from "./pages/CrossChainExplorer";
+
 import GovernanceChain from "./pages/GovernanceChain";
 import BlockchainMonitoring from "./pages/BlockchainMonitoring";
 import ContractMarket from "./pages/ContractMarket";
@@ -56,13 +55,13 @@ import ScorecardComputing from "./pages/ScorecardComputing";
 import MPCICoder from "./pages/MPCICoder";
 import CustomQuery from "./pages/CustomQuery";
 import JointSQL from "./pages/JointSQL";
-import TaskCenter from "./pages/TaskCenter";
+
 import AlgorithmManagement from "./pages/AlgorithmManagement";
 import ResourceApproval from "./pages/ResourceApproval";
 import CodeApproval from "./pages/CodeApproval";
 import ReportApproval from "./pages/ReportApproval";
 import CooperationApproval from "./pages/CooperationApproval";
-import NodeManagement from "./pages/NodeManagement";
+
 import ResourceMonitoring from "./pages/ResourceMonitoring";
 import AlertManagement from "./pages/AlertManagement";
 import TaskMonitoring from "./pages/TaskMonitoring";
@@ -105,7 +104,7 @@ import TeeEnv from "./pages/secret/TeeEnv";
 import HeEngine from "./pages/secret/HeEngine";
 import SecretNetwork from "./pages/secret/SecretNetwork";
 import BusinessFlow from "./pages/BusinessFlow";
-import CrossChain from "./pages/CrossChain";
+
 import ContractEvents from "./pages/ContractEvents";
 import DevComponents from "./pages/DevComponents";
 import ModelSliceDownload from "./pages/ModelSliceDownload";
@@ -226,13 +225,13 @@ export default function App() {
         <Route path="/privacy/mpc-coder" element={<Layout><MPCICoder /></Layout>} />
         <Route path="/privacy/custom-query" element={<Layout><CustomQuery /></Layout>} />
         <Route path="/privacy/joint-sql" element={<Layout><JointSQL /></Layout>} />
-        <Route path="/privacy/task-center" element={<Layout><TaskCenter /></Layout>} />
+
         <Route path="/privacy/algorithms" element={<Layout><AlgorithmManagement /></Layout>} />
         <Route path="/privacy/approval/resources" element={<Layout><ResourceApproval /></Layout>} />
         <Route path="/privacy/approval/code" element={<Layout><CodeApproval /></Layout>} />
         <Route path="/privacy/approval/reports" element={<Layout><ReportApproval /></Layout>} />
         <Route path="/privacy/approval/cooperation" element={<Layout><CooperationApproval /></Layout>} />
-        <Route path="/privacy/nodes" element={<Layout><NodeManagement /></Layout>} />
+
         <Route path="/privacy/resource-monitor" element={<Layout><ResourceMonitoring /></Layout>} />
         <Route path="/privacy/alerts" element={<Layout><AlertManagement /></Layout>} />
         <Route path="/privacy/task-monitor" element={<Layout><TaskMonitoring /></Layout>} />
@@ -276,7 +275,7 @@ export default function App() {
         <Route path="/secret/he-engine" element={<Layout><HeEngine /></Layout>} />
         <Route path="/secret/network" element={<Layout><SecretNetwork /></Layout>} />
         <Route path="/business-flow" element={<Layout><BusinessFlow /></Layout>} />
-        <Route path="/blockchain/cross-chain" element={<Layout><CrossChain /></Layout>} />
+
         <Route path="/blockchain/contract-events" element={<Layout><ContractEvents /></Layout>} />
         <Route path="/blockchain/dev-components" element={<Layout><DevComponents /></Layout>} />
         <Route path="/blockchain/hosts" element={<Layout><BlockchainHostManage /></Layout>} />
@@ -286,8 +285,8 @@ export default function App() {
         <Route path="/blockchain/contract-versions" element={<Layout><ContractVersions /></Layout>} />
         <Route path="/blockchain/contract-deploy" element={<Layout><ContractDeploy /></Layout>} />
         <Route path="/blockchain/contract-testing" element={<Layout><ContractTesting /></Layout>} />
-        <Route path="/blockchain/cross-chain-router" element={<Layout><CrossChainRouter /></Layout>} />
-        <Route path="/blockchain/cross-chain-explorer" element={<Layout><CrossChainExplorer /></Layout>} />
+
+
         <Route path="/blockchain/governance" element={<Layout><GovernanceChain /></Layout>} />
         <Route path="/blockchain/monitoring" element={<Layout><BlockchainMonitoring /></Layout>} />
         <Route path="/blockchain/contract-market" element={<Layout><ContractMarket /></Layout>} />
