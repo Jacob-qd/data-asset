@@ -18,6 +18,7 @@ interface DetailDrawerProps {
   fields: { key: string; label: string; type?: "text" | "badge" | "date" | "list" }[];
   onEdit?: () => void;
   onDelete?: () => void;
+  children?: React.ReactNode;
 }
 
 export function DetailDrawer({
@@ -28,6 +29,7 @@ export function DetailDrawer({
   fields,
   onEdit,
   onDelete,
+  children,
 }: DetailDrawerProps) {
   const renderValue = (field: typeof fields[0]) => {
     const value = data[field.key];
@@ -78,6 +80,7 @@ export function DetailDrawer({
                 </div>
               </div>
             ))}
+            {children}
           </div>
         </ScrollArea>
         <SheetFooter className="absolute bottom-0 left-0 right-0 p-4 border-t bg-white">

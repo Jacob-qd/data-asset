@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,18 +23,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import { CrudDialog } from "@/components/CrudDialog";
 import {
   Plus, Eye, Trash2, Play, Pause, Copy, Hash, Tag, Bell,
   BarChart3, CheckCircle, Zap, Layers, Download, Pencil,
   AlertTriangle, ChevronRight, ChevronLeft, User, Users,
-  Settings, FileText, Shield
+  Settings, FileText, Shield, RotateCcw, XCircle, Search,
+  Calendar, Clock, TrendingUp, Activity, Filter, FileSearch,
+  Gauge, ArrowRightLeft, Sparkles, X
 } from "lucide-react";
+import * as echarts from "echarts";
 
 interface PartyConfig {
   name: string;
   dataSource: string;
   field: string;
   sampleSize: number;
+}
+
+interface ScheduleConfig {
+  enabled: boolean;
+  type: "once" | "daily" | "weekly" | "monthly";
+  hour: number;
+  minute: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+  nextRun?: string;
+}
+
+interface TaskMetrics {
+  setupTime: number;
+  transferTime: number;
+  computationTime: number;
+  totalTime: number;
+  precision?: number;
+  recall?: number;
+  f1Score?: number;
 }
 
 interface PSITask {
@@ -55,6 +79,8 @@ interface PSITask {
   partyA: PartyConfig;
   partyB: PartyConfig;
   description?: string;
+  schedule?: ScheduleConfig;
+  metrics?: TaskMetrics;
 }
 
 const dataSources = [
@@ -67,6 +93,22 @@ const dataSources = [
   "广告归因数据",
   "设备标识库",
 ];
+
+const mockMetrics: Record<string, TaskMetrics> = {
+  "PSI-2026-002": { setupTime: 45, transferTime: 120, computationTime: 330, totalTime: 495, precision: 0.987, recall: 0.954, f1Score: 0.970 },
+  "PSI-2026-004": { setupTime: 90, transferTime: 300, computationTime: 1110, totalTime: 1500, precision: 0.992, recall: 0.968, f1Score: 0.980 },
+  "PSI-2026-005": { setupTime: 60, transferTime: 180, computationTime: 645, totalTime: 885, precision: 0.985, recall: 0.961, f1Score: 0.973 },
+  "PSI-2026-009": { setupTime: 75, transferTime: 240, computationTime: 1005, totalTime: 1320, precision: 0.990, recall: 0.965, f1Score: 0.977 },
+  "PSI-2026-010": { setupTime: 50, transferTime: 150, computationTime: 510, totalTime: 710, precision: 0.983, recall: 0.958, f1Score: 0.970 },
+};
+
+const mockPreviewIds: Record<string, string[]> = {
+  "PSI-2026-002": ["dev_abc123", "dev_def456", "dev_ghi789", "dev_jkl012", "dev_mno345", "dev_pqr678", "dev_stu901", "dev_vwx234", "dev_yza567", "dev_bcd890"],
+  "PSI-2026-004": ["usr_100001", "usr_100002", "usr_100003", "usr_100004", "usr_100005", "usr_100006", "usr_100007", "usr_100008", "usr_100009", "usr_100010"],
+  "PSI-2026-005": ["mob_138001", "mob_138002", "mob_138003", "mob_138004", "mob_138005", "mob_138006", "mob_138007", "mob_138008", "mob_138009", "mob_138010"],
+  "PSI-2026-009": ["mem_a1b2c3", "mem_d4e5f6", "mem_g7h8i9", "mem_j0k1l2", "mem_m3n4o5", "mem_p6q7r8", "mem_s9t0u1", "mem_v2w3x4", "mem_y5z6a7", "mem_b8c9d0"],
+  "PSI-2026-010": ["fpr_x1y2z3", "fpr_a4b5c6", "fpr_d7e8f9", "fpr_g0h1i2", "fpr_j3k4l5", "fpr_m6n7o8", "fpr_p9q0r1", "fpr_s2t3u4", "fpr_v5w6x7", "fpr_y8z9a0"],
+};
 
 const psiTasksInitial: PSITask[] = [
   {
@@ -105,6 +147,7 @@ const psiTasksInitial: PSITask[] = [
     partyA: { name: "设备厂商A", dataSource: "设备指纹库", field: "device_fingerprint", sampleSize: 890000 },
     partyB: { name: "应用商店B", dataSource: "设备标识库", field: "device_id", sampleSize: 756000 },
     description: "设备指纹跨平台匹配统计",
+    metrics: mockMetrics["PSI-2026-002"],
   },
   {
     id: "PSI-2026-003",
@@ -143,6 +186,7 @@ const psiTasksInitial: PSITask[] = [
     partyA: { name: "社交平台A", dataSource: "用户行为数据", field: "user_id", sampleSize: 3200000 },
     partyB: { name: "电商联盟B", dataSource: "会员基础信息", field: "member_id", sampleSize: 3100000 },
     description: "用户标签跨域求交，构建用户画像",
+    metrics: mockMetrics["PSI-2026-004"],
   },
   {
     id: "PSI-2026-005",
@@ -160,6 +204,7 @@ const psiTasksInitial: PSITask[] = [
     notifyStatus: "已触达",
     partyA: { name: "金融机构A", dataSource: "会员基础信息", field: "mobile", sampleSize: 890000 },
     partyB: { name: "运营商B", dataSource: "会员基础信息", field: "phone", sampleSize: 720000 },
+    metrics: mockMetrics["PSI-2026-005"],
   },
   {
     id: "PSI-2026-006",
@@ -231,6 +276,7 @@ const psiTasksInitial: PSITask[] = [
     notifyStatus: "已触达",
     partyA: { name: "零售平台A", dataSource: "会员基础信息", field: "member_id", sampleSize: 1500000 },
     partyB: { name: "积分平台B", dataSource: "会员基础信息", field: "member_id", sampleSize: 1300000 },
+    metrics: mockMetrics["PSI-2026-009"],
   },
   {
     id: "PSI-2026-010",
@@ -250,6 +296,7 @@ const psiTasksInitial: PSITask[] = [
     partyA: { name: "安全厂商A", dataSource: "设备指纹库", field: "fingerprint", sampleSize: 780000 },
     partyB: { name: "游戏平台B", dataSource: "设备标识库", field: "device_hash", sampleSize: 650000 },
     description: "设备指纹隐私求交，获取设备类型标签",
+    metrics: mockMetrics["PSI-2026-010"],
   },
 ];
 
@@ -288,6 +335,54 @@ const steps = [
   { label: "确认", icon: CheckCircle },
 ];
 
+const protocolBenchmarks = [
+  { protocol: "ECDH-PSI", setupCost: "中", commRounds: 2, compCost: "中", scale: "10^6", securityModel: "半诚实", latencyFriendly: true, bandwidthFriendly: false },
+  { protocol: "KKRT16", setupCost: "高", commRounds: 3, compCost: "高", scale: "10^7", securityModel: "半诚实", latencyFriendly: false, bandwidthFriendly: true },
+  { protocol: "OT-PSI", setupCost: "低", commRounds: 4, compCost: "低", scale: "10^5", securityModel: "恶意", latencyFriendly: true, bandwidthFriendly: true },
+  { protocol: "TEE-PSI", setupCost: "低", commRounds: 1, compCost: "极低", scale: "10^8", securityModel: "TEE", latencyFriendly: true, bandwidthFriendly: true },
+];
+
+function generateId() {
+  return `PSI-${Date.now().toString(36).toUpperCase()}`;
+}
+
+function formatDuration(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}分${s}秒` : `${s}秒`;
+}
+
+function getScheduleNextRun(schedule: ScheduleConfig): string {
+  const now = new Date();
+  if (schedule.type === "once") {
+    const next = new Date(now);
+    next.setHours(schedule.hour, schedule.minute, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    return next.toISOString().slice(0, 16).replace("T", " ");
+  }
+  if (schedule.type === "daily") {
+    const next = new Date(now);
+    next.setHours(schedule.hour, schedule.minute, 0, 0);
+    if (next <= now) next.setDate(next.getDate() + 1);
+    return next.toISOString().slice(0, 16).replace("T", " ");
+  }
+  if (schedule.type === "weekly") {
+    const next = new Date(now);
+    next.setHours(schedule.hour, schedule.minute, 0, 0);
+    const daysUntil = ((schedule.dayOfWeek || 1) - next.getDay() + 7) % 7;
+    next.setDate(next.getDate() + (daysUntil === 0 && next <= now ? 7 : daysUntil));
+    return next.toISOString().slice(0, 16).replace("T", " ");
+  }
+  if (schedule.type === "monthly") {
+    const next = new Date(now);
+    next.setHours(schedule.hour, schedule.minute, 0, 0);
+    next.setDate(schedule.dayOfMonth || 1);
+    if (next <= now) next.setMonth(next.getMonth() + 1);
+    return next.toISOString().slice(0, 16).replace("T", " ");
+  }
+  return "-";
+}
+
 export default function SecretPSI() {
   const [tasks, setTasks] = useState<PSITask[]>(psiTasksInitial);
   const [search, setSearch] = useState("");
@@ -303,6 +398,20 @@ export default function SecretPSI() {
     partyB: { name: "", dataSource: "", field: "", sampleSize: 0 },
   });
 
+  // Quality check state (optional step 0)
+  const [qualityCheckEnabled, setQualityCheckEnabled] = useState(false);
+  const [qualityCheckStep, setQualityCheckStep] = useState(false);
+  const [qualityResults, setQualityResults] = useState<{ score: number; formatValid: boolean; duplicates: number; nullValues: number; recommendations: string[] } | null>(null);
+
+  // Schedule state
+  const [scheduleEnabled, setScheduleEnabled] = useState(false);
+  const [scheduleConfig, setScheduleConfig] = useState<ScheduleConfig>({
+    enabled: false,
+    type: "once",
+    hour: 2,
+    minute: 0,
+  });
+
   // Detail Drawer
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -314,16 +423,53 @@ export default function SecretPSI() {
   // Delete dialog
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Preview dialog
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTask, setPreviewTask] = useState<PSITask | null>(null);
+
+  // Rerun dialog
+  const [rerunOpen, setRerunOpen] = useState(false);
+  const [rerunTask, setRerunTask] = useState<PSITask | null>(null);
+
+  // Analysis tab state
+  const [analysisTaskId, setAnalysisTaskId] = useState<string>("");
+  const [compareTaskIds, setCompareTaskIds] = useState<string[]>([]);
+
+  // Benchmark recommendation
+  const [benchmarkScale, setBenchmarkScale] = useState<string>("10^6");
+  const [benchmarkNetwork, setBenchmarkNetwork] = useState<string>("high");
+
   const [selectedItem, setSelectedItem] = useState<PSITask | null>(null);
+
+  // ECharts refs
+  const ratioChartRef = useRef<HTMLDivElement>(null);
+  const ratioChartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const distChartRef = useRef<HTMLDivElement>(null);
+  const distChartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const perfChartRef = useRef<HTMLDivElement>(null);
+  const perfChartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const compareChartRef = useRef<HTMLDivElement>(null);
+  const compareChartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const trendChartRef = useRef<HTMLDivElement>(null);
+  const trendChartInstanceRef = useRef<echarts.ECharts | null>(null);
+  const radarChartRef = useRef<HTMLDivElement>(null);
+  const radarChartInstanceRef = useRef<echarts.ECharts | null>(null);
 
   const filtered = tasks.filter((d) =>
     d.name.includes(search) || d.id.includes(search) ||
     d.partyA.name.includes(search) || d.partyB.name.includes(search)
   );
 
+  const completedTasks = tasks.filter((t) => t.status === "已完成");
+
   const handleCreate = () => {
     setSelectedItem(null);
     setCurrentStep(0);
+    setQualityCheckStep(false);
+    setQualityCheckEnabled(false);
+    setQualityResults(null);
+    setScheduleEnabled(false);
+    setScheduleConfig({ enabled: false, type: "once", hour: 2, minute: 0 });
     setWizardData({
       name: "",
       description: "",
@@ -340,6 +486,11 @@ export default function SecretPSI() {
   const handleEdit = (task: PSITask) => {
     setSelectedItem(task);
     setCurrentStep(0);
+    setQualityCheckStep(false);
+    setQualityCheckEnabled(false);
+    setQualityResults(null);
+    setScheduleEnabled(!!task.schedule?.enabled);
+    setScheduleConfig(task.schedule || { enabled: false, type: "once", hour: 2, minute: 0 });
     setWizardData({ ...task });
     setWizardOpen(true);
   };
@@ -363,12 +514,27 @@ export default function SecretPSI() {
     }
   };
 
+  const runQualityCheck = () => {
+    // Mock quality check
+    const score = Math.floor(75 + Math.random() * 25);
+    const formatValid = Math.random() > 0.1;
+    const duplicates = Math.floor(Math.random() * 500);
+    const nullValues = Math.floor(Math.random() * 200);
+    const recommendations: string[] = [];
+    if (!formatValid) recommendations.push("数据格式不符合预期，建议清洗后重试");
+    if (duplicates > 100) recommendations.push(`发现 ${duplicates} 条重复记录，建议去重`);
+    if (nullValues > 50) recommendations.push(`发现 ${nullValues} 条空值记录，建议补全`);
+    if (score < 90) recommendations.push("数据质量评分偏低，建议优化数据质量");
+    setQualityResults({ score, formatValid, duplicates, nullValues, recommendations });
+  };
+
   const handleWizardSubmit = () => {
     const data = wizardData as Required<typeof wizardData>;
     if (!data.name || !data.partyA?.name || !data.partyB?.name) return;
 
+    const schedule = scheduleEnabled ? { ...scheduleConfig, enabled: true, nextRun: getScheduleNextRun(scheduleConfig) } : undefined;
+
     if (selectedItem) {
-      // Edit mode
       setTasks((prev) =>
         prev.map((t) =>
           t.id === selectedItem.id
@@ -382,19 +548,19 @@ export default function SecretPSI() {
                 tagField: data.outputMode === "带标签输出" ? (data.tagField || "label_value") : undefined,
                 partyA: data.partyA,
                 partyB: data.partyB,
+                schedule,
               }
             : t
         )
       );
     } else {
-      // Create mode
       const newTask: PSITask = {
-        id: `PSI-${Date.now().toString(36).toUpperCase()}`,
+        id: generateId(),
         name: data.name,
         protocol: data.protocol,
         hashing: data.hashing,
         outputMode: data.outputMode,
-        status: "待执行",
+        status: scheduleEnabled ? "待执行" : "待执行",
         progress: 0,
         matchedCount: 0,
         totalA: data.partyA.sampleSize || 0,
@@ -406,6 +572,7 @@ export default function SecretPSI() {
         partyA: data.partyA,
         partyB: data.partyB,
         description: data.description,
+        schedule,
       };
       setTasks((prev) => [newTask, ...prev]);
     }
@@ -426,18 +593,46 @@ export default function SecretPSI() {
     );
   };
 
+  const handleCancelTask = (task: PSITask) => {
+    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, status: "已取消", progress: 0 } : t));
+  };
+
   const handleCopy = (task: PSITask) => {
     const copy: PSITask = {
       ...task,
-      id: `PSI-${Date.now().toString(36).toUpperCase()}`,
+      id: generateId(),
       name: `${task.name} (复制)`,
       status: "待执行",
       progress: 0,
       matchedCount: 0,
       createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
       duration: "-",
+      schedule: undefined,
     };
     setTasks((prev) => [copy, ...prev]);
+  };
+
+  const handleRerun = (task: PSITask) => {
+    const newTask: PSITask = {
+      ...task,
+      id: generateId(),
+      name: `${task.name} (重新执行)`,
+      status: "待执行",
+      progress: 0,
+      matchedCount: 0,
+      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+      duration: "-",
+      notifyStatus: "待触达",
+      schedule: undefined,
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    setRerunOpen(false);
+    setRerunTask(null);
+  };
+
+  const handlePreview = (task: PSITask) => {
+    setPreviewTask(task);
+    setPreviewOpen(true);
   };
 
   const handleExport = (task: PSITask) => {
@@ -462,6 +657,9 @@ export default function SecretPSI() {
   };
 
   const canProceed = () => {
+    if (qualityCheckStep) {
+      return true;
+    }
     switch (currentStep) {
       case 0:
         return !!wizardData.name?.trim();
@@ -480,11 +678,11 @@ export default function SecretPSI() {
     { key: "id", label: "任务ID", type: "text" },
     { key: "name", label: "任务名称", type: "text" },
     { key: "description", label: "描述", type: "text" },
-    { key: "protocol", label: "协议", type: "badge" },
+    { key: "protocol", label: "协议", type: "badge" as const },
     { key: "hashing", label: "Hashing", type: "text" },
     { key: "outputMode", label: "输出模式", type: "text" },
-    { key: "tagField", label: "标签字段", type: "badge" },
-    { key: "status", label: "状态", type: "badge" },
+    { key: "tagField", label: "标签字段", type: "badge" as const },
+    { key: "status", label: "状态", type: "badge" as const },
     { key: "progress", label: "进度", type: "text" },
     { key: "partyAName", label: "Party A", type: "text" },
     { key: "partyASource", label: "A方数据源", type: "text" },
@@ -499,7 +697,8 @@ export default function SecretPSI() {
     { key: "matchedCount", label: "匹配量", type: "text" },
     { key: "createdAt", label: "创建时间", type: "date" },
     { key: "duration", label: "耗时", type: "text" },
-    { key: "notifyStatus", label: "通知状态", type: "badge" },
+    { key: "notifyStatus", label: "通知状态", type: "badge" as const },
+    { key: "scheduleInfo", label: "定时执行", type: "text" },
   ];
 
   const getDetailData = (task: PSITask | null): Record<string, unknown> => {
@@ -518,7 +717,208 @@ export default function SecretPSI() {
       totalA: task.totalA.toLocaleString(),
       totalB: task.totalB.toLocaleString(),
       matchedCount: task.matchedCount.toLocaleString(),
+      scheduleInfo: task.schedule?.enabled ? `${task.schedule.type} (下次: ${task.schedule.nextRun})` : "未设置",
     };
+  };
+
+  // ECharts: Ratio Pie Chart
+  useEffect(() => {
+    if (!ratioChartRef.current || !analysisTaskId) return;
+    const task = completedTasks.find((t) => t.id === analysisTaskId);
+    if (!task) return;
+    ratioChartInstanceRef.current?.dispose();
+    ratioChartInstanceRef.current = echarts.init(ratioChartRef.current);
+    ratioChartInstanceRef.current.setOption({
+      tooltip: { trigger: "item" },
+      legend: { bottom: "0%", left: "center" },
+      series: [{
+        name: "数据分布",
+        type: "pie",
+        radius: ["40%", "70%"],
+        avoidLabelOverlap: false,
+        itemStyle: { borderRadius: 8, borderColor: "#fff", borderWidth: 2 },
+        label: { show: true, formatter: "{b}: {d}%" },
+        data: [
+          { value: task.matchedCount, name: "交集", itemStyle: { color: "#10b981" } },
+          { value: task.totalA - task.matchedCount, name: "A方独有", itemStyle: { color: "#6366f1" } },
+          { value: task.totalB - task.matchedCount, name: "B方独有", itemStyle: { color: "#3b82f6" } },
+        ],
+      }],
+    });
+    return () => { ratioChartInstanceRef.current?.dispose(); };
+  }, [analysisTaskId, completedTasks]);
+
+  // ECharts: Distribution Bar Chart
+  useEffect(() => {
+    if (!distChartRef.current || !analysisTaskId) return;
+    const task = completedTasks.find((t) => t.id === analysisTaskId);
+    if (!task) return;
+    distChartInstanceRef.current?.dispose();
+    distChartInstanceRef.current = echarts.init(distChartRef.current);
+    distChartInstanceRef.current.setOption({
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: ["Party A", "Party B", "交集"] },
+      yAxis: { type: "value" },
+      series: [{
+        data: [
+          { value: task.totalA, itemStyle: { color: "#6366f1" } },
+          { value: task.totalB, itemStyle: { color: "#3b82f6" } },
+          { value: task.matchedCount, itemStyle: { color: "#10b981" } },
+        ],
+        type: "bar",
+        barWidth: "50%",
+        label: { show: true, position: "top", formatter: (p: any) => p.value.toLocaleString() },
+      }],
+    });
+    return () => { distChartInstanceRef.current?.dispose(); };
+  }, [analysisTaskId, completedTasks]);
+
+  // ECharts: Performance Bar Chart
+  useEffect(() => {
+    if (!perfChartRef.current || !analysisTaskId) return;
+    const task = completedTasks.find((t) => t.id === analysisTaskId);
+    if (!task?.metrics) return;
+    perfChartInstanceRef.current?.dispose();
+    perfChartInstanceRef.current = echarts.init(perfChartRef.current);
+    perfChartInstanceRef.current.setOption({
+      tooltip: { trigger: "axis", axisPointer: { type: "shadow" } },
+      xAxis: { type: "category", data: ["Setup", "Transfer", "Computation", "Total"] },
+      yAxis: { type: "value", name: "秒" },
+      series: [{
+        data: [
+          { value: task.metrics.setupTime, itemStyle: { color: "#f59e0b" } },
+          { value: task.metrics.transferTime, itemStyle: { color: "#6366f1" } },
+          { value: task.metrics.computationTime, itemStyle: { color: "#10b981" } },
+          { value: task.metrics.totalTime, itemStyle: { color: "#ef4444" } },
+        ],
+        type: "bar",
+        barWidth: "50%",
+        label: { show: true, position: "top", formatter: (p: any) => `${p.value}s` },
+      }],
+    });
+    return () => { perfChartInstanceRef.current?.dispose(); };
+  }, [analysisTaskId, completedTasks]);
+
+  // ECharts: Comparison Bar Chart
+  useEffect(() => {
+    if (!compareChartRef.current || compareTaskIds.length === 0) return;
+    const selectedTasks = completedTasks.filter((t) => compareTaskIds.includes(t.id));
+    if (selectedTasks.length === 0) return;
+    compareChartInstanceRef.current?.dispose();
+    compareChartInstanceRef.current = echarts.init(compareChartRef.current);
+    compareChartInstanceRef.current.setOption({
+      tooltip: { trigger: "axis" },
+      legend: { data: ["交集比例", "A方比例", "B方比例"], bottom: 0 },
+      xAxis: { type: "category", data: selectedTasks.map((t) => t.name) },
+      yAxis: { type: "value", max: 100, axisLabel: { formatter: "{value}%" } },
+      series: [
+        {
+          name: "交集比例",
+          type: "bar",
+          data: selectedTasks.map((t) => Number(((t.matchedCount / Math.min(t.totalA, t.totalB)) * 100).toFixed(1))),
+          itemStyle: { color: "#10b981" },
+        },
+        {
+          name: "A方比例",
+          type: "bar",
+          data: selectedTasks.map((t) => Number(((t.matchedCount / t.totalA) * 100).toFixed(1))),
+          itemStyle: { color: "#6366f1" },
+        },
+        {
+          name: "B方比例",
+          type: "bar",
+          data: selectedTasks.map((t) => Number(((t.matchedCount / t.totalB) * 100).toFixed(1))),
+          itemStyle: { color: "#3b82f6" },
+        },
+      ],
+    });
+    return () => { compareChartInstanceRef.current?.dispose(); };
+  }, [compareTaskIds, completedTasks]);
+
+  // ECharts: Trend Line Chart
+  useEffect(() => {
+    if (!trendChartRef.current) return;
+    const history = completedTasks.slice(0, 5).reverse();
+    if (history.length === 0) return;
+    trendChartInstanceRef.current?.dispose();
+    trendChartInstanceRef.current = echarts.init(trendChartRef.current);
+    trendChartInstanceRef.current.setOption({
+      tooltip: { trigger: "axis" },
+      xAxis: { type: "category", data: history.map((t) => t.name) },
+      yAxis: { type: "value", name: "秒" },
+      series: [{
+        data: history.map((t) => t.metrics?.totalTime || 0),
+        type: "line",
+        smooth: true,
+        symbol: "circle",
+        symbolSize: 8,
+        itemStyle: { color: "#6366f1" },
+        lineStyle: { width: 3 },
+        areaStyle: { color: "rgba(99,102,241,0.1)" },
+        label: { show: true, formatter: (p: any) => `${p.value}s` },
+      }],
+    });
+    return () => { trendChartInstanceRef.current?.dispose(); };
+  }, [completedTasks]);
+
+  // ECharts: Radar Chart
+  useEffect(() => {
+    if (!radarChartRef.current) return;
+    radarChartInstanceRef.current?.dispose();
+    radarChartInstanceRef.current = echarts.init(radarChartRef.current);
+    radarChartInstanceRef.current.setOption({
+      tooltip: {},
+      legend: { data: protocolBenchmarks.map((p) => p.protocol), bottom: 0 },
+      radar: {
+        indicator: [
+          { name: "安全性", max: 100 },
+          { name: "效率", max: 100 },
+          { name: "可扩展性", max: 100 },
+          { name: "低延迟友好", max: 100 },
+          { name: "低带宽友好", max: 100 },
+        ],
+      },
+      series: [{
+        type: "radar",
+        data: protocolBenchmarks.map((p) => ({
+          value: [
+            p.securityModel === "恶意" ? 95 : p.securityModel === "TEE" ? 85 : p.securityModel === "极高" ? 98 : 80,
+            p.compCost === "极低" ? 95 : p.compCost === "低" ? 80 : p.compCost === "中" ? 60 : 40,
+            p.scale === "10^8" ? 100 : p.scale === "10^7" ? 85 : p.scale === "10^6" ? 70 : 50,
+            p.latencyFriendly ? 90 : 50,
+            p.bandwidthFriendly ? 90 : 50,
+          ],
+          name: p.protocol,
+        })),
+      }],
+    });
+    return () => { radarChartInstanceRef.current?.dispose(); };
+  }, []);
+
+  const getRecommendedProtocol = () => {
+    const scale = benchmarkScale;
+    const network = benchmarkNetwork;
+    if (scale === "10^8" || scale === "10^7") {
+      return "TEE-PSI (极高扩展性，单轮通信)";
+    }
+    if (network === "low") {
+      if (scale === "10^6") return "ECDH-PSI (低延迟，两轮通信)";
+      return "OT-PSI (低带宽，安全模型强)";
+    }
+    if (scale === "10^5") return "OT-PSI (恶意安全，小规模最优)";
+    return "ECDH-PSI (平衡方案，推荐默认)";
+  };
+
+  const handleExportAnalysis = () => {
+    const task = completedTasks.find((t) => t.id === analysisTaskId);
+    if (!task) return;
+    const blob = new Blob([JSON.stringify({ task, metrics: task.metrics }, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analysis-${task.id}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -545,6 +945,8 @@ export default function SecretPSI() {
           <TabsTrigger value="tasks"><Layers className="h-4 w-4 mr-1" />求交任务</TabsTrigger>
           <TabsTrigger value="statistics"><BarChart3 className="h-4 w-4 mr-1" />统计任务</TabsTrigger>
           <TabsTrigger value="labels"><Tag className="h-4 w-4 mr-1" />标签任务</TabsTrigger>
+          <TabsTrigger value="analysis"><Activity className="h-4 w-4 mr-1" />结果分析</TabsTrigger>
+          <TabsTrigger value="benchmark"><Gauge className="h-4 w-4 mr-1" />协议对比</TabsTrigger>
           <TabsTrigger value="report"><BarChart3 className="h-4 w-4 mr-1" />交集统计报告</TabsTrigger>
         </TabsList>
 
@@ -556,7 +958,7 @@ export default function SecretPSI() {
             <Table className="unified-table">
               <TableHeader>
                 <TableRow className="bg-gray-50/80 border-b border-gray-100">
-                  {["任务ID", "任务名称", "协议", "参与方", "输出模式", "进度", "A方/B方", "匹配量", "耗时", "通知", "操作"].map((h) => (
+                  {["任务ID", "任务名称", "协议", "参与方", "输出模式", "进度", "A方/B方", "匹配量", "耗时", "通知", "定时", "操作"].map((h) => (
                     <TableHead key={h} className="text-xs font-semibold text-gray-600 uppercase tracking-wider py-3.5 px-4">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -585,14 +987,33 @@ export default function SecretPSI() {
                       <span className={`text-xs px-2 py-0.5 rounded-full ${d.notifyStatus === "已触达" ? "bg-emerald-50 text-emerald-700" : d.notifyStatus === "已关闭" ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-700"}`}>{d.notifyStatus}</span>
                     </TableCell>
                     <TableCell className="py-3.5 px-4">
+                      {d.schedule?.enabled ? (
+                        <div className="flex items-center gap-1 text-xs text-indigo-600">
+                          <Clock className="h-3 w-3" />
+                          <span>{d.schedule.type}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-3.5 px-4">
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(d)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(d)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(d)} title="复制任务"><Copy className="h-4 w-4" /></Button>
+                        {d.status === "执行中" && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-500" onClick={() => handleCancelTask(d)} title="中断任务"><XCircle className="h-4 w-4" /></Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(d.id)}>
                           {d.status === "执行中" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                         </Button>
-                        {d.status === "已完成" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(d)}><Download className="h-4 w-4" /></Button>}
+                        {d.status === "已完成" && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePreview(d)} title="结果预览"><FileSearch className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(d)}><Download className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setRerunTask(d); setRerunOpen(true); }} title="重新执行"><RotateCcw className="h-4 w-4" /></Button>
+                          </>
+                        )}
                         {d.status === "已完成" && d.notifyStatus === "待触达" && (
                           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleReach(d.id)}><Bell className="h-3 w-3 mr-1" />触达</Button>
                         )}
@@ -674,6 +1095,236 @@ export default function SecretPSI() {
           </Card>
         </TabsContent>
 
+        {/* Result Analysis Tab */}
+        <TabsContent value="analysis" className="mt-4 space-y-4">
+          <div className="flex flex-col gap-4">
+            {/* Task selector */}
+            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <Label className="text-sm font-medium">分析任务</Label>
+                </div>
+                <Select value={analysisTaskId} onValueChange={setAnalysisTaskId}>
+                  <SelectTrigger className="w-80">
+                    <SelectValue placeholder="选择已完成任务" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {completedTasks.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name} ({t.id})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {analysisTaskId && (
+                  <Button variant="outline" size="sm" onClick={handleExportAnalysis} className="gap-1">
+                    <Download className="h-3.5 w-3.5" />导出分析报告
+                  </Button>
+                )}
+              </div>
+            </Card>
+
+            {analysisTaskId && (() => {
+              const task = completedTasks.find((t) => t.id === analysisTaskId);
+              if (!task) return null;
+              return (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-600" />交集比例分布</h3>
+                      <div ref={ratioChartRef} className="w-full h-64" />
+                    </Card>
+                    <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><Users className="h-5 w-5 text-blue-600" />数据分布</h3>
+                      <div ref={distChartRef} className="w-full h-64" />
+                    </Card>
+                  </div>
+
+                  {/* Match Quality Metrics */}
+                  {task.metrics && (
+                    <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><CheckCircle className="h-5 w-5 text-emerald-600" />匹配质量指标</h3>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500 mb-1">Precision</p>
+                          <p className="text-2xl font-bold text-indigo-600">{(task.metrics.precision! * 100).toFixed(1)}%</p>
+                        </div>
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500 mb-1">Recall</p>
+                          <p className="text-2xl font-bold text-blue-600">{(task.metrics.recall! * 100).toFixed(1)}%</p>
+                        </div>
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500 mb-1">F1 Score</p>
+                          <p className="text-2xl font-bold text-emerald-600">{(task.metrics.f1Score! * 100).toFixed(1)}%</p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Performance Metrics */}
+                  {task.metrics && (
+                    <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+                      <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><Zap className="h-5 w-5 text-amber-600" />性能指标</h3>
+                      <div ref={perfChartRef} className="w-full h-64" />
+                      <div className="grid grid-cols-4 gap-4 mt-4">
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Setup</p>
+                          <p className="text-lg font-bold">{task.metrics.setupTime}s</p>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Transfer</p>
+                          <p className="text-lg font-bold">{task.metrics.transferTime}s</p>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Computation</p>
+                          <p className="text-lg font-bold">{task.metrics.computationTime}s</p>
+                        </div>
+                        <div className="text-center p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-lg font-bold">{task.metrics.totalTime}s</p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Multi-Task Comparison */}
+            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><ArrowRightLeft className="h-5 w-5 text-violet-600" />多任务对比 (最多3个)</h3>
+              <div className="flex gap-2 mb-4 flex-wrap">
+                {completedTasks.map((t) => {
+                  const isSelected = compareTaskIds.includes(t.id);
+                  return (
+                    <Button
+                      key={t.id}
+                      size="sm"
+                      variant={isSelected ? "default" : "outline"}
+                      className={`text-xs ${isSelected ? "bg-violet-600" : ""}`}
+                      onClick={() => {
+                        if (isSelected) {
+                          setCompareTaskIds((prev) => prev.filter((id) => id !== t.id));
+                        } else if (compareTaskIds.length < 3) {
+                          setCompareTaskIds((prev) => [...prev, t.id]);
+                        }
+                      }}
+                    >
+                      {t.name}
+                    </Button>
+                  );
+                })}
+              </div>
+              {compareTaskIds.length > 0 && (
+                <>
+                  <div ref={compareChartRef} className="w-full h-64 mb-4" />
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">任务名称</TableHead>
+                        <TableHead className="text-xs">协议</TableHead>
+                        <TableHead className="text-xs">交集大小</TableHead>
+                        <TableHead className="text-xs">耗时</TableHead>
+                        <TableHead className="text-xs">吞吐量 (items/s)</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {completedTasks.filter((t) => compareTaskIds.includes(t.id)).map((t) => {
+                        const throughput = t.metrics ? Math.floor((t.totalA + t.totalB) / t.metrics.totalTime) : 0;
+                        return (
+                          <TableRow key={t.id}>
+                            <TableCell className="text-sm font-medium">{t.name}</TableCell>
+                            <TableCell className="text-xs">{t.protocol}</TableCell>
+                            <TableCell className="text-sm font-semibold text-emerald-600">{t.matchedCount.toLocaleString()}</TableCell>
+                            <TableCell className="text-xs">{t.duration}</TableCell>
+                            <TableCell className="text-xs">{throughput.toLocaleString()}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </>
+              )}
+            </Card>
+
+            {/* Performance Trend */}
+            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><TrendingUp className="h-5 w-5 text-blue-600" />性能趋势 (最近5次执行)</h3>
+              <div ref={trendChartRef} className="w-full h-64" />
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Protocol Benchmark Tab */}
+        <TabsContent value="benchmark" className="mt-4 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><Gauge className="h-5 w-5 text-indigo-600" />协议性能对比</h3>
+              <div ref={radarChartRef} className="w-full h-80" />
+            </Card>
+            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><Sparkles className="h-5 w-5 text-amber-600" />协议推荐引擎</h3>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>数据规模</Label>
+                  <Select value={benchmarkScale} onValueChange={setBenchmarkScale}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10^5">10^5 (小规模)</SelectItem>
+                      <SelectItem value="10^6">10^6 (中规模)</SelectItem>
+                      <SelectItem value="10^7">10^7 (大规模)</SelectItem>
+                      <SelectItem value="10^8">10^8 (超大规模)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>网络条件</Label>
+                  <Select value={benchmarkNetwork} onValueChange={setBenchmarkNetwork}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">高带宽低延迟</SelectItem>
+                      <SelectItem value="low">低带宽高延迟</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                  <p className="text-sm font-medium text-indigo-900 mb-1">推荐协议</p>
+                  <p className="text-base font-bold text-indigo-700">{getRecommendedProtocol()}</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <Table className="unified-table">
+              <TableHeader>
+                <TableRow className="bg-gray-50/80">
+                  {["协议", "Setup成本", "通信轮次", "计算成本", "支持规模", "安全模型", "低延迟友好", "低带宽友好"].map((h) => (
+                    <TableHead key={h} className="text-xs font-semibold text-gray-600 py-3.5 px-4">{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-gray-50">
+                {protocolBenchmarks.map((p) => (
+                  <TableRow key={p.protocol} className="hover:bg-indigo-50/30 transition-colors">
+                    <TableCell className="py-3.5 px-4 font-medium text-sm">{p.protocol}</TableCell>
+                    <TableCell className="py-3.5 px-4 text-xs">{p.setupCost}</TableCell>
+                    <TableCell className="py-3.5 px-4 text-xs">{p.commRounds}</TableCell>
+                    <TableCell className="py-3.5 px-4 text-xs">{p.compCost}</TableCell>
+                    <TableCell className="py-3.5 px-4 text-xs">{p.scale}</TableCell>
+                    <TableCell className="py-3.5 px-4"><Badge variant="outline">{p.securityModel}</Badge></TableCell>
+                    <TableCell className="py-3.5 px-4">{p.latencyFriendly ? <CheckCircle className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-gray-400" />}</TableCell>
+                    <TableCell className="py-3.5 px-4">{p.bandwidthFriendly ? <CheckCircle className="h-4 w-4 text-emerald-600" /> : <XCircle className="h-4 w-4 text-gray-400" />}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="report" className="mt-4">
           <div className="grid grid-cols-2 gap-4">
             <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -743,8 +1394,8 @@ export default function SecretPSI() {
           <div className="flex items-center justify-between mb-6 mt-2">
             {steps.map((step, index) => {
               const StepIcon = step.icon;
-              const isActive = index === currentStep;
-              const isCompleted = index < currentStep;
+              const isActive = qualityCheckStep ? false : index === currentStep;
+              const isCompleted = qualityCheckStep ? true : index < currentStep;
               return (
                 <div key={index} className="flex flex-col items-center gap-1.5 flex-1">
                   <div
@@ -756,7 +1407,7 @@ export default function SecretPSI() {
                         : "bg-gray-100 text-gray-400"
                     }`}
                   >
-                    {isCompleted ? <CheckCircle className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                    {isCompleted && !isActive ? <CheckCircle className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
                   </div>
                   <span className={`text-[10px] font-medium ${isActive ? "text-indigo-600" : isCompleted ? "text-emerald-600" : "text-gray-400"}`}>
                     {step.label}
@@ -768,8 +1419,63 @@ export default function SecretPSI() {
 
           {/* Step Content */}
           <div className="space-y-4 py-2 min-h-[280px]">
+            {/* Optional Step 0: Data Quality Pre-check */}
+            {qualityCheckStep && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <FileSearch className="h-4 w-4 text-indigo-600" />数据质量预检查 (可选)
+                </h3>
+                {!qualityResults ? (
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-500">对数据进行格式验证、重复检测和空值检查，帮助提升求交成功率。</p>
+                    <div className="grid grid-cols-3 gap-3">
+                      <Card className="border-gray-100"><CardContent className="p-4 text-center"><FileText className="h-6 w-6 text-indigo-600 mx-auto mb-2" /><p className="text-xs font-medium">格式验证</p></CardContent></Card>
+                      <Card className="border-gray-100"><CardContent className="p-4 text-center"><Copy className="h-6 w-6 text-amber-600 mx-auto mb-2" /><p className="text-xs font-medium">重复检测</p></CardContent></Card>
+                      <Card className="border-gray-100"><CardContent className="p-4 text-center"><AlertTriangle className="h-6 w-6 text-red-500 mx-auto mb-2" /><p className="text-xs font-medium">空值检查</p></CardContent></Card>
+                    </div>
+                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700" onClick={runQualityCheck}>
+                      <Search className="h-4 w-4 mr-2" />开始检查
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-2 ${qualityResults.score >= 90 ? "bg-emerald-50" : qualityResults.score >= 70 ? "bg-amber-50" : "bg-red-50"}`}>
+                        <span className={`text-2xl font-bold ${qualityResults.score >= 90 ? "text-emerald-600" : qualityResults.score >= 70 ? "text-amber-600" : "text-red-600"}`}>{qualityResults.score}</span>
+                      </div>
+                      <p className="text-sm text-gray-500">质量评分</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-500">格式验证</p>
+                        <p className={`text-sm font-bold ${qualityResults.formatValid ? "text-emerald-600" : "text-red-600"}`}>{qualityResults.formatValid ? "通过" : "失败"}</p>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-500">重复记录</p>
+                        <p className="text-sm font-bold text-amber-600">{qualityResults.duplicates}</p>
+                      </div>
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-500">空值记录</p>
+                        <p className="text-sm font-bold text-red-600">{qualityResults.nullValues}</p>
+                      </div>
+                    </div>
+                    {qualityResults.recommendations.length > 0 && (
+                      <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
+                        <p className="text-xs font-medium text-amber-800 mb-1">优化建议</p>
+                        <ul className="space-y-1">
+                          {qualityResults.recommendations.map((rec, i) => (
+                            <li key={i} className="text-xs text-amber-700 flex items-start gap-1"><AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />{rec}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Step 1: Basic Info */}
-            {currentStep === 0 && (
+            {!qualityCheckStep && currentStep === 0 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <FileText className="h-4 w-4 text-indigo-600" />基本信息
@@ -822,11 +1528,118 @@ export default function SecretPSI() {
                     </Select>
                   </div>
                 </div>
+
+                {/* Scheduling */}
+                <div className="space-y-3 pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="schedule-enabled"
+                      checked={scheduleEnabled}
+                      onChange={(e) => setScheduleEnabled(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="schedule-enabled" className="text-sm font-medium cursor-pointer">定时执行</Label>
+                  </div>
+                  {scheduleEnabled && (
+                    <div className="space-y-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="space-y-2">
+                        <Label className="text-xs">执行类型</Label>
+                        <Select value={scheduleConfig.type} onValueChange={(v: any) => setScheduleConfig((prev) => ({ ...prev, type: v }))}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="once">单次执行</SelectItem>
+                            <SelectItem value="daily">每日</SelectItem>
+                            <SelectItem value="weekly">每周</SelectItem>
+                            <SelectItem value="monthly">每月</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label className="text-xs">小时</Label>
+                          <Select value={String(scheduleConfig.hour)} onValueChange={(v) => setScheduleConfig((prev) => ({ ...prev, hour: parseInt(v) }))}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 24 }, (_, i) => (
+                                <SelectItem key={i} value={String(i)}>{String(i).padStart(2, "0")}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-xs">分钟</Label>
+                          <Select value={String(scheduleConfig.minute)} onValueChange={(v) => setScheduleConfig((prev) => ({ ...prev, minute: parseInt(v) }))}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {[0, 15, 30, 45].map((m) => (
+                                <SelectItem key={m} value={String(m)}>{String(m).padStart(2, "0")}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {scheduleConfig.type === "weekly" && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">星期</Label>
+                          <Select value={String(scheduleConfig.dayOfWeek || 1)} onValueChange={(v) => setScheduleConfig((prev) => ({ ...prev, dayOfWeek: parseInt(v) }))}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {["周一", "周二", "周三", "周四", "周五", "周六", "周日"].map((d, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>{d}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      {scheduleConfig.type === "monthly" && (
+                        <div className="space-y-2">
+                          <Label className="text-xs">日期</Label>
+                          <Select value={String(scheduleConfig.dayOfMonth || 1)} onValueChange={(v) => setScheduleConfig((prev) => ({ ...prev, dayOfMonth: parseInt(v) }))}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 28 }, (_, i) => (
+                                <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}日</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className="text-xs text-gray-500">
+                        预计下次执行: {getScheduleNextRun(scheduleConfig)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Quality Check Toggle */}
+                {!selectedItem && (
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="quality-check"
+                      checked={qualityCheckEnabled}
+                      onChange={(e) => setQualityCheckEnabled(e.target.checked)}
+                      className="rounded border-gray-300"
+                    />
+                    <Label htmlFor="quality-check" className="text-sm cursor-pointer">启用数据质量预检查</Label>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Step 2: Party A */}
-            {currentStep === 1 && (
+            {!qualityCheckStep && currentStep === 1 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <User className="h-4 w-4 text-indigo-600" />Party A 配置
@@ -880,7 +1693,7 @@ export default function SecretPSI() {
             )}
 
             {/* Step 3: Party B */}
-            {currentStep === 2 && (
+            {!qualityCheckStep && currentStep === 2 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <User className="h-4 w-4 text-blue-600" />Party B 配置
@@ -934,7 +1747,7 @@ export default function SecretPSI() {
             )}
 
             {/* Step 4: Output Settings */}
-            {currentStep === 3 && (
+            {!qualityCheckStep && currentStep === 3 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <Settings className="h-4 w-4 text-indigo-600" />输出设置
@@ -975,7 +1788,7 @@ export default function SecretPSI() {
             )}
 
             {/* Step 5: Review */}
-            {currentStep === 4 && (
+            {!qualityCheckStep && currentStep === 4 && (
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-emerald-600" />确认配置
@@ -989,6 +1802,7 @@ export default function SecretPSI() {
                         <div><span className="text-gray-500">协议：</span>{wizardData.protocol}</div>
                         <div><span className="text-gray-500">Hashing：</span>{wizardData.hashing}</div>
                         {wizardData.description && <div className="col-span-2"><span className="text-gray-500">描述：</span>{wizardData.description}</div>}
+                        {scheduleEnabled && <div className="col-span-2"><span className="text-gray-500">定时：</span>{scheduleConfig.type} {String(scheduleConfig.hour).padStart(2, "0")}:{String(scheduleConfig.minute).padStart(2, "0")}</div>}
                       </div>
                     </CardContent>
                   </Card>
@@ -1034,15 +1848,28 @@ export default function SecretPSI() {
 
           <DialogFooter className="flex justify-between items-center">
             <div className="flex gap-2">
-              {currentStep > 0 && (
-                <Button variant="outline" onClick={() => setCurrentStep((s) => s - 1)}>
-                  <ChevronLeft className="h-4 w-4 mr-1" />上一步
+              {qualityCheckStep ? (
+                <Button variant="outline" onClick={() => { setQualityCheckStep(false); setQualityResults(null); }}>
+                  <ChevronLeft className="h-4 w-4 mr-1" />跳过检查
                 </Button>
+              ) : (
+                currentStep > 0 && (
+                  <Button variant="outline" onClick={() => setCurrentStep((s) => s - 1)}>
+                    <ChevronLeft className="h-4 w-4 mr-1" />上一步
+                  </Button>
+                )
               )}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setWizardOpen(false)}>取消</Button>
-              {currentStep < steps.length - 1 ? (
+              {qualityCheckStep ? (
+                <Button
+                  className="bg-indigo-600 hover:bg-indigo-700"
+                  onClick={() => { setQualityCheckStep(false); setCurrentStep(0); }}
+                >
+                  下一步<ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              ) : currentStep < steps.length - 1 ? (
                 <Button
                   className="bg-indigo-600 hover:bg-indigo-700"
                   onClick={() => setCurrentStep((s) => s + 1)}
@@ -1060,6 +1887,65 @@ export default function SecretPSI() {
                 </Button>
               )}
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSearch className="h-5 w-5 text-indigo-600" />
+              结果预览 - {previewTask?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">显示前10条交集ID</p>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-gray-50">
+                    <TableHead className="text-xs">#</TableHead>
+                    <TableHead className="text-xs">Intersection ID</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(previewTask ? mockPreviewIds[previewTask.id] || [] : []).map((id, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="text-xs text-gray-500">{i + 1}</TableCell>
+                      <TableCell className="text-xs font-mono">{id}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewOpen(false)}>关闭</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rerun Dialog */}
+      <Dialog open={rerunOpen} onOpenChange={setRerunOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-indigo-600" />
+              重新执行任务
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              确定要重新执行任务 <strong>{rerunTask?.name}</strong> 吗？将创建一个新的待执行副本。
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRerunOpen(false)}>取消</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => rerunTask && handleRerun(rerunTask)}>
+              <RotateCcw className="h-4 w-4 mr-1" />确认重新执行
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
