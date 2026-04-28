@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -156,6 +157,7 @@ const algorithmOptions = [
 ];
 
 export default function SandboxProjectList() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [recentActivities, setRecentActivities] = useState<Activity[]>(initialActivities);
   const [publishedIds, setPublishedIds] = useState<Set<string>>(new Set());
@@ -484,7 +486,7 @@ export default function SandboxProjectList() {
             <h3 className="text-sm font-semibold text-gray-700 mb-3">快捷操作</h3>
             <div className="grid grid-cols-3 gap-4">
               {quickActions.map((action) => (
-                <Card key={action.label} className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${action.color}`}>
+                <Card key={action.label} className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${action.color}`} onClick={() => navigate(action.path)}>
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-white/80 flex items-center justify-center shadow-sm">
                       {action.icon}

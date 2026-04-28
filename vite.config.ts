@@ -5,7 +5,7 @@ import { inspectAttr } from 'plugin-inspect-react-code'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './',
+  base: process.env.VITE_PUBLIC_BASE || './',
   plugins: [inspectAttr(), react()],
   server: {
     port: 3000,
