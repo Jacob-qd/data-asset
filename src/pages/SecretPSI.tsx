@@ -943,11 +943,8 @@ export default function SecretPSI() {
       <Tabs defaultValue="tasks" className="w-full">
         <TabsList>
           <TabsTrigger value="tasks"><Layers className="h-4 w-4 mr-1" />求交任务</TabsTrigger>
-          <TabsTrigger value="statistics"><BarChart3 className="h-4 w-4 mr-1" />统计任务</TabsTrigger>
-          <TabsTrigger value="labels"><Tag className="h-4 w-4 mr-1" />标签任务</TabsTrigger>
           <TabsTrigger value="analysis"><Activity className="h-4 w-4 mr-1" />结果分析</TabsTrigger>
           <TabsTrigger value="benchmark"><Gauge className="h-4 w-4 mr-1" />协议对比</TabsTrigger>
-          <TabsTrigger value="report"><BarChart3 className="h-4 w-4 mr-1" />交集统计报告</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tasks" className="mt-4">
@@ -1018,74 +1015,6 @@ export default function SecretPSI() {
                           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleReach(d.id)}><Bell className="h-3 w-3 mr-1" />触达</Button>
                         )}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeletePrompt(d)}><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="statistics" className="mt-4 space-y-4">
-          <div className="flex gap-3 items-center"><Input placeholder="搜索任务ID或名称" className="w-64 h-9" /></div>
-          <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <Table className="unified-table">
-              <TableHeader>
-                <TableRow className="bg-gray-50/80">{["任务ID","任务名称","参与方","交集数量","A方样本","B方样本","状态","操作"].map((h)=><TableHead key={h} className="text-xs font-semibold text-gray-600 py-3.5 px-4">{h}</TableHead>)}</TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-gray-50">
-                {tasks.filter((t)=>t.status==="已完成").map((t)=>(
-                  <TableRow key={t.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <TableCell className="py-3.5 px-4 font-mono text-xs text-gray-500">{t.id}</TableCell>
-                    <TableCell className="py-3.5 px-4 font-medium text-sm">{t.name}</TableCell>
-                    <TableCell className="py-3.5 px-4 text-xs">
-                      <span className="text-indigo-600">{t.partyA.name}</span>
-                      <span className="text-gray-400 mx-1">↔</span>
-                      <span className="text-blue-600">{t.partyB.name}</span>
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 font-semibold text-emerald-600">{t.matchedCount.toLocaleString()}</TableCell>
-                    <TableCell className="py-3.5 px-4 text-sm">{t.totalA.toLocaleString()}</TableCell>
-                    <TableCell className="py-3.5 px-4 text-sm">{t.totalB.toLocaleString()}</TableCell>
-                    <TableCell className="py-3.5 px-4"><Badge className="bg-emerald-50 text-emerald-700">{t.status}</Badge></TableCell>
-                    <TableCell className="py-3.5 px-4">
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(t)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(t)}><Download className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(t)}><BarChart3 className="w-4 h-4" /></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="labels" className="mt-4 space-y-4">
-          <div className="flex gap-3 items-center"><Input placeholder="搜索任务ID或名称" className="w-64 h-9" /></div>
-          <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            <Table className="unified-table">
-              <TableHeader>
-                <TableRow className="bg-gray-50/80">{["任务ID","任务名称","标签字段","参与方","匹配样本","状态","操作"].map((h)=><TableHead key={h} className="text-xs font-semibold text-gray-600 py-3.5 px-4">{h}</TableHead>)}</TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-gray-50">
-                {tasks.filter((t)=>t.status==="已完成" && t.outputMode==="带标签输出").map((t)=>(
-                  <TableRow key={t.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <TableCell className="py-3.5 px-4 font-mono text-xs text-gray-500">{t.id}</TableCell>
-                    <TableCell className="py-3.5 px-4 font-medium text-sm">{t.name}</TableCell>
-                    <TableCell className="py-3.5 px-4"><Badge variant="outline">{t.tagField || "label_value"}</Badge></TableCell>
-                    <TableCell className="py-3.5 px-4 text-xs">
-                      <span className="text-indigo-600">{t.partyA.name}</span>
-                      <span className="text-gray-400 mx-1">↔</span>
-                      <span className="text-blue-600">{t.partyB.name}</span>
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 font-semibold text-emerald-600">{t.matchedCount.toLocaleString()}</TableCell>
-                    <TableCell className="py-3.5 px-4"><Badge className="bg-emerald-50 text-emerald-700">{t.status}</Badge></TableCell>
-                    <TableCell className="py-3.5 px-4">
-                      <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(t)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(t)}><Download className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -1325,64 +1254,11 @@ export default function SecretPSI() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="report" className="mt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><BarChart3 className="h-5 w-5 text-indigo-600" />交集统计分布</h3>
-              <div className="space-y-4">
-                {tasks.filter((t) => t.status === "已完成").map((t) => (
-                  <div key={t.id}>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>{t.name}</span>
-                      <span className="font-semibold">{(t.matchedCount / t.totalA * 100).toFixed(1)}%</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                      <span className="text-indigo-600">{t.partyA.name}</span>
-                      <span>↔</span>
-                      <span className="text-blue-600">{t.partyB.name}</span>
-                    </div>
-                    <div className="h-6 bg-gray-100 rounded-full overflow-hidden flex">
-                      <div className="h-full bg-emerald-500 flex items-center justify-center text-[10px] text-white" style={{ width: `${(t.matchedCount / t.totalA) * 100}%` }}>交集 {(t.matchedCount / 10000).toFixed(0)}万</div>
-                      <div className="h-full bg-gray-300" style={{ width: `${((t.totalA - t.matchedCount) / t.totalA) * 100}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-0.5">
-                      <span>A方: {t.totalA.toLocaleString()}</span>
-                      <span>B方: {t.totalB.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button className="mt-4 gap-2 w-full" variant="outline" onClick={() => { setExportFormat("pdf"); setExportOpen(true); }}><Download className="w-4 h-4" />导出报告</Button>
-            </Card>
-            <Card className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-base font-semibold mb-4 flex items-center gap-2"><CheckCircle className="h-5 w-5 text-emerald-600" />各方贡献率</h3>
-              <div className="space-y-3">
-                {tasks.filter((t) => t.status === "已完成").map((t) => (
-                  <div key={t.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium">{t.name}</p>
-                      <p className="text-xs text-gray-500">
-                        <span className="text-indigo-600">{t.partyA.name}</span>
-                        <span className="mx-1">↔</span>
-                        <span className="text-blue-600">{t.partyB.name}</span>
-                      </p>
-                      <p className="text-xs text-gray-400">协议: {t.protocol}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-emerald-600">{t.matchedCount.toLocaleString()}</p>
-                      <p className="text-xs text-gray-500">交集</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </TabsContent>
       </Tabs>
 
       {/* Multi-step Wizard Dialog */}
       <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-indigo-600" />
@@ -1418,7 +1294,7 @@ export default function SecretPSI() {
           </div>
 
           {/* Step Content */}
-          <div className="space-y-4 py-2 min-h-[280px]">
+          <div className="space-y-4 py-2 min-h-[280px] overflow-y-auto flex-1">
             {/* Optional Step 0: Data Quality Pre-check */}
             {qualityCheckStep && (
               <div className="space-y-4">

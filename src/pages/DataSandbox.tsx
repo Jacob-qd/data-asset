@@ -16,6 +16,7 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import * as echarts from "echarts";
 import {
   Play,
   Save,
@@ -57,8 +58,36 @@ import {
   MemoryStick,
   Timer,
   Zap,
+  FilePlus,
+  FolderPlus,
+  Upload,
+  Download,
+  History,
+  GitCompare,
+  Undo,
+  BarChart3,
+  LineChart,
+  PieChart,
+  MoreVertical,
+  GripVertical,
+  Copy,
+  Type,
+  FileCode,
+  FileSpreadsheet,
+  FileJson,
+  Loader2,
+  StopCircle,
+  Filter,
+  ArrowUpDown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -123,6 +152,40 @@ interface QueryResult {
   rowCount: number;
 }
 
+interface ScriptTab {
+  id: string;
+  name: string;
+  content: string;
+  modified: boolean;
+  language: "sql" | "python" | "markdown";
+}
+
+interface ExecutionRecord {
+  id: string;
+  sql: string;
+  time: string;
+  duration: number;
+  rows: number;
+  status: "success" | "error" | "cancelled";
+}
+
+interface ExecutionPlanNode {
+  id: string;
+  type: string;
+  scanType: string;
+  estimatedRows: number;
+  cost: number;
+  details: string;
+}
+
+interface VersionRecord {
+  id: string;
+  timestamp: string;
+  author: string;
+  summary: string;
+  content: string;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Mock Data                                                          */
 /* ------------------------------------------------------------------ */
@@ -139,7 +202,7 @@ const SANDBOXES: Sandbox[] = [
   { id: "sb-10", name: "沙箱-时间序列", status: "running", type: "production", cpu: "8核", memory: "16GB", storage: "1TB", createdAt: "2026-04-18", expiresAt: "2026-07-18", owner: "王十二" },
 ];
 
-const FILE_TREE: FileNode[] = [
+const INITIAL_FILE_TREE: FileNode[] = [
   {
     name: "models",
     type: "folder",
@@ -313,7 +376,7 @@ const CUSTOM_FUNCTIONS = [
   { name: "sentiment_analysis", sig: "sentiment_analysis(text)", desc: "情感分析" },
 ];
 
-const LOGS: LogEntry[] = [
+const INITIAL_LOGS: LogEntry[] = [
   { time: "14:32:18", level: "INFO", message: "开始执行 SQL 查询..." },
   { time: "14:32:18", level: "INFO", message: "解析 CTE: user_rfm" },
   { time: "14:32:19", level: "INFO", message: "扫描表 dwd_order_detail，匹配分区 365 个" },
@@ -359,6 +422,29 @@ const QUERY_RESULT: QueryResult = {
   rowCount: 1000,
 };
 
+const MOCK_EXECUTION_HISTORY: ExecutionRecord[] = [
+  { id: "1", sql: "SELECT * FROM dwd_order_detail LIMIT 100", time: "2026-04-18 14:30", duration: 1.23, rows: 100, status: "success" },
+  { id: "2", sql: "SELECT user_id, SUM(amount) FROM dwd_order_detail GROUP BY user_id", time: "2026-04-18 14:25", duration: 3.45, rows: 5000, status: "success" },
+  { id: "3", sql: "SELECT * FROM ads_user_portrait WHERE rfm_segment = '高价值客户'", time: "2026-04-18 14:20", duration: 0.89, rows: 1200, status: "success" },
+  { id: "4", sql: "UPDATE dim_product_info SET price = price * 1.1", time: "2026-04-18 14:15", duration: 0, rows: 0, status: "error" },
+  { id: "5", sql: "SELECT COUNT(*) FROM ods_log_event WHERE event_time > '2026-04-01'", time: "2026-04-18 14:10", duration: 5.67, rows: 1, status: "success" },
+];
+
+const MOCK_EXECUTION_PLAN: ExecutionPlanNode[] = [
+  { id: "1", type: "Sort", scanType: "QuickSort", estimatedRows: 1000, cost: 1200, details: "ORDER BY monetary DESC" },
+  { id: "2", type: "Limit", scanType: "Limit", estimatedRows: 1000, cost: 50, details: "LIMIT 1000" },
+  { id: "3", type: "Project", scanType: "Projection", estimatedRows: 125678, cost: 5000, details: "CASE expression, column selection" },
+  { id: "4", type: "Aggregate", scanType: "HashAggregate", estimatedRows: 125678, cost: 15000, details: "GROUP BY user_id, COUNT, SUM" },
+  { id: "5", type: "Filter", scanType: "PartitionPruning", estimatedRows: 5000000, cost: 3000, details: "order_date >= DATE_SUB(CURRENT_DATE, 365)" },
+  { id: "6", type: "Scan", scanType: "TableScan", estimatedRows: 5000000, cost: 25000, details: "dwd_order_detail (365 partitions, 124 matched)" },
+];
+
+const MOCK_VERSIONS: VersionRecord[] = [
+  { id: "v1", timestamp: "2026-04-18 10:00", author: "张三", summary: "初始版本", content: "SELECT * FROM dwd_order_detail LIMIT 100;" },
+  { id: "v2", timestamp: "2026-04-18 12:00", author: "李四", summary: "添加RFM计算逻辑", content: "SELECT user_id, SUM(amount) FROM dwd_order_detail GROUP BY user_id;" },
+  { id: "v3", timestamp: "2026-04-18 14:00", author: "张三", summary: "优化查询性能", content: SAMPLE_SQL },
+];
+
 /* ------------------------------------------------------------------ */
 /*  SQL Syntax Highlighter                                             */
 /* ------------------------------------------------------------------ */
@@ -385,26 +471,22 @@ function highlightSQL(sql: string): ReactNode[] {
     const tokens: { text: string; type: string }[] = [];
     let remaining = line;
     while (remaining.length > 0) {
-      // Comment
       if (remaining.startsWith("--")) {
         tokens.push({ text: remaining, type: "comment" });
         break;
       }
-      // String literal
-      const strMatch = remaining.match(/^('(?:''|[^'])*')/);
+      const strMatch = remaining.match(/^(('(?:''|[^'])*'))/);
       if (strMatch) {
         tokens.push({ text: strMatch[1], type: "string" });
         remaining = remaining.slice(strMatch[1].length);
         continue;
       }
-      // Number
       const numMatch = remaining.match(/^(\d+\.?\d*)/);
       if (numMatch) {
         tokens.push({ text: numMatch[1], type: "number" });
         remaining = remaining.slice(numMatch[1].length);
         continue;
       }
-      // Word
       const wordMatch = remaining.match(/^([A-Za-z_][A-Za-z0-9_]*)/);
       if (wordMatch) {
         const word = wordMatch[1];
@@ -419,7 +501,6 @@ function highlightSQL(sql: string): ReactNode[] {
         remaining = remaining.slice(word.length);
         continue;
       }
-      // Whitespace or symbol - take one char
       tokens.push({ text: remaining[0], type: "plain" });
       remaining = remaining.slice(1);
     }
@@ -427,12 +508,12 @@ function highlightSQL(sql: string): ReactNode[] {
     return (
       <div key={lineIdx} className="flex">
         {tokens.map((t, i) => {
-          let colorClass = "text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]";
+          let colorClass = "text-slate-500 dark:text-[#CBD5E1]";
           if (t.type === "keyword") colorClass = "text-[#C084FC] font-bold";
           else if (t.type === "function") colorClass = "text-[#60A5FA]";
           else if (t.type === "string") colorClass = "text-[#4ADE80]";
           else if (t.type === "number") colorClass = "text-[#F472B6]";
-          else if (t.type === "comment") colorClass = "text-slate-500 dark:text-slate-500 dark:text-[#64748B] italic";
+          else if (t.type === "comment") colorClass = "text-slate-500 dark:text-[#64748B] italic";
           else if (t.type === "identifier") colorClass = "text-[#A5B4FC]";
           return (
             <span key={i} className={colorClass}>
@@ -443,6 +524,86 @@ function highlightSQL(sql: string): ReactNode[] {
       </div>
     );
   });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helper Functions                                                   */
+/* ------------------------------------------------------------------ */
+function genId(): string {
+  return Date.now().toString(36).toUpperCase();
+}
+
+function getFileIcon(filename: string) {
+  if (filename.endsWith(".sql")) return <FileCode className="w-3.5 h-3.5 text-[#60A5FA]" />;
+  if (filename.endsWith(".py")) return <FileCode className="w-3.5 h-3.5 text-[#F59E0B]" />;
+  if (filename.endsWith(".md")) return <FileText className="w-3.5 h-3.5 text-[#A5B4FC]" />;
+  if (filename.endsWith(".csv")) return <FileSpreadsheet className="w-3.5 h-3.5 text-[#10B981]" />;
+  if (filename.endsWith(".json")) return <FileJson className="w-3.5 h-3.5 text-[#F472B6]" />;
+  return <FileText className="w-3.5 h-3.5 text-[#60A5FA]" />;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
+function detectCycles(nodes: Node[], edges: Edge[]): string[] | null {
+  const adj: Record<string, string[]> = {};
+  nodes.forEach((n) => (adj[n.id] = []));
+  edges.forEach((e) => {
+    if (adj[e.source]) adj[e.source].push(e.target);
+  });
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  const path: string[] = [];
+
+  function dfs(nodeId: string): boolean {
+    visited.add(nodeId);
+    recStack.add(nodeId);
+    path.push(nodeId);
+    for (const neighbor of adj[nodeId]) {
+      if (!visited.has(neighbor)) {
+        if (dfs(neighbor)) return true;
+      } else if (recStack.has(neighbor)) {
+        const cycleStart = path.indexOf(neighbor);
+        path.push(neighbor);
+        return true;
+      }
+    }
+    path.pop();
+    recStack.delete(nodeId);
+    return false;
+  }
+
+  for (const node of nodes) {
+    if (!visited.has(node.id)) {
+      if (dfs(node.id)) {
+        const cycleStart = path.findIndex((id) => id === path[path.length - 1]);
+        return path.slice(cycleStart);
+      }
+    }
+  }
+  return null;
+}
+
+function findOrphanNodes(nodes: Node[], edges: Edge[]): string[] {
+  const hasIncoming = new Set<string>();
+  const hasOutgoing = new Set<string>();
+  edges.forEach((e) => {
+    hasIncoming.add(e.target);
+    hasOutgoing.add(e.source);
+  });
+  return nodes
+    .filter((n) => {
+      const type = n.type || "process";
+      if (type === "source") return hasOutgoing.has(n.id) === false;
+      if (type === "target") return hasIncoming.has(n.id) === false;
+      return !hasIncoming.has(n.id) && !hasOutgoing.has(n.id);
+    })
+    .map((n) => n.id);
 }
 
 /* ------------------------------------------------------------------ */
@@ -514,37 +675,129 @@ const initialDAGEdges: Edge[] = [
 /*  Sub-components                                                     */
 /* ------------------------------------------------------------------ */
 
-/** File Tree recursive renderer */
-function FileTreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
+/** File Tree recursive renderer with context menu */
+function FileTreeNode({
+  node,
+  depth = 0,
+  onContextMenu,
+}: {
+  node: FileNode;
+  depth?: number;
+  onContextMenu: (e: React.MouseEvent, node: FileNode, path: string) => void;
+}) {
   const [expanded, setExpanded] = useState(depth < 1);
   const hasChildren = node.type === "folder" && node.children && node.children.length > 0;
 
   return (
     <div>
       <button
-        className="flex items-center gap-1 w-full px-2 py-1 text-xs text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] rounded transition-colors text-left"
+        className="flex items-center gap-1 w-full px-2 py-1 text-xs text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] rounded transition-colors text-left"
         style={{ paddingLeft: `${8 + depth * 16}px` }}
         onClick={() => hasChildren ? setExpanded(!expanded) : undefined}
+        onContextMenu={(e) => onContextMenu(e, node, node.name)}
       >
         {hasChildren ? (
-          expanded ? <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" /> : <ChevronRight className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+          expanded ? <ChevronDown className="w-3 h-3 text-slate-500 dark:text-[#64748B]" /> : <ChevronRight className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />
         ) : (
           <span className="w-3" />
         )}
         {node.type === "folder" ? (
           expanded ? <FolderOpen className="w-3.5 h-3.5 text-[#F59E0B]" /> : <Folder className="w-3.5 h-3.5 text-[#F59E0B]" />
         ) : (
-          <FileText className="w-3.5 h-3.5 text-[#60A5FA]" />
+          getFileIcon(node.name)
         )}
         <span className="truncate">{node.name}</span>
       </button>
       {hasChildren && expanded && (
         <div className="transition-all duration-200">
           {node.children!.map((child) => (
-            <FileTreeNode key={child.name} node={child} depth={depth + 1} />
+            <FileTreeNode key={child.name} node={child} depth={depth + 1} onContextMenu={onContextMenu} />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Editable Code Editor with syntax highlighting overlay */
+function CodeEditor({
+  value,
+  onChange,
+  language,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  language: string;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
+
+  const handleScroll = () => {
+    if (textareaRef.current && preRef.current) {
+      preRef.current.scrollTop = textareaRef.current.scrollTop;
+      preRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
+
+  const highlighted = language === "sql" ? highlightSQL(value) : <div className="text-slate-500 dark:text-[#CBD5E1]">{value}</div>;
+
+  return (
+    <div className="relative flex-1 overflow-hidden font-mono text-sm leading-6">
+      <pre
+        ref={preRef}
+        className="absolute inset-0 m-0 p-4 overflow-auto pointer-events-none"
+        aria-hidden="true"
+      >
+        {highlighted}
+      </pre>
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={handleScroll}
+        spellCheck={false}
+        className="absolute inset-0 w-full h-full p-4 bg-transparent text-transparent caret-white resize-none focus:outline-none font-mono text-sm leading-6"
+        style={{ tabSize: 2 }}
+      />
+    </div>
+  );
+}
+
+/** Diff viewer */
+function DiffViewer({ oldText, newText }: { oldText: string; newText: string }) {
+  const oldLines = oldText.split("\n");
+  const newLines = newText.split("\n");
+  const maxLines = Math.max(oldLines.length, newLines.length);
+
+  return (
+    <div className="font-mono text-xs space-y-0">
+      {Array.from({ length: maxLines }).map((_, i) => {
+        const oldLine = oldLines[i] || "";
+        const newLine = newLines[i] || "";
+        const isChanged = oldLine !== newLine;
+        const isAdded = !oldLine && newLine;
+        const isRemoved = oldLine && !newLine;
+
+        return (
+          <div key={i} className={`flex ${isChanged ? "bg-yellow-500/10" : ""}`}>
+            <span className="w-8 text-right text-slate-500 dark:text-[#64748B] shrink-0 select-none">{i + 1}</span>
+            <span className={`w-6 text-center shrink-0 select-none ${isRemoved ? "text-red-500 bg-red-500/10" : isAdded ? "text-green-500 bg-green-500/10" : ""}`}>
+              {isRemoved ? "-" : isAdded ? "+" : " "}
+            </span>
+            <span className={`flex-1 ${isRemoved ? "text-red-400" : isAdded ? "text-green-400" : "text-slate-500 dark:text-[#CBD5E1]"}`}>
+              {isChanged && !isAdded && !isRemoved ? (
+                <>
+                  <span className="text-red-400 line-through">{oldLine}</span>
+                  <span className="text-slate-500 dark:text-[#64748B] mx-1">→</span>
+                  <span className="text-green-400">{newLine}</span>
+                </>
+              ) : (
+                newLine || oldLine
+              )}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -553,6 +806,7 @@ function FileTreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 export default function DataSandbox() {
+  /* ---- Existing state ---- */
   const [activeSandbox, setActiveSandbox] = useState(SANDBOXES[0]);
   const [leftTab, setLeftTab] = useState<"files" | "tables" | "functions">("files");
   const [centerTab, setCenterTab] = useState<"sql" | "dag">("sql");
@@ -567,58 +821,431 @@ export default function DataSandbox() {
   const [newSandboxCpu, setNewSandboxCpu] = useState("4核");
   const [newSandboxMemory, setNewSandboxMemory] = useState("8GB");
   const [newSandboxStorage, setNewSandboxStorage] = useState("500GB");
-  const [sqlContent] = useState(SAMPLE_SQL);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
-  const [logFilter, setLogFilter] = useState<"ALL" | "INFO" | "WARN" | "ERROR" | "DEBUG" | "SUCCESS">("ALL");
-  const [dagNodes, , onDAGNodesChange] = useNodesState(initialDAGNodes);
-  const [dagEdges, setDAGEdges, onDAGEdgesChange] = useEdgesState(initialDAGEdges);
+  const [dagNodes, setDagNodes, onDAGNodesChange] = useNodesState(initialDAGNodes);
+  const [dagEdges, setDagEdges, onDAGEdgesChange] = useEdgesState(initialDAGEdges);
   const [sortCol, setSortCol] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   const [sandboxSearch, setSandboxSearch] = useState("");
-
-  const onConnect = useCallback(
-    (params: Edge | Connection) => setDAGEdges((eds) => addEdge(params, eds)),
-    [setDAGEdges]
-  );
-
-  const filteredLogs = useMemo(
-    () => logFilter === "ALL" ? LOGS : LOGS.filter((l) => l.level === logFilter),
-    [logFilter]
-  );
-
-  const sortedResultRows = useMemo(() => {
-    if (sortCol === null) return QUERY_RESULT.rows;
-    const rows = [...QUERY_RESULT.rows];
-    rows.sort((a, b) => {
-      const av = a[sortCol];
-      const bv = b[sortCol];
-      if (typeof av === "number" && typeof bv === "number") {
-        return sortAsc ? av - bv : bv - av;
-      }
-      return sortAsc
-        ? String(av).localeCompare(String(bv))
-        : String(bv).localeCompare(String(av));
-    });
-    return rows;
-  }, [sortCol, sortAsc]);
-
-  const filteredSandboxes = useMemo(
-    () => sandboxSearch
-      ? SANDBOXES.filter((s) => s.name.includes(sandboxSearch))
-      : SANDBOXES,
-    [sandboxSearch]
-  );
-
-  const selectedTableData = useMemo(
-    () => DB_TABLES.find((t) => t.name === selectedTable),
-    [selectedTable]
-  );
-
-  /* ---- status bar state ---- */
   const [cursorLine, setCursorLine] = useState(18);
   const [cursorCol, setCursorCol] = useState(7);
 
-  /* Auto-move cursor for demo */
+  /* ---- New state: Editable Code Editor with Tabs ---- */
+  const [tabs, setTabs] = useState<ScriptTab[]>([
+    { id: "tab-1", name: "user_rfm_model.sql", content: SAMPLE_SQL, modified: false, language: "sql" },
+  ]);
+  const [activeTabId, setActiveTabId] = useState("tab-1");
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
+
+  const activeTab = useMemo(() => tabs.find((t) => t.id === activeTabId) || tabs[0], [tabs, activeTabId]);
+
+  const updateTabContent = useCallback((tabId: string, content: string) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === tabId ? { ...t, content, modified: true } : t))
+    );
+    setAutoSaveStatus("unsaved");
+  }, []);
+
+  useEffect(() => {
+    if (autoSaveStatus === "unsaved") {
+      const timer = setTimeout(() => {
+        setAutoSaveStatus("saving");
+        setTimeout(() => {
+          setTabs((prev) => prev.map((t) => (t.id === activeTabId ? { ...t, modified: false } : t)));
+          setAutoSaveStatus("saved");
+        }, 800);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [autoSaveStatus, activeTabId]);
+
+  const addNewTab = useCallback(() => {
+    const id = `tab-${genId()}`;
+    const newTab: ScriptTab = {
+      id,
+      name: `未命名脚本${tabs.length + 1}.sql`,
+      content: "",
+      modified: false,
+      language: "sql",
+    };
+    setTabs((prev) => [...prev, newTab]);
+    setActiveTabId(id);
+  }, [tabs.length]);
+
+  const closeTab = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find((t) => t.id === tabId);
+      if (tab?.modified) {
+        if (!window.confirm(`"${tab.name}" 有未保存的更改，确定要关闭吗？`)) return;
+      }
+      const newTabs = tabs.filter((t) => t.id !== tabId);
+      setTabs(newTabs);
+      if (activeTabId === tabId && newTabs.length > 0) {
+        setActiveTabId(newTabs[0].id);
+      }
+    },
+    [tabs, activeTabId]
+  );
+
+  /* ---- New state: Query Execution ---- */
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionProgress, setExecutionProgress] = useState(0);
+  const [lastExecutionTime, setLastExecutionTime] = useState<number | null>(null);
+  const [executionHistory, setExecutionHistory] = useState<ExecutionRecord[]>(MOCK_EXECUTION_HISTORY);
+  const [showExecutionHistory, setShowExecutionHistory] = useState(false);
+  const [showExecutionPlan, setShowExecutionPlan] = useState(false);
+  const executionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const executeQuery = useCallback(() => {
+    setIsExecuting(true);
+    setExecutionProgress(0);
+    setLastExecutionTime(null);
+
+    let progress = 0;
+    executionTimerRef.current = setInterval(() => {
+      progress += 10;
+      setExecutionProgress(progress);
+      if (progress >= 100) {
+        if (executionTimerRef.current) clearInterval(executionTimerRef.current);
+        setIsExecuting(false);
+        const duration = +(Math.random() * 5 + 0.5).toFixed(2);
+        setLastExecutionTime(duration);
+        const newRecord: ExecutionRecord = {
+          id: genId(),
+          sql: activeTab.content.slice(0, 50) + "...",
+          time: new Date().toLocaleString("zh-CN"),
+          duration,
+          rows: Math.floor(Math.random() * 10000),
+          status: "success",
+        };
+        setExecutionHistory((prev) => [newRecord, ...prev].slice(0, 20));
+      }
+    }, 200);
+  }, [activeTab]);
+
+  const cancelExecution = useCallback(() => {
+    if (executionTimerRef.current) clearInterval(executionTimerRef.current);
+    setIsExecuting(false);
+    setExecutionProgress(0);
+    const newRecord: ExecutionRecord = {
+      id: genId(),
+      sql: activeTab.content.slice(0, 50) + "...",
+      time: new Date().toLocaleString("zh-CN"),
+      duration: 0,
+      rows: 0,
+      status: "cancelled",
+    };
+    setExecutionHistory((prev) => [newRecord, ...prev].slice(0, 20));
+  }, [activeTab]);
+
+  /* ---- New state: Results Panel ---- */
+  const [resultsSearch, setResultsSearch] = useState("");
+  const [pageSize, setPageSize] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showChart, setShowChart] = useState(false);
+  const [chartType, setChartType] = useState<"bar" | "line" | "pie">("bar");
+  const [chartXCol, setChartXCol] = useState<string>("");
+  const [chartYCol, setChartYCol] = useState<string>("");
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+
+  const filteredResultRows = useMemo(() => {
+    let rows = [...QUERY_RESULT.rows];
+    if (sortCol !== null) {
+      rows.sort((a, b) => {
+        const av = a[sortCol];
+        const bv = b[sortCol];
+        if (typeof av === "number" && typeof bv === "number") {
+          return sortAsc ? av - bv : bv - av;
+        }
+        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      });
+    }
+    if (resultsSearch) {
+      const search = resultsSearch.toLowerCase();
+      rows = rows.filter((row) => row.some((cell) => String(cell).toLowerCase().includes(search)));
+    }
+    return rows;
+  }, [sortCol, sortAsc, resultsSearch]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredResultRows.slice(start, start + pageSize);
+  }, [filteredResultRows, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredResultRows.length / pageSize);
+
+  const exportResults = useCallback((format: "csv" | "json") => {
+    let content = "";
+    let mimeType = "";
+    let filename = "";
+    if (format === "csv") {
+      content = [QUERY_RESULT.columns.join(","), ...QUERY_RESULT.rows.map((r) => r.join(","))].join("\n");
+      mimeType = "text/csv";
+      filename = "query_results.csv";
+    } else {
+      content = JSON.stringify(
+        QUERY_RESULT.rows.map((r) =>
+          Object.fromEntries(QUERY_RESULT.columns.map((c, i) => [c, r[i]]))
+        ),
+        null,
+        2
+      );
+      mimeType = "application/json";
+      filename = "query_results.json";
+    }
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  useEffect(() => {
+    if (showChart && chartRef.current && chartXCol && chartYCol) {
+      const xIdx = QUERY_RESULT.columns.indexOf(chartXCol);
+      const yIdx = QUERY_RESULT.columns.indexOf(chartYCol);
+      if (xIdx >= 0 && yIdx >= 0) {
+        if (chartInstanceRef.current) chartInstanceRef.current.dispose();
+        chartInstanceRef.current = echarts.init(chartRef.current);
+        const data = QUERY_RESULT.rows.map((r) => ({ name: String(r[xIdx]), value: Number(r[yIdx]) }));
+        const option: echarts.EChartsOption =
+          chartType === "pie"
+            ? {
+                tooltip: { trigger: "item" },
+                series: [
+                  {
+                    type: "pie",
+                    radius: "50%",
+                    data,
+                  },
+                ],
+              }
+            : {
+                tooltip: { trigger: "axis" },
+                xAxis: { type: "category", data: data.map((d) => d.name) },
+                yAxis: { type: "value" },
+                series: [{ type: chartType, data: data.map((d) => d.value) }],
+              };
+        chartInstanceRef.current.setOption(option);
+      }
+    }
+    return () => {
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.dispose();
+        chartInstanceRef.current = null;
+      }
+    };
+  }, [showChart, chartType, chartXCol, chartYCol]);
+
+  /* ---- New state: Logs ---- */
+  const [logs, setLogs] = useState<LogEntry[]>(INITIAL_LOGS);
+  const [logFilter, setLogFilter] = useState<"ALL" | "INFO" | "WARN" | "ERROR" | "DEBUG" | "SUCCESS">("ALL");
+  const [logSearch, setLogSearch] = useState("");
+  const [executionSummary, setExecutionSummary] = useState({
+    duration: 2.89,
+    rowsScanned: 5000000,
+    rowsWritten: 1000,
+    errors: 0,
+  });
+
+  useEffect(() => {
+    if (!isExecuting) return;
+    const interval = setInterval(() => {
+      const levels: LogEntry["level"][] = ["INFO", "DEBUG", "WARN", "SUCCESS"];
+      const messages = [
+        "正在读取数据分区...",
+        "执行聚合操作...",
+        "优化查询计划...",
+        "写入临时结果...",
+        "清理内存缓存...",
+      ];
+      const newLog: LogEntry = {
+        time: new Date().toLocaleTimeString("zh-CN"),
+        level: levels[Math.floor(Math.random() * levels.length)],
+        message: messages[Math.floor(Math.random() * messages.length)],
+      };
+      setLogs((prev) => [...prev, newLog]);
+      setExecutionSummary((prev) => ({
+        ...prev,
+        rowsScanned: prev.rowsScanned + Math.floor(Math.random() * 10000),
+      }));
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [isExecuting]);
+
+  const filteredLogs = useMemo(() => {
+    let result = logFilter === "ALL" ? logs : logs.filter((l) => l.level === logFilter);
+    if (logSearch) {
+      result = result.filter((l) => l.message.toLowerCase().includes(logSearch.toLowerCase()));
+    }
+    return result;
+  }, [logs, logFilter, logSearch]);
+
+  const exportLogs = useCallback(() => {
+    const content = logs.map((l) => `[${l.time}] ${l.level}: ${l.message}`).join("\n");
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "execution_logs.txt";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [logs]);
+
+  /* ---- New state: DAG ---- */
+  const [selectedDAGNode, setSelectedDAGNode] = useState<string | null>(null);
+  const [dagNodeConfig, setDagNodeConfig] = useState<Record<string, { sql?: string; condition?: string; joinType?: string }>>({});
+  const [dagValidationError, setDagValidationError] = useState<string | null>(null);
+  const [connectMode, setConnectMode] = useState<{ sourceId: string } | null>(null);
+  const [showDagSaveDialog, setShowDagSaveDialog] = useState(false);
+  const [showDagLoadDialog, setShowDagLoadDialog] = useState(false);
+  const [dagJsonText, setDagJsonText] = useState("");
+
+  const onConnect = useCallback(
+    (params: Edge | Connection) => setDagEdges((eds) => addEdge(params, eds)),
+    [setDagEdges]
+  );
+
+  const addDAGNode = useCallback(
+    (type: string, position: { x: number; y: number }) => {
+      const id = `n-${genId()}`;
+      const labelMap: Record<string, string> = {
+        source: "新表",
+        process: "SQL转换",
+        join: "Join操作",
+        filter: "Filter条件",
+        aggregate: "聚合",
+        target: "输出表",
+      };
+      const newNode: Node = {
+        id,
+        type: type === "join" || type === "filter" || type === "aggregate" ? "process" : type,
+        position,
+        data: { label: labelMap[type] || type },
+      };
+      setDagNodes((prev) => [...prev, newNode]);
+    },
+    [setDagNodes]
+  );
+
+  const validateDAG = useCallback(() => {
+    const cycle = detectCycles(dagNodes, dagEdges);
+    if (cycle) {
+      setDagValidationError(`检测到循环依赖: ${cycle.join(" → ")}`);
+      return;
+    }
+    const orphans = findOrphanNodes(dagNodes, dagEdges);
+    if (orphans.length > 0) {
+      setDagValidationError(`检测到孤立节点: ${orphans.join(", ")}`);
+      return;
+    }
+    setDagValidationError(null);
+  }, [dagNodes, dagEdges]);
+
+  const generateSQLFromDAG = useCallback(() => {
+    const sql = `-- 自动生成的SQL\nWITH generated_cte AS (\n  SELECT * FROM dag_source\n)\nSELECT * FROM generated_cte;`;
+    const id = `tab-${genId()}`;
+    setTabs((prev) => [...prev, { id, name: `dag_generated_${genId()}.sql`, content: sql, modified: false, language: "sql" }]);
+    setActiveTabId(id);
+    setCenterTab("sql");
+  }, []);
+
+  const saveDAG = useCallback(() => {
+    const data = { nodes: dagNodes, edges: dagEdges };
+    setDagJsonText(JSON.stringify(data, null, 2));
+    setShowDagSaveDialog(true);
+  }, [dagNodes, dagEdges]);
+
+  const loadDAG = useCallback(() => {
+    try {
+      const data = JSON.parse(dagJsonText);
+      if (data.nodes && data.edges) {
+        setDagNodes(data.nodes);
+        setDagEdges(data.edges);
+        setShowDagLoadDialog(false);
+        setDagJsonText("");
+      }
+    } catch {
+      alert("无效的JSON格式");
+    }
+  }, [dagJsonText, setDagNodes, setDagEdges]);
+
+  /* ---- New state: File Management ---- */
+  const [fileTree, setFileTree] = useState<FileNode[]>(INITIAL_FILE_TREE);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: FileNode } | null>(null);
+  const [renameTarget, setRenameTarget] = useState<FileNode | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+
+  const handleFileContextMenu = useCallback((e: React.MouseEvent, node: FileNode) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  }, []);
+
+  const deleteFileNode = useCallback((node: FileNode) => {
+    const deleteRecursive = (nodes: FileNode[]): FileNode[] => {
+      return nodes
+        .filter((n) => n.name !== node.name)
+        .map((n) => (n.children ? { ...n, children: deleteRecursive(n.children) } : n));
+    };
+    setFileTree((prev) => deleteRecursive(prev));
+    setContextMenu(null);
+  }, []);
+
+  const renameFileNode = useCallback((node: FileNode, newName: string) => {
+    const renameRecursive = (nodes: FileNode[]): FileNode[] => {
+      return nodes.map((n) => {
+        if (n.name === node.name) return { ...n, name: newName };
+        if (n.children) return { ...n, children: renameRecursive(n.children) };
+        return n;
+      });
+    };
+    setFileTree((prev) => renameRecursive(prev));
+    setRenameTarget(null);
+    setRenameValue("");
+  }, []);
+
+  const copyPath = useCallback((node: FileNode) => {
+    navigator.clipboard.writeText(node.name);
+    setContextMenu(null);
+  }, []);
+
+  const downloadFile = useCallback((node: FileNode) => {
+    const blob = new Blob([`-- ${node.name}\nSELECT 1;`], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = node.name;
+    a.click();
+    URL.revokeObjectURL(url);
+    setContextMenu(null);
+  }, []);
+
+  const uploadFile = useCallback(() => {
+    const name = `uploaded_${genId()}.csv`;
+    setFileTree((prev) => [...prev, { name, type: "file" }]);
+  }, []);
+
+  const newFolder = useCallback(() => {
+    const name = `newfolder_${genId()}`;
+    setFileTree((prev) => [...prev, { name, type: "folder", children: [] }]);
+  }, []);
+
+  /* ---- New state: Version Control ---- */
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [compareVersion, setCompareVersion] = useState<VersionRecord | null>(null);
+
+  const restoreVersion = useCallback((version: VersionRecord) => {
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTabId ? { ...t, content: version.content, modified: true } : t))
+    );
+    setShowVersionHistory(false);
+  }, [activeTabId]);
+
+  /* ---- Auto-move cursor for demo ---- */
   useEffect(() => {
     const iv = setInterval(() => {
       setCursorLine((l) => (l >= 20 ? 1 : l + 1));
@@ -661,15 +1288,22 @@ export default function DataSandbox() {
     switch (status) {
       case "已发布": return "bg-[#ECFDF5] dark:bg-[#064E3B] text-[#059669]";
       case "草稿": return "bg-[#EFF6FF] dark:bg-[#1E3A5F] text-[#2563EB]";
-      case "已归档": return "bg-[#F1F5F9] dark:bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#64748B]";
-      default: return "bg-[#F1F5F9] dark:bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#64748B]";
+      case "已归档": return "bg-[#F1F5F9] dark:bg-[#334155] text-slate-500 dark:text-[#64748B]";
+      default: return "bg-[#F1F5F9] dark:bg-[#334155] text-slate-500 dark:text-[#64748B]";
     }
   };
 
+  const filteredSandboxes = useMemo(
+    () => (sandboxSearch ? SANDBOXES.filter((s) => s.name.includes(sandboxSearch)) : SANDBOXES),
+    [sandboxSearch]
+  );
+
+  const selectedTableData = useMemo(() => DB_TABLES.find((t) => t.name === selectedTable), [selectedTable]);
+
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-slate-50 dark:bg-[#0B1120] animate-fadeIn" style={{ margin: "-24px" }}>
+    <div className="flex flex-col h-[calc(100vh-3.5rem)] bg-slate-50 dark:bg-[#0B1120] animate-fadeIn" style={{ margin: "-24px" }}>
       {/* ========== TOOLBAR ========== */}
-      <div className="h-12 bg-white dark:bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] flex items-center px-3 gap-2 shrink-0">
+      <div className="h-12 bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-[#334155] flex items-center px-3 gap-2 shrink-0">
         {/* Sandbox selector */}
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-[#6366F1]" />
@@ -679,42 +1313,68 @@ export default function DataSandbox() {
               const sb = SANDBOXES.find((s) => s.id === e.target.value);
               if (sb) setActiveSandbox(sb);
             }}
-            className="bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md px-2 py-1.5 focus:outline-none focus:border-[#6366F1]"
+            className="bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md px-2 py-1.5 focus:outline-none focus:border-[#6366F1]"
           >
             {SANDBOXES.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
-          <span className={`text-xs px-2 py-0.5 rounded-full ${activeSandbox.status === "running" ? "bg-[#064E3B] text-[#10B981]" : "bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]"}`}>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${activeSandbox.status === "running" ? "bg-[#064E3B] text-[#10B981]" : "bg-slate-200 dark:bg-[#334155] text-slate-400 dark:text-[#94A3B8]"}`}>
             {activeSandbox.status === "running" ? "运行中" : "已停止"}
           </span>
         </div>
 
-        <div className="w-px h-6 bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] mx-1" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-[#334155] mx-1" />
 
         {/* Run button */}
-        <Button size="sm" className="h-8 gap-1 bg-[#10B981] hover:bg-[#059669] text-white text-xs">
-          <Play className="w-3.5 h-3.5" />
-          执行
-        </Button>
-        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] hover:text-white">
+        {isExecuting ? (
+          <Button size="sm" className="h-8 gap-1 bg-[#EF4444] hover:bg-[#DC2626] text-white text-xs" onClick={cancelExecution}>
+            <StopCircle className="w-3.5 h-3.5" />
+            取消
+          </Button>
+        ) : (
+          <Button size="sm" className="h-8 gap-1 bg-[#10B981] hover:bg-[#059669] text-white text-xs" onClick={executeQuery}>
+            <Play className="w-3.5 h-3.5" />
+            执行
+          </Button>
+        )}
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] hover:text-white">
           <Save className="w-3.5 h-3.5" />
           保存
         </Button>
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] hover:text-white" onClick={addNewTab}>
+          <FilePlus className="w-3.5 h-3.5" />
+          新建脚本
+        </Button>
 
-        <div className="w-px h-6 bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] mx-1" />
+        <div className="w-px h-6 bg-slate-200 dark:bg-[#334155] mx-1" />
 
-        {/* Version selector */}
-        <select className="bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md px-2 py-1.5 focus:outline-none focus:border-[#6366F1]">
-          <option>v2.1.0 (当前)</option>
-          <option>v2.0.0</option>
-          <option>v1.0.0</option>
-        </select>
+        {/* Auto-save indicator */}
+        <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-[#64748B]">
+          {autoSaveStatus === "saving" && <Loader2 className="w-3 h-3 animate-spin" />}
+          {autoSaveStatus === "saved" && <CheckCircle2 className="w-3 h-3 text-[#10B981]" />}
+          {autoSaveStatus === "unsaved" && <div className="w-3 h-3 rounded-full bg-[#F59E0B]" />}
+          <span>
+            {autoSaveStatus === "saving" ? "保存中..." : autoSaveStatus === "saved" ? "已保存" : "未保存"}
+          </span>
+        </div>
+
+        <div className="w-px h-6 bg-slate-200 dark:bg-[#334155] mx-1" />
+
+        {/* Execution history toggle */}
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] hover:text-white" onClick={() => setShowExecutionHistory(!showExecutionHistory)}>
+          <History className="w-3.5 h-3.5" />
+          执行历史
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] hover:text-white" onClick={() => setShowExecutionPlan(!showExecutionPlan)}>
+          <Eye className="w-3.5 h-3.5" />
+          执行计划
+        </Button>
 
         <div className="flex-1" />
 
         {/* Settings + Fullscreen + Manage sandboxes */}
-        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] hover:text-white" onClick={() => setShowSandboxModal(true)}>
+        <Button size="sm" variant="outline" className="h-8 gap-1 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B] hover:text-white" onClick={() => setShowSandboxModal(true)}>
           <LayoutTemplate className="w-3.5 h-3.5" />
           管理沙箱
         </Button>
@@ -727,30 +1387,30 @@ export default function DataSandbox() {
       <div className="flex flex-1 overflow-hidden">
         {/* ---- LEFT PANEL ---- */}
         <div
-          className="shrink-0 border-r border-slate-200 dark:border-slate-200 dark:border-[#334155] bg-white dark:bg-white dark:bg-[#0F172A] flex flex-col transition-all duration-300 ease-in-out"
+          className="shrink-0 border-r border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] flex flex-col transition-all duration-300 ease-in-out"
           style={{ width: leftCollapsed ? 36 : 250 }}
         >
           {/* Collapse toggle */}
           <button
             onClick={() => setLeftCollapsed(!leftCollapsed)}
-            className="h-7 flex items-center justify-center border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] transition-colors"
+            className="h-7 flex items-center justify-center border-b border-slate-200 dark:border-[#334155] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors"
           >
             {leftCollapsed ? (
-              <PanelLeft className="w-3.5 h-3.5 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+              <PanelLeft className="w-3.5 h-3.5 text-slate-500 dark:text-[#64748B]" />
             ) : (
               <div className="flex items-center justify-between w-full px-2">
                 <div className="flex gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("files"); }} className={`p-0.5 rounded ${leftTab === "files" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("files"); }} className={`p-0.5 rounded ${leftTab === "files" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <Folder className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("tables"); }} className={`p-0.5 rounded ${leftTab === "tables" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("tables"); }} className={`p-0.5 rounded ${leftTab === "tables" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <Table2 className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("functions"); }} className={`p-0.5 rounded ${leftTab === "functions" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setLeftTab("functions"); }} className={`p-0.5 rounded ${leftTab === "functions" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <FunctionSquare className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <ChevronLeft className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                <ChevronLeft className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />
               </div>
             )}
           </button>
@@ -760,9 +1420,19 @@ export default function DataSandbox() {
               {/* Tab: File Tree */}
               {leftTab === "files" && (
                 <div className="animate-fadeIn">
-                  <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 dark:text-[#64748B] uppercase tracking-wider mb-2 px-1">项目文件</div>
-                  {FILE_TREE.map((node) => (
-                    <FileTreeNode key={node.name} node={node} />
+                  <div className="flex items-center justify-between mb-2 px-1">
+                    <div className="text-[10px] font-semibold text-slate-500 dark:text-[#64748B] uppercase tracking-wider">项目文件</div>
+                    <div className="flex gap-1">
+                      <button onClick={newFolder} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]" title="新建文件夹">
+                        <FolderPlus className="w-3 h-3" />
+                      </button>
+                      <button onClick={uploadFile} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]" title="上传文件">
+                        <Upload className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  {fileTree.map((node) => (
+                    <FileTreeNode key={node.name} node={node} onContextMenu={handleFileContextMenu} />
                   ))}
                 </div>
               )}
@@ -771,38 +1441,38 @@ export default function DataSandbox() {
               {leftTab === "tables" && (
                 <div className="animate-fadeIn">
                   <div className="relative mb-2">
-                    <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                    <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#64748B]" />
                     <input
                       type="text"
                       placeholder="搜索表名..."
-                      className="w-full bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md pl-6 pr-2 py-1.5 focus:outline-none focus:border-[#6366F1]"
+                      className="w-full bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md pl-6 pr-2 py-1.5 focus:outline-none focus:border-[#6366F1]"
                     />
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 dark:text-[#64748B] uppercase tracking-wider mb-1 px-1">数据表</div>
+                  <div className="text-[10px] font-semibold text-slate-500 dark:text-[#64748B] uppercase tracking-wider mb-1 px-1">数据表</div>
                   {DB_TABLES.map((table) => (
                     <div key={table.name}>
                       <button
                         onClick={() => setSelectedTable(selectedTable === table.name ? null : table.name)}
-                        className={`flex items-center gap-1 w-full px-1 py-1 text-xs rounded transition-colors text-left ${selectedTable === table.name ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]"}`}
+                        className={`flex items-center gap-1 w-full px-1 py-1 text-xs rounded transition-colors text-left ${selectedTable === table.name ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]"}`}
                       >
                         {selectedTable === table.name ? (
-                          <ChevronDown className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                          <ChevronDown className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />
                         ) : (
-                          <ChevronRight className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                          <ChevronRight className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />
                         )}
                         <Database className="w-3.5 h-3.5 text-[#F59E0B]" />
                         <span className="truncate flex-1">{table.name}</span>
-                        <span className="text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B]">{table.columnCount}字段</span>
+                        <span className="text-[10px] text-slate-500 dark:text-[#64748B]">{table.columnCount}字段</span>
                       </button>
                       {selectedTable === table.name && (
-                        <div className="ml-4 border-l border-slate-200 dark:border-slate-200 dark:border-[#334155] pl-2 py-1 animate-fadeIn">
+                        <div className="ml-4 border-l border-slate-200 dark:border-[#334155] pl-2 py-1 animate-fadeIn">
                           {table.columns.map((col) => (
                             <div key={col.name} className="flex items-center gap-1 py-0.5 text-[11px]">
                               {col.isPk && <Key className="w-3 h-3 text-[#F59E0B]" />}
                               {col.isIndex && !col.isPk && <Pin className="w-3 h-3 text-[#8B5CF6]" />}
-                              {!col.isPk && !col.isIndex && <Columns3 className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />}
+                              {!col.isPk && !col.isIndex && <Columns3 className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />}
                               <span className="text-[#A5B4FC]">{col.name}</span>
-                              <span className="text-slate-500 dark:text-slate-500 dark:text-[#64748B]">{col.type}</span>
+                              <span className="text-slate-500 dark:text-[#64748B]">{col.type}</span>
                               {col.nullable && <span className="text-[#EF4444] text-[10px]">N</span>}
                             </div>
                           ))}
@@ -816,21 +1486,21 @@ export default function DataSandbox() {
               {/* Tab: Functions */}
               {leftTab === "functions" && (
                 <div className="animate-fadeIn">
-                  <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 dark:text-[#64748B] uppercase tracking-wider mb-2 px-1">系统函数</div>
+                  <div className="text-[10px] font-semibold text-slate-500 dark:text-[#64748B] uppercase tracking-wider mb-2 px-1">系统函数</div>
                   <div className="space-y-0.5">
                     {SYSTEM_FUNCTIONS.map((fn) => (
-                      <div key={fn.name} className="px-2 py-1 rounded hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] cursor-pointer group">
+                      <div key={fn.name} className="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer group">
                         <div className="text-xs font-mono text-[#60A5FA]">{fn.sig}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B] group-hover:text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]">{fn.desc}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-[#64748B] group-hover:text-slate-400 dark:group-hover:text-[#94A3B8]">{fn.desc}</div>
                       </div>
                     ))}
                   </div>
-                  <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-500 dark:text-[#64748B] uppercase tracking-wider mt-4 mb-2 px-1">自定义函数</div>
+                  <div className="text-[10px] font-semibold text-slate-500 dark:text-[#64748B] uppercase tracking-wider mt-4 mb-2 px-1">自定义函数</div>
                   <div className="space-y-0.5">
                     {CUSTOM_FUNCTIONS.map((fn) => (
-                      <div key={fn.name} className="px-2 py-1 rounded hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] cursor-pointer group">
+                      <div key={fn.name} className="px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] cursor-pointer group">
                         <div className="text-xs font-mono text-[#C084FC]">{fn.sig}</div>
-                        <div className="text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B] group-hover:text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]">{fn.desc}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-[#64748B] group-hover:text-slate-400 dark:group-hover:text-[#94A3B8]">{fn.desc}</div>
                       </div>
                     ))}
                   </div>
@@ -841,19 +1511,47 @@ export default function DataSandbox() {
         </div>
 
         {/* ---- CENTER PANEL ---- */}
-        <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-slate-50 dark:bg-[#0B1120]">
+        <div className="flex-1 flex flex-col min-w-0 bg-slate-50 dark:bg-[#0B1120]">
           {/* Center tabs */}
-          <div className="h-8 bg-white dark:bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] flex items-center px-1 gap-0.5 shrink-0">
+          <div className="h-8 bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-[#334155] flex items-center px-1 gap-0.5 shrink-0 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTabId(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-t transition-colors shrink-0 ${
+                  activeTabId === tab.id
+                    ? "text-[#60A5FA] border-b-2 border-[#6366F1] bg-slate-100 dark:bg-[#1E293B]"
+                    : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[120px]">{tab.name}</span>
+                {tab.modified && <span className="text-[#F59E0B]">●</span>}
+                <button
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                  className="ml-1 p-0.5 rounded hover:bg-slate-200 dark:hover:bg-[#334155]"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </button>
+            ))}
+            <button
+              onClick={addNewTab}
+              className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]"
+            >
+              <Plus className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex-1" />
             <button
               onClick={() => setCenterTab("sql")}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-t transition-colors ${centerTab === "sql" ? "text-[#60A5FA] border-b-2 border-[#6366F1] bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-t transition-colors ${centerTab === "sql" ? "text-[#60A5FA] border-b-2 border-[#6366F1] bg-slate-100 dark:bg-[#1E293B]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}
             >
               <FileText className="w-3.5 h-3.5" />
-              user_rfm_model.sql
+              SQL
             </button>
             <button
               onClick={() => setCenterTab("dag")}
-              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-t transition-colors ${centerTab === "dag" ? "text-[#60A5FA] border-b-2 border-[#6366F1] bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-t transition-colors ${centerTab === "dag" ? "text-[#60A5FA] border-b-2 border-[#6366F1] bg-slate-100 dark:bg-[#1E293B]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}
             >
               <Zap className="w-3.5 h-3.5" />
               DAG视图
@@ -865,20 +1563,44 @@ export default function DataSandbox() {
             {centerTab === "sql" ? (
               <div className="h-full flex flex-col animate-fadeIn">
                 {/* SQL Editor */}
-                <div className="flex-1 overflow-auto font-mono text-sm leading-6 p-4">
-                  {highlightSQL(sqlContent)}
-                </div>
+                <CodeEditor
+                  value={activeTab?.content || ""}
+                  onChange={(v) => updateTabContent(activeTabId, v)}
+                  language={activeTab?.language || "sql"}
+                />
+                {/* Execution progress bar */}
+                {isExecuting && (
+                  <div className="h-1 bg-slate-200 dark:bg-[#334155]">
+                    <div
+                      className="h-full bg-[#6366F1] transition-all duration-200"
+                      style={{ width: `${executionProgress}%` }}
+                    />
+                  </div>
+                )}
                 {/* Editor bottom toolbar */}
-                <div className="h-7 bg-white dark:bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-200 dark:border-[#334155] flex items-center px-3 gap-4 text-[11px] text-slate-500 dark:text-slate-500 dark:text-[#64748B] shrink-0">
+                <div className="h-7 bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-[#334155] flex items-center px-3 gap-4 text-[11px] text-slate-500 dark:text-[#64748B] shrink-0">
                   <span className="flex items-center gap-1">
                     <div className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
                     已连接
                   </span>
                   <span>UTF-8</span>
-                  <span>SQL</span>
+                  <span>{activeTab?.language.toUpperCase()}</span>
                   <span>{cursorLine}:{cursorCol}</span>
+                  {lastExecutionTime !== null && (
+                    <span className="flex items-center gap-1 text-[#10B981]">
+                      <Timer className="w-3 h-3" />
+                      {lastExecutionTime}s
+                    </span>
+                  )}
                   <div className="flex-1" />
-                  <span className="flex items-center gap-1"><HardDrive className="w-3 h-3" /> 已保存</span>
+                  <span className="flex items-center gap-1"><HardDrive className="w-3 h-3" /> {autoSaveStatus === "saved" ? "已保存" : autoSaveStatus === "saving" ? "保存中..." : "未保存"}</span>
+                  <button
+                    onClick={() => setShowVersionHistory(true)}
+                    className="flex items-center gap-1 hover:text-[#6366F1]"
+                  >
+                    <History className="w-3 h-3" />
+                    历史版本
+                  </button>
                 </div>
               </div>
             ) : (
@@ -890,12 +1612,26 @@ export default function DataSandbox() {
                   onEdgesChange={onDAGEdgesChange}
                   onConnect={onConnect}
                   nodeTypes={dagNodeTypes}
+                  onNodeClick={(_, node) => {
+                    if (connectMode) {
+                      if (connectMode.sourceId !== node.id) {
+                        setDagEdges((eds) => addEdge({ source: connectMode.sourceId, target: node.id, sourceHandle: null, targetHandle: null }, eds));
+                      }
+                      setConnectMode(null);
+                    } else {
+                      setSelectedDAGNode(node.id);
+                    }
+                  }}
+                  onPaneClick={() => {
+                    setSelectedDAGNode(null);
+                    setConnectMode(null);
+                  }}
                   fitView
                   style={{ background: "#0B1120" }}
                 >
                   <Background color="#334155" gap={20} size={1} />
-                  <Controls className="!bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] !border-slate-200 dark:border-slate-200 dark:border-[#334155] !text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]" />
-                  <MiniMap className="!bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]" nodeColor={(n) => {
+                  <Controls className="!bg-slate-100 dark:bg-[#1E293B] !border-slate-200 dark:!border-[#334155] !text-slate-500 dark:!text-[#CBD5E1]" />
+                  <MiniMap className="!bg-slate-100 dark:bg-[#1E293B]" nodeColor={(n) => {
                     if (n.type === "source") return "#10B981";
                     if (n.type === "process") return "#6366F1";
                     if (n.type === "target") return "#F59E0B";
@@ -903,17 +1639,83 @@ export default function DataSandbox() {
                   }} maskColor="rgba(15, 23, 42, 0.7)" />
                 </ReactFlow>
                 {/* DAG Toolbar */}
-                <div className="absolute top-3 right-3 flex gap-1 z-10">
-                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-slate-200 dark:border-[#334155] bg-white dark:bg-white dark:bg-[#0F172A] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]">
-                    <Plus className="w-3 h-3 mr-1" />节点
+                <div className="absolute top-3 right-3 flex gap-1 z-10 flex-wrap max-w-[200px] justify-end">
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("source", { x: Math.random() * 200 + 50, y: Math.random() * 200 + 50 })}>
+                    <Plus className="w-3 h-3 mr-1" />源表
                   </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-slate-200 dark:border-[#334155] bg-white dark:bg-white dark:bg-[#0F172A] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]">
-                    <LayoutTemplate className="w-3 h-3 mr-1" />自动布局
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("process", { x: Math.random() * 200 + 250, y: Math.random() * 200 + 50 })}>
+                    <Plus className="w-3 h-3 mr-1" />SQL转换
                   </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-slate-200 dark:border-[#334155] bg-white dark:bg-white dark:bg-[#0F172A] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]">
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("join", { x: Math.random() * 200 + 250, y: Math.random() * 200 + 50 })}>
+                    <Plus className="w-3 h-3 mr-1" />Join
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("filter", { x: Math.random() * 200 + 250, y: Math.random() * 200 + 50 })}>
+                    <Filter className="w-3 h-3 mr-1" />Filter
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("aggregate", { x: Math.random() * 200 + 250, y: Math.random() * 200 + 50 })}>
+                    <Plus className="w-3 h-3 mr-1" />聚合
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => addDAGNode("target", { x: Math.random() * 200 + 450, y: Math.random() * 200 + 50 })}>
+                    <Plus className="w-3 h-3 mr-1" />输出
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={validateDAG}>
                     <Check className="w-3 h-3 mr-1" />验证
                   </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={generateSQLFromDAG}>
+                    <FileCode className="w-3 h-3 mr-1" />生成SQL
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={saveDAG}>
+                    <Save className="w-3 h-3 mr-1" />保存
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-[10px] border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#1E293B]" onClick={() => setShowDagLoadDialog(true)}>
+                    <Upload className="w-3 h-3 mr-1" />加载
+                  </Button>
                 </div>
+                {/* DAG Validation Error */}
+                {dagValidationError && (
+                  <div className="absolute bottom-3 left-3 right-3 z-10 bg-red-500/10 border border-red-500/30 text-red-400 text-xs p-2 rounded">
+                    {dagValidationError}
+                    <button onClick={() => setDagValidationError(null)} className="ml-2 text-red-500 hover:text-red-400">
+                      <X className="w-3 h-3 inline" />
+                    </button>
+                  </div>
+                )}
+                {/* Selected Node Config Panel */}
+                {selectedDAGNode && (
+                  <div className="absolute top-3 left-3 z-10 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-[#334155] rounded-lg p-3 w-64 shadow-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500 dark:text-[#CBD5E1]">节点配置</span>
+                      <button onClick={() => setSelectedDAGNode(null)} className="text-slate-400 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-[10px] text-slate-500 dark:text-[#64748B] block mb-1">SQL 配置</label>
+                        <textarea
+                          value={dagNodeConfig[selectedDAGNode]?.sql || ""}
+                          onChange={(e) => setDagNodeConfig((prev) => ({ ...prev, [selectedDAGNode]: { ...prev[selectedDAGNode], sql: e.target.value } }))}
+                          className="w-full h-20 bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded p-2 focus:outline-none focus:border-[#6366F1] resize-none"
+                          placeholder="输入SQL..."
+                        />
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-[10px] w-full"
+                        onClick={() => {
+                          const node = dagNodes.find((n) => n.id === selectedDAGNode);
+                          if (node) {
+                            setConnectMode({ sourceId: node.id });
+                            setSelectedDAGNode(null);
+                          }
+                        }}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />连接输出
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -921,26 +1723,26 @@ export default function DataSandbox() {
 
         {/* ---- RIGHT PANEL ---- */}
         <div
-          className="shrink-0 border-l border-slate-200 dark:border-slate-200 dark:border-[#334155] bg-white dark:bg-white dark:bg-[#0F172A] flex flex-col transition-all duration-300 ease-in-out"
+          className="shrink-0 border-l border-slate-200 dark:border-[#334155] bg-white dark:bg-[#0F172A] flex flex-col transition-all duration-300 ease-in-out"
           style={{ width: rightCollapsed ? 36 : 300 }}
         >
           <button
             onClick={() => setRightCollapsed(!rightCollapsed)}
-            className="h-7 flex items-center justify-center border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] transition-colors"
+            className="h-7 flex items-center justify-center border-b border-slate-200 dark:border-[#334155] hover:bg-slate-100 dark:hover:bg-[#1E293B] transition-colors"
           >
             {rightCollapsed ? (
-              <PanelRight className="w-3.5 h-3.5 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+              <PanelRight className="w-3.5 h-3.5 text-slate-500 dark:text-[#64748B]" />
             ) : (
               <div className="flex items-center justify-between w-full px-2">
-                <ChevronLeft className="w-3 h-3 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                <ChevronLeft className="w-3 h-3 text-slate-500 dark:text-[#64748B]" />
                 <div className="flex gap-1">
-                  <button onClick={(e) => { e.stopPropagation(); setRightTab("results"); }} className={`p-0.5 rounded ${rightTab === "results" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setRightTab("results"); }} className={`p-0.5 rounded ${rightTab === "results" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <Table2 className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setRightTab("logs"); }} className={`p-0.5 rounded ${rightTab === "logs" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setRightTab("logs"); }} className={`p-0.5 rounded ${rightTab === "logs" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <Bug className="w-3.5 h-3.5" />
                   </button>
-                  <button onClick={(e) => { e.stopPropagation(); setRightTab("models"); }} className={`p-0.5 rounded ${rightTab === "models" ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"}`}>
+                  <button onClick={(e) => { e.stopPropagation(); setRightTab("models"); }} className={`p-0.5 rounded ${rightTab === "models" ? "bg-slate-100 dark:bg-[#273548] text-[#60A5FA]" : "text-slate-500 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]"}`}>
                     <Database className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -954,19 +1756,82 @@ export default function DataSandbox() {
               {rightTab === "results" && (
                 <div className="animate-fadeIn">
                   {/* Stats */}
-                  <div className="flex items-center gap-3 px-3 py-2 border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] text-[11px] text-slate-500 dark:text-slate-500 dark:text-[#64748B]">
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {QUERY_RESULT.executionTime}s</span>
-                    <span className="flex items-center gap-1"><Table2 className="w-3 h-3" /> {QUERY_RESULT.rowCount} 行</span>
+                  <div className="flex items-center gap-3 px-3 py-2 border-b border-slate-200 dark:border-[#334155] text-[11px] text-slate-500 dark:text-[#64748B] flex-wrap">
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {lastExecutionTime ?? QUERY_RESULT.executionTime}s</span>
+                    <span className="flex items-center gap-1"><Table2 className="w-3 h-3" /> {filteredResultRows.length} 行</span>
+                    <span className="flex items-center gap-1"><Columns3 className="w-3 h-3" /> {QUERY_RESULT.columns.length} 列</span>
+                    <span className="flex items-center gap-1"><HardDrive className="w-3 h-3" /> {formatBytes(filteredResultRows.length * QUERY_RESULT.columns.length * 8)}</span>
                   </div>
+                  {/* Search + Export + Chart */}
+                  <div className="flex items-center gap-1 p-2 border-b border-slate-200 dark:border-[#334155]">
+                    <div className="relative flex-1">
+                      <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#64748B]" />
+                      <input
+                        type="text"
+                        value={resultsSearch}
+                        onChange={(e) => { setResultsSearch(e.target.value); setCurrentPage(1); }}
+                        placeholder="搜索结果..."
+                        className="w-full bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md pl-6 pr-2 py-1 focus:outline-none focus:border-[#6366F1]"
+                      />
+                    </div>
+                    <button onClick={() => exportResults("csv")} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]" title="导出CSV">
+                      <Download className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => exportResults("json")} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]" title="导出JSON">
+                      <FileJson className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => setShowChart(!showChart)} className={`p-1 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] ${showChart ? "text-[#6366F1]" : "text-slate-500 dark:text-[#64748B]"}`} title="图表">
+                      <BarChart3 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  {/* Chart config */}
+                  {showChart && (
+                    <div className="p-2 border-b border-slate-200 dark:border-[#334155] space-y-2">
+                      <div className="flex gap-1">
+                        <select
+                          value={chartXCol}
+                          onChange={(e) => setChartXCol(e.target.value)}
+                          className="flex-1 bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded px-2 py-1"
+                        >
+                          <option value="">选择X轴</option>
+                          {QUERY_RESULT.columns.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={chartYCol}
+                          onChange={(e) => setChartYCol(e.target.value)}
+                          className="flex-1 bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded px-2 py-1"
+                        >
+                          <option value="">选择Y轴</option>
+                          {QUERY_RESULT.columns.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex gap-1">
+                        <button onClick={() => setChartType("bar")} className={`flex-1 p-1 rounded text-xs ${chartType === "bar" ? "bg-[#6366F1] text-white" : "bg-slate-100 dark:bg-[#1E293B] text-slate-500 dark:text-[#CBD5E1]"}`}>
+                          <BarChart3 className="w-3 h-3 inline mr-1" />柱状
+                        </button>
+                        <button onClick={() => setChartType("line")} className={`flex-1 p-1 rounded text-xs ${chartType === "line" ? "bg-[#6366F1] text-white" : "bg-slate-100 dark:bg-[#1E293B] text-slate-500 dark:text-[#CBD5E1]"}`}>
+                          <LineChart className="w-3 h-3 inline mr-1" />折线
+                        </button>
+                        <button onClick={() => setChartType("pie")} className={`flex-1 p-1 rounded text-xs ${chartType === "pie" ? "bg-[#6366F1] text-white" : "bg-slate-100 dark:bg-[#1E293B] text-slate-500 dark:text-[#CBD5E1]"}`}>
+                          <PieChart className="w-3 h-3 inline mr-1" />饼图
+                        </button>
+                      </div>
+                      <div ref={chartRef} className="w-full h-48" />
+                    </div>
+                  )}
                   {/* Result table */}
                   <div className="overflow-auto max-h-[calc(100%-2rem)]">
                     <table className="w-full text-[11px]">
-                      <thead className="bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] sticky top-0">
+                      <thead className="bg-slate-100 dark:bg-[#1E293B] sticky top-0">
                         <tr>
                           {QUERY_RESULT.columns.map((col, i) => (
                             <th
                               key={col}
-                              className="px-2 py-1.5 text-left text-slate-400 dark:text-slate-400 dark:text-[#94A3B8] font-semibold border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] cursor-pointer hover:text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] select-none whitespace-nowrap"
+                              className="px-2 py-1.5 text-left text-slate-400 dark:text-[#94A3B8] font-semibold border-b border-slate-200 dark:border-[#334155] cursor-pointer hover:text-slate-500 dark:text-[#CBD5E1] select-none whitespace-nowrap"
                               onClick={() => handleSort(i)}
                             >
                               <span className="flex items-center gap-0.5">
@@ -978,10 +1843,10 @@ export default function DataSandbox() {
                         </tr>
                       </thead>
                       <tbody>
-                        {sortedResultRows.map((row, ri) => (
-                          <tr key={ri} className="border-b border-slate-200 dark:border-slate-200 dark:border-[#334155]/50 hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]/50">
+                        {paginatedRows.map((row, ri) => (
+                          <tr key={ri} className="border-b border-slate-200 dark:border-[#334155]/50 hover:bg-slate-100 dark:hover:bg-[#1E293B]/50">
                             {row.map((cell, ci) => (
-                              <td key={ci} className="px-2 py-1 text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] whitespace-nowrap font-mono">
+                              <td key={ci} className="px-2 py-1 text-slate-500 dark:text-[#CBD5E1] whitespace-nowrap font-mono">
                                 {cell}
                               </td>
                             ))}
@@ -990,37 +1855,108 @@ export default function DataSandbox() {
                       </tbody>
                     </table>
                   </div>
+                  {/* Pagination */}
+                  <div className="flex items-center justify-between p-2 border-t border-slate-200 dark:border-[#334155] text-[10px] text-slate-500 dark:text-[#64748B]">
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={pageSize}
+                        onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                        className="bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded px-1 py-0.5"
+                      >
+                        {[50, 100, 200, 500].map((s) => (
+                          <option key={s} value={s}>{s}/页</option>
+                        ))}
+                      </select>
+                      <span>{(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, filteredResultRows.length)} / {filteredResultRows.length}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] disabled:opacity-30">
+                        <ChevronLeft className="w-3 h-3" />
+                      </button>
+                      <span className="px-1">{currentPage}/{totalPages || 1}</span>
+                      <button onClick={() => setCurrentPage((p) => Math.min(totalPages || 1, p + 1))} disabled={currentPage >= totalPages} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] disabled:opacity-30">
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* Tab: Logs */}
               {rightTab === "logs" && (
                 <div className="animate-fadeIn">
-                  {/* Log filter buttons */}
-                  <div className="flex gap-0.5 p-1.5 border-b border-slate-200 dark:border-slate-200 dark:border-[#334155] flex-wrap">
-                    {(["ALL", "INFO", "SUCCESS", "WARN", "ERROR", "DEBUG"] as const).map((level) => (
-                      <button
-                        key={level}
-                        onClick={() => setLogFilter(level)}
-                        className={`px-2 py-0.5 text-[10px] rounded-full transition-colors ${
-                          logFilter === level
-                            ? "bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]"
-                            : "text-slate-500 dark:text-slate-500 dark:text-[#64748B] hover:text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]"
-                        }`}
-                      >
-                        {level === "ALL" ? "全部" : level}
-                      </button>
-                    ))}
+                  {/* Execution Summary Card */}
+                  <div className="grid grid-cols-2 gap-1 p-2 border-b border-slate-200 dark:border-[#334155]">
+                    <div className="bg-slate-100 dark:bg-[#1E293B] rounded p-1.5 text-center">
+                      <div className="text-[10px] text-slate-500 dark:text-[#64748B]">耗时</div>
+                      <div className="text-xs font-mono text-[#60A5FA]">{executionSummary.duration}s</div>
+                    </div>
+                    <div className="bg-slate-100 dark:bg-[#1E293B] rounded p-1.5 text-center">
+                      <div className="text-[10px] text-slate-500 dark:text-[#64748B]">扫描行数</div>
+                      <div className="text-xs font-mono text-[#10B981]">{executionSummary.rowsScanned.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-slate-100 dark:bg-[#1E293B] rounded p-1.5 text-center">
+                      <div className="text-[10px] text-slate-500 dark:text-[#64748B]">写入行数</div>
+                      <div className="text-xs font-mono text-[#F59E0B]">{executionSummary.rowsWritten.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-slate-100 dark:bg-[#1E293B] rounded p-1.5 text-center">
+                      <div className="text-[10px] text-slate-500 dark:text-[#64748B]">错误</div>
+                      <div className="text-xs font-mono text-[#EF4444]">{executionSummary.errors}</div>
+                    </div>
+                  </div>
+                  {/* Log filter + search + export */}
+                  <div className="flex gap-0.5 p-1.5 border-b border-slate-200 dark:border-[#334155] flex-wrap items-center">
+                    <div className="flex gap-0.5 flex-wrap flex-1">
+                      {(["ALL", "INFO", "SUCCESS", "WARN", "ERROR", "DEBUG"] as const).map((level) => (
+                        <button
+                          key={level}
+                          onClick={() => setLogFilter(level)}
+                          className={`px-2 py-0.5 text-[10px] rounded-full transition-colors ${
+                            logFilter === level
+                              ? "bg-slate-100 dark:bg-[#273548] text-slate-500 dark:text-[#CBD5E1]"
+                              : "text-slate-500 dark:text-[#64748B] hover:text-slate-400 dark:text-[#94A3B8]"
+                          }`}
+                        >
+                          {level === "ALL" ? "全部" : level}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={exportLogs} className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-[#1E293B] text-slate-500 dark:text-[#64748B]" title="导出日志">
+                      <Download className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <div className="p-1.5 border-b border-slate-200 dark:border-[#334155]">
+                    <div className="relative">
+                      <Search className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#64748B]" />
+                      <input
+                        type="text"
+                        value={logSearch}
+                        onChange={(e) => setLogSearch(e.target.value)}
+                        placeholder="搜索日志..."
+                        className="w-full bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded-md pl-6 pr-2 py-1 focus:outline-none focus:border-[#6366F1]"
+                      />
+                    </div>
                   </div>
                   <div className="p-2 space-y-1">
                     {filteredLogs.map((log, i) => (
                       <div key={i} className="flex gap-1.5 text-[11px] font-mono">
-                        <span className="text-slate-500 dark:text-slate-500 dark:text-[#64748B] shrink-0">[{log.time}]</span>
+                        <span className="text-slate-500 dark:text-[#64748B] shrink-0">[{log.time}]</span>
                         <span className="flex items-center gap-0.5 shrink-0">
                           {logLevelIcon(log.level)}
                           <span className={logLevelColor(log.level)}>{log.level}</span>
                         </span>
-                        <span className="text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] break-all">{log.message}</span>
+                        <span className="text-slate-500 dark:text-[#CBD5E1] break-all">
+                          {logSearch ? (
+                            <span dangerouslySetInnerHTML={{
+                              __html: log.message.replace(
+                                new RegExp(`(${logSearch})`, "gi"),
+                                '<mark class="bg-yellow-500/30 text-yellow-200">$1</mark>'
+                              )
+                            }} />
+                          ) : (
+                            log.message
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1031,25 +1967,25 @@ export default function DataSandbox() {
               {rightTab === "models" && (
                 <div className="animate-fadeIn p-2 space-y-2">
                   {MODELS.map((model) => (
-                    <div key={model.id} className="bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] rounded-lg border border-slate-200 dark:border-slate-200 dark:border-[#334155] p-3 hover:border-slate-300 dark:border-slate-300 dark:border-[#475569] transition-colors">
+                    <div key={model.id} className="bg-slate-100 dark:bg-[#1E293B] rounded-lg border border-slate-200 dark:border-[#334155] p-3 hover:border-slate-300 dark:hover:border-[#475569] transition-colors">
                       <div className="flex items-start justify-between">
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1]">{model.name}</div>
+                        <div className="text-xs font-semibold text-slate-500 dark:text-[#CBD5E1]">{model.name}</div>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${modelStatusColor(model.status)}`}>
                           {model.status}
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B] mt-0.5">{model.type} · {model.version}</div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-400 dark:text-[#94A3B8] mt-1 line-clamp-2">{model.description}</div>
+                      <div className="text-[10px] text-slate-500 dark:text-[#64748B] mt-0.5">{model.type} · {model.version}</div>
+                      <div className="text-[10px] text-slate-400 dark:text-[#94A3B8] mt-1 line-clamp-2">{model.description}</div>
                       {model.metrics && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {Object.entries(model.metrics).map(([k, v]) => (
-                            <span key={k} className="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-white dark:bg-[#0F172A] text-[#60A5FA]">
+                            <span key={k} className="text-[10px] px-1.5 py-0.5 rounded bg-white dark:bg-[#0F172A] text-[#60A5FA]">
                               {k}: {v}
                             </span>
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B]">
+                      <div className="flex items-center justify-between mt-2 text-[10px] text-slate-500 dark:text-[#64748B]">
                         <span>运行 {model.runCount} 次</span>
                         <span>{model.lastRunAt}</span>
                       </div>
@@ -1057,10 +1993,10 @@ export default function DataSandbox() {
                         <Button size="sm" className="h-6 text-[10px] bg-[#6366F1] hover:bg-[#4F46E5] text-white px-2">
                           <Play className="w-2.5 h-2.5 mr-1" />运行
                         </Button>
-                        <Button size="sm" variant="outline" className="h-6 text-[10px] border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] px-2">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px] border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548] px-2">
                           <GitBranchIcon className="w-2.5 h-2.5 mr-1" />对比
                         </Button>
-                        <Button size="sm" variant="outline" className="h-6 text-[10px] border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] px-2">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px] border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548] px-2">
                           <Zap className="w-2.5 h-2.5 mr-1" />部署
                         </Button>
                       </div>
@@ -1074,43 +2010,237 @@ export default function DataSandbox() {
       </div>
 
       {/* ========== BOTTOM STATUS BAR ========== */}
-      <div className="h-6 bg-white dark:bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-slate-200 dark:border-[#334155] flex items-center px-3 gap-4 text-[10px] text-slate-500 dark:text-slate-500 dark:text-[#64748B] shrink-0">
+      <div className="h-6 bg-white dark:bg-[#0F172A] border-t border-slate-200 dark:border-[#334155] flex items-center px-3 gap-4 text-[10px] text-slate-500 dark:text-[#64748B] shrink-0">
         <span className="flex items-center gap-1">
           <div className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse" />
           数据库已连接
         </span>
-        <span>行数: {QUERY_RESULT.rowCount}</span>
-        <span>耗时: {QUERY_RESULT.executionTime}s</span>
+        <span>行数: {filteredResultRows.length}</span>
+        <span>耗时: {lastExecutionTime ?? QUERY_RESULT.executionTime}s</span>
         <div className="flex-1" />
         <span>行 {cursorLine}, 列 {cursorCol}</span>
         <span>UTF-8</span>
       </div>
 
+      {/* ========== CONTEXT MENU ========== */}
+      {contextMenu && (
+        <div
+          className="fixed z-[100] bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded-lg shadow-lg py-1 w-40"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            onClick={() => { setRenameTarget(contextMenu.node); setRenameValue(contextMenu.node.name); setContextMenu(null); }}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548]"
+          >
+            <Type className="w-3 h-3" />重命名
+          </button>
+          <button
+            onClick={() => deleteFileNode(contextMenu.node)}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-500 hover:bg-slate-100 dark:hover:bg-[#273548]"
+          >
+            <Trash2 className="w-3 h-3" />删除
+          </button>
+          <button
+            onClick={() => copyPath(contextMenu.node)}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548]"
+          >
+            <Copy className="w-3 h-3" />复制路径
+          </button>
+          <button
+            onClick={() => downloadFile(contextMenu.node)}
+            className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548]"
+          >
+            <Download className="w-3 h-3" />下载
+          </button>
+        </div>
+      )}
+
+      {/* ========== RENAME DIALOG ========== */}
+      {renameTarget && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded-xl shadow-xl w-full max-w-sm p-5">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-[#F1F5F9] mb-3">重命名</h3>
+            <input
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-[#0F172A] border border-slate-200 dark:border-[#334155] text-slate-700 dark:text-[#CBD5E1] text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[#6366F1] mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setRenameTarget(null)}>取消</Button>
+              <Button size="sm" className="h-8 text-xs bg-[#6366F1] hover:bg-[#4F46E5] text-white" onClick={() => renameFileNode(renameTarget, renameValue)}>确定</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== EXECUTION HISTORY SIDEBAR ========== */}
+      {showExecutionHistory && (
+        <div className="fixed right-0 top-12 bottom-6 w-80 bg-white dark:bg-[#0F172A] border-l border-slate-200 dark:border-[#334155] shadow-xl z-50 flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-[#334155]">
+            <h3 className="text-xs font-semibold text-slate-500 dark:text-[#CBD5E1]">执行历史 (最近20条)</h3>
+            <button onClick={() => setShowExecutionHistory(false)} className="text-slate-400 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto p-2 space-y-1">
+            {executionHistory.map((record) => (
+              <div key={record.id} className="p-2 rounded bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] text-xs">
+                <div className="flex items-center gap-1 mb-1">
+                  {record.status === "success" && <CheckCircle2 className="w-3 h-3 text-[#10B981]" />}
+                  {record.status === "error" && <AlertCircle className="w-3 h-3 text-[#EF4444]" />}
+                  {record.status === "cancelled" && <StopCircle className="w-3 h-3 text-[#F59E0B]" />}
+                  <span className="text-slate-500 dark:text-[#CBD5E1] font-mono truncate">{record.sql}</span>
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-[#64748B]">
+                  <span>{record.time}</span>
+                  <span>{record.duration > 0 ? `${record.duration}s` : "已取消"}</span>
+                  <span>{record.rows} 行</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========== EXECUTION PLAN SIDEBAR ========== */}
+      {showExecutionPlan && (
+        <div className="fixed right-0 top-12 bottom-6 w-80 bg-white dark:bg-[#0F172A] border-l border-slate-200 dark:border-[#334155] shadow-xl z-50 flex flex-col">
+          <div className="flex items-center justify-between p-3 border-b border-slate-200 dark:border-[#334155]">
+            <h3 className="text-xs font-semibold text-slate-500 dark:text-[#CBD5E1]">执行计划</h3>
+            <button onClick={() => setShowExecutionPlan(false)} className="text-slate-400 dark:text-[#64748B] hover:text-slate-500 dark:text-[#CBD5E1]">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-auto p-2 space-y-2">
+            {MOCK_EXECUTION_PLAN.map((node) => (
+              <div key={node.id} className="p-2 rounded bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155]">
+                <div className="flex items-center justify-between mb-1">
+                  <Badge variant="outline" className="text-[10px]">{node.type}</Badge>
+                  <span className="text-[10px] text-slate-500 dark:text-[#64748B]">Cost: {node.cost}</span>
+                </div>
+                <div className="text-[11px] text-slate-500 dark:text-[#CBD5E1] mb-1">{node.details}</div>
+                <div className="flex gap-2 text-[10px] text-slate-500 dark:text-[#64748B]">
+                  <span>扫描: {node.scanType}</span>
+                  <span>预估: {node.estimatedRows.toLocaleString()} 行</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ========== VERSION HISTORY DIALOG ========== */}
+      {showVersionHistory && (
+        <Dialog open={showVersionHistory} onOpenChange={setShowVersionHistory}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle className="text-sm">版本历史 - {activeTab?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              {MOCK_VERSIONS.map((version) => (
+                <Card key={version.id}>
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold">{version.id}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-[#64748B]">{version.timestamp}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-[#64748B]">{version.author}</span>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => setCompareVersion(version)}>
+                          <GitCompare className="w-3 h-3 mr-1" />对比
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={() => restoreVersion(version)}>
+                          <Undo className="w-3 h-3 mr-1" />恢复
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-[#CBD5E1]">{version.summary}</div>
+                    {compareVersion?.id === version.id && (
+                      <div className="mt-2 border border-slate-200 dark:border-[#334155] rounded p-2">
+                        <div className="text-[10px] text-slate-500 dark:text-[#64748B] mb-1">与当前版本对比</div>
+                        <DiffViewer oldText={version.content} newText={activeTab?.content || ""} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* ========== DAG SAVE/LOAD DIALOGS ========== */}
+      {showDagSaveDialog && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded-xl shadow-xl w-full max-w-lg p-5">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-[#F1F5F9] mb-3">保存 DAG</h3>
+            <textarea
+              value={dagJsonText}
+              readOnly
+              className="w-full h-40 bg-slate-100 dark:bg-[#0F172A] border border-slate-200 dark:border-[#334155] text-slate-700 dark:text-[#CBD5E1] text-xs rounded-lg px-3 py-2 focus:outline-none font-mono resize-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowDagSaveDialog(false)}>关闭</Button>
+              <Button size="sm" className="h-8 text-xs bg-[#6366F1] hover:bg-[#4F46E5] text-white" onClick={() => {
+                const blob = new Blob([dagJsonText], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `dag_${genId()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>下载</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDagLoadDialog && (
+        <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded-xl shadow-xl w-full max-w-lg p-5">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-[#F1F5F9] mb-3">加载 DAG</h3>
+            <textarea
+              value={dagJsonText}
+              onChange={(e) => setDagJsonText(e.target.value)}
+              placeholder="粘贴DAG JSON..."
+              className="w-full h-40 bg-slate-100 dark:bg-[#0F172A] border border-slate-200 dark:border-[#334155] text-slate-700 dark:text-[#CBD5E1] text-xs rounded-lg px-3 py-2 focus:outline-none font-mono resize-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowDagLoadDialog(false)}>取消</Button>
+              <Button size="sm" className="h-8 text-xs bg-[#6366F1] hover:bg-[#4F46E5] text-white" onClick={loadDAG}>加载</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ========== SANDBOX LIST MODAL ========== */}
       {showSandboxModal && (
         <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowSandboxModal(false)}>
           <div
-            className="bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-slate-200 dark:border-[#334155] rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col animate-scaleIn"
+            className="bg-slate-100 dark:bg-[#1E293B] border border-slate-200 dark:border-[#334155] rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col animate-scaleIn"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-200 dark:border-[#334155]">
-              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-800 dark:text-[#F1F5F9]">沙箱管理</h3>
-              <button onClick={() => setShowSandboxModal(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] transition-colors">
-                <X className="w-4 h-4 text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]" />
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-[#334155]">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-[#F1F5F9]">沙箱管理</h3>
+              <button onClick={() => setShowSandboxModal(false)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#273548] transition-colors">
+                <X className="w-4 h-4 text-slate-400 dark:text-[#94A3B8]" />
               </button>
             </div>
 
             {/* Search */}
-            <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-200 dark:border-[#334155]">
+            <div className="px-5 py-3 border-b border-slate-200 dark:border-[#334155]">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-500 dark:text-[#64748B]" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-[#64748B]" />
                 <input
                   type="text"
                   value={sandboxSearch}
                   onChange={(e) => setSandboxSearch(e.target.value)}
                   placeholder="搜索沙箱名称..."
-                  className="w-full bg-white dark:bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] text-xs rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:border-[#6366F1]"
+                  className="w-full bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] text-xs rounded-lg pl-9 pr-3 py-2 focus:outline-none focus:border-[#6366F1]"
                 />
               </div>
             </div>
@@ -1118,19 +2248,19 @@ export default function DataSandbox() {
             {/* Sandbox table */}
             <div className="flex-1 overflow-auto px-5 py-3">
               <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-slate-100 dark:bg-slate-100 dark:bg-[#1E293B]">
-                  <tr className="border-b border-slate-200 dark:border-slate-200 dark:border-[#334155]">
+                <thead className="sticky top-0 bg-slate-100 dark:bg-[#1E293B]">
+                  <tr className="border-b border-slate-200 dark:border-[#334155]">
                     {["沙箱名称", "状态", "类型", "资源规格", "创建人", "创建时间", "到期时间", "操作"].map((h) => (
-                      <th key={h} className="px-3 py-2 text-left text-slate-400 dark:text-slate-400 dark:text-[#94A3B8] font-semibold">{h}</th>
+                      <th key={h} className="px-3 py-2 text-left text-slate-400 dark:text-[#94A3B8] font-semibold">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filteredSandboxes.map((sb) => (
-                    <tr key={sb.id} className="border-b border-slate-200 dark:border-slate-200 dark:border-[#334155]/50 hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548]/50 transition-colors">
-                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] font-medium">{sb.name}</td>
+                    <tr key={sb.id} className="border-b border-slate-200 dark:border-[#334155]/50 hover:bg-slate-100 dark:hover:bg-[#273548]/50 transition-colors">
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-[#CBD5E1] font-medium">{sb.name}</td>
                       <td className="px-3 py-2.5">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${sb.status === "running" ? "bg-[#064E3B] text-[#10B981]" : "bg-slate-200 dark:bg-slate-200 dark:bg-[#334155] text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]"}`}>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${sb.status === "running" ? "bg-[#064E3B] text-[#10B981]" : "bg-slate-200 dark:bg-[#334155] text-slate-400 dark:text-[#94A3B8]"}`}>
                           {sb.status === "running" ? "运行中" : "已停止"}
                         </span>
                       </td>
@@ -1139,26 +2269,26 @@ export default function DataSandbox() {
                           {sb.type === "production" ? "生产" : "开发"}
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-slate-400 dark:text-slate-400 dark:text-[#94A3B8] font-mono text-[11px]">{sb.cpu}/{sb.memory}/{sb.storage}</td>
-                      <td className="px-3 py-2.5 text-slate-400 dark:text-slate-400 dark:text-[#94A3B8]">{sb.owner}</td>
-                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-500 dark:text-[#64748B] text-[11px]">{sb.createdAt}</td>
-                      <td className="px-3 py-2.5 text-slate-500 dark:text-slate-500 dark:text-[#64748B] text-[11px]">{sb.expiresAt}</td>
+                      <td className="px-3 py-2.5 text-slate-400 dark:text-[#94A3B8] font-mono text-[11px]">{sb.cpu}/{sb.memory}/{sb.storage}</td>
+                      <td className="px-3 py-2.5 text-slate-400 dark:text-[#94A3B8]">{sb.owner}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-[#64748B] text-[11px]">{sb.createdAt}</td>
+                      <td className="px-3 py-2.5 text-slate-500 dark:text-[#64748B] text-[11px]">{sb.expiresAt}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
                           {sb.status === "running" ? (
-                            <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] transition-colors" title="暂停">
+                            <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#273548] transition-colors" title="暂停">
                               <Pause className="w-3.5 h-3.5 text-[#F59E0B]" />
                             </button>
                           ) : (
-                            <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] transition-colors" title="重启">
+                            <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#273548] transition-colors" title="重启">
                               <RotateCcw className="w-3.5 h-3.5 text-[#10B981]" />
                             </button>
                           )}
-                          <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] transition-colors" title="删除">
+                          <button className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#273548] transition-colors" title="删除">
                             <Trash2 className="w-3.5 h-3.5 text-[#EF4444]" />
                           </button>
                           <button
-                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548] transition-colors"
+                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#273548] transition-colors"
                             title="进入"
                             onClick={() => {
                               setActiveSandbox(sb);
@@ -1176,8 +2306,8 @@ export default function DataSandbox() {
             </div>
 
             {/* Modal footer */}
-            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-200 dark:border-[#334155] flex justify-end gap-2">
-              <Button size="sm" variant="outline" className="h-8 text-xs border-slate-200 dark:border-slate-200 dark:border-[#334155] text-slate-500 dark:text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-slate-100 dark:bg-slate-100 dark:bg-[#273548]" onClick={() => setShowSandboxModal(false)}>
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-[#334155] flex justify-end gap-2">
+              <Button size="sm" variant="outline" className="h-8 text-xs border-slate-200 dark:border-[#334155] text-slate-500 dark:text-[#CBD5E1] hover:bg-slate-100 dark:hover:bg-[#273548]" onClick={() => setShowSandboxModal(false)}>
                 关闭
               </Button>
               <Button size="sm" className="h-8 text-xs bg-[#6366F1] hover:bg-[#4F46E5] text-white" onClick={() => { setShowNewSandboxModal(true); setShowSandboxModal(false); }}>
@@ -1187,7 +2317,6 @@ export default function DataSandbox() {
           </div>
         </div>
       )}
-
 
       {/* ========== NEW SANDBOX MODAL ========== */}
       {showNewSandboxModal && (
