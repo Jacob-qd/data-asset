@@ -33,6 +33,8 @@ import SandboxResultReview from "./pages/SandboxResultReview";
 import PrivacyTaskCenter from "./pages/PrivacyTaskCenter";
 import VisualModelingIDE from "./pages/VisualModelingIDE";
 import ModelManagement from "./pages/ModelManagement";
+import ModelEvaluation from "./pages/ModelEvaluation";
+import TaskExecutionDetail from "./pages/TaskExecutionDetail";
 import PrivacyNodeManagement from "./pages/PrivacyNodeManagement";
 
 // 密态计算
@@ -119,6 +121,8 @@ export default function App() {
         <Route path="/privacy/tasks/:type" element={<Layout><PrivacyTaskCenter /></Layout>} />
         <Route path="/privacy/tasks/modeling/visual" element={<Layout><VisualModelingIDE /></Layout>} />
         <Route path="/privacy/models" element={<Layout><ModelManagement /></Layout>} />
+        <Route path="/privacy/models/evaluation/:modelId" element={<Layout><ModelEvaluation /></Layout>} />
+        <Route path="/privacy/tasks/execution/:taskId" element={<Layout><TaskExecutionDetail /></Layout>} />
         <Route path="/privacy/nodes" element={<Layout><PrivacyNodeManagement /></Layout>} />
 
         {/* 密态计算 */}

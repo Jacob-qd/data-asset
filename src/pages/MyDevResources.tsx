@@ -93,6 +93,20 @@ export default function MyDevResources() {
       render: () => <span className="text-gray-500 text-sm">2026-12-31 23:59:59</span>,
     },
     {
+      key: "envConfig",
+      title: "资源配置",
+      render: (row: SandboxEnv) => (
+        <div className="text-xs text-gray-600">
+          <div className="flex items-center gap-1">
+            <span className="bg-blue-50 px-1.5 py-0.5 rounded">{row.envConfig}</span>
+          </div>
+          {row.deployType && (
+            <div className="mt-1 text-gray-400">{row.deployType}</div>
+          )}
+        </div>
+      ),
+    },
+    {
       key: "runStatus",
       title: "空间状态",
       render: (row: SandboxEnv) => {

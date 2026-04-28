@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,7 @@ const mockModels: Model[] = [
 ];
 
 export default function ModelManagement() {
+  const navigate = useNavigate();
   const [models, setModels] = useState<Model[]>(mockModels);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -139,6 +141,10 @@ export default function ModelManagement() {
       width: "w-64",
       render: (row: Model) => (
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/privacy/models/evaluation/${row.id}`)}>
+            <BarChart3 className="w-4 h-4" />
+            评估
+          </Button>
           <Button variant="ghost" size="sm">
             <Rocket className="w-4 h-4" />
             去推理

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -110,7 +110,7 @@ export default function PrivacyTaskCenter() {
           <Button variant="ghost" size="sm" onClick={() => handleFreeze(row.id)}>
             <Pause className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/privacy/tasks/execution/${row.id}`)}>
             <History className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="sm">
