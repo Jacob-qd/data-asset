@@ -15,11 +15,33 @@ import {
   Settings,
   X,
   Layers,
+  Eye,
+  Pencil,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+
+/* ─── Types ─── */
+interface Subchain {
+  id: string;
+  name: string;
+  desc: string;
+  status: string;
+  parentChain: string;
+  members: string[];
+  nodes: number;
+  blockHeight: number;
+  txCount: number;
+  createTime: string;
+  creator: string;
+  isolation: string;
+}
 
 /* ─── Mock Subchains ─── */
-const subchainsData = [
+const initialSubchains: Subchain[] = [
   {
     id: "SC-001",
     name: "政务数据子链",
@@ -54,7 +76,7 @@ const subchainsData = [
     desc: "医疗机构间的患者数据共享",
     status: "paused",
     parentChain: "主联盟链",
-    members: [ "中心医院", "人民医院", "中医院"],
+    members: ["中心医院", "人民医院", "中医院"],
     nodes: 5,
     blockHeight: 45230,
     txCount: 12340,
@@ -89,78 +111,189 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.text}</span>;
 }
 
-/* ─── Create Modal ─── */
-function CreateModal({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(1);
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[520px] bg-white dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-[#334155] shadow-xl animate-scaleIn">
-        <div className="p-5 border-b border-slate-200 dark:border-[#334155] flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">创建应用子链</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155]"><X className="w-5 h-5 text-slate-500" /></button>
-        </div>
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            {["基本信息", "成员配置", "确认创建"].map((s, i) => (
-              <div key={s} className="flex items-center gap-2 flex-1">
-                <div className={cn("w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium", step > i + 1 ? "bg-emerald-500 text-white" : step === i + 1 ? "bg-primary-600 text-white" : "bg-slate-200 text-slate-500")}>
-                  {step > i + 1 ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                </div>
-                <span className={cn("text-xs", step === i + 1 ? "font-medium text-slate-800 dark:text-slate-100" : "text-slate-500")}>{s}</span>
-              </div>
-            ))}
-          </div>
-          {step === 1 && (
-            <div className="space-y-3">
-              <div><label className="block text-xs text-slate-500 mb-1">子链名称</label><input className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")} placeholder="输入子链名称" /></div>
-              <div><label className="block text-xs text-slate-500 mb-1">描述</label><textarea className={cn("w-full px-3 py-2 rounded-lg border text-sm h-20", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")} placeholder="子链用途描述" /></div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs text-slate-500 mb-1">隔离方式</label><select className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}><option>成员范围隔离</option><option>业务隔离</option></select></div>
-                <div><label className="block text-xs text-slate-500 mb-1">父链</label><select className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}><option>主联盟链</option></select></div>
-              </div>
-            </div>
-          )}
-          {step === 2 && (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500">选择参与子链的组织成员（至少2个）：</p>
-              {["市政府", "公安局", "税务局", "人社局", "人民银行", "工商银行"].map((m) => (
-                <label key={m} className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 dark:border-[#334155] cursor-pointer hover:bg-slate-50 dark:hover:bg-[#273548]">
-                  <input type="checkbox" className="rounded" />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">{m}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          {step === 3 && (
-            <div className="text-center py-6">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-              <p className="text-sm text-slate-800 dark:text-slate-100 font-medium">子链创建成功</p>
-              <p className="text-xs text-slate-500 mt-1">子链将在1-2分钟内完成初始化</p>
-            </div>
-          )}
-        </div>
-        <div className="p-5 border-t border-slate-200 dark:border-[#334155] flex justify-end gap-2">
-          {step < 3 ? (
-            <>
-              <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-400">取消</button>
-              <button onClick={() => setStep(step + 1)} className="px-4 py-2 rounded-lg text-xs bg-primary-600 text-white hover:bg-primary-700">{step === 2 ? "确认创建" : "下一步"}</button>
-            </>
-          ) : (
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-xs bg-primary-600 text-white hover:bg-primary-700">完成</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+/* ─── Fields ─── */
+const subchainFields: FieldConfig[] = [
+  { key: "name", label: "子链名称", type: "text", required: true },
+  { key: "desc", label: "描述", type: "textarea", required: true },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "运行中", value: "running" },
+    { label: "已暂停", value: "paused" },
+    { label: "已停止", value: "stopped" },
+  ]},
+  { key: "parentChain", label: "父链", type: "text", required: true },
+  { key: "members", label: "成员（逗号分隔）", type: "textarea", required: true, placeholder: "市政府,公安局,税务局" },
+  { key: "nodes", label: "节点数", type: "number", required: true },
+  { key: "blockHeight", label: "区块高度", type: "number", required: true },
+  { key: "txCount", label: "交易数", type: "number", required: true },
+  { key: "createTime", label: "创建时间", type: "text", required: true },
+  { key: "creator", label: "创建者", type: "text", required: true },
+  { key: "isolation", label: "隔离方式", type: "select", required: true, options: [
+    { label: "成员范围隔离", value: "成员范围隔离" },
+    { label: "业务隔离", value: "业务隔离" },
+  ]},
+];
+
+const detailFields = [
+  { key: "id", label: "子链编号" },
+  { key: "name", label: "子链名称" },
+  { key: "desc", label: "描述" },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "parentChain", label: "父链", type: "badge" as const },
+  { key: "members", label: "成员", type: "list" as const },
+  { key: "nodes", label: "节点数" },
+  { key: "blockHeight", label: "区块高度" },
+  { key: "txCount", label: "交易数" },
+  { key: "createTime", label: "创建时间", type: "date" as const },
+  { key: "creator", label: "创建者" },
+  { key: "isolation", label: "隔离方式", type: "badge" as const },
+];
+
+function generateId(subchains: Subchain[]): string {
+  const maxNum = subchains.reduce((max, s) => {
+    const match = s.id.match(/SC-(\d+)/);
+    const num = match ? parseInt(match[1], 10) : 0;
+    return Math.max(max, num);
+  }, 0);
+  return `SC-${String(maxNum + 1).padStart(3, "0")}`;
 }
 
 /* ─── Main ─── */
 export default function BlockchainSubchains() {
+  const [subchains, setSubchains] = useState<Subchain[]>(initialSubchains);
   const [search, setSearch] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
 
-  const filtered = subchainsData.filter((s) => s.name.includes(search) || s.id.includes(search));
+  // CrudDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any> | undefined>(undefined);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // DetailDrawer state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailSubchain, setDetailSubchain] = useState<Subchain | null>(null);
+
+  const filtered = subchains.filter((s) =>
+    s.name.includes(search) || s.id.includes(search)
+  );
+
+  const handleCreate = () => {
+    setDialogMode("create");
+    setDialogData({
+      name: "",
+      desc: "",
+      status: "running",
+      parentChain: "主联盟链",
+      members: "",
+      nodes: 4,
+      blockHeight: 0,
+      txCount: 0,
+      createTime: new Date().toLocaleString("zh-CN", { hour12: false }).replace(/\//g, "-"),
+      creator: "管理员",
+      isolation: "成员范围隔离",
+    });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (subchain: Subchain) => {
+    setDialogMode("edit");
+    setDialogData({
+      name: subchain.name,
+      desc: subchain.desc,
+      status: subchain.status,
+      parentChain: subchain.parentChain,
+      members: subchain.members.join(","),
+      nodes: subchain.nodes,
+      blockHeight: subchain.blockHeight,
+      txCount: subchain.txCount,
+      createTime: subchain.createTime,
+      creator: subchain.creator,
+      isolation: subchain.isolation,
+    });
+    setEditingId(subchain.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (subchain: Subchain) => {
+    setDialogMode("delete");
+    setEditingId(subchain.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    const members = typeof data.members === "string"
+      ? data.members.split(",").map((m: string) => m.trim()).filter(Boolean)
+      : data.members || [];
+
+    if (dialogMode === "create") {
+      const id = generateId(subchains);
+      const newSubchain: Subchain = {
+        id,
+        name: data.name,
+        desc: data.desc,
+        status: data.status,
+        parentChain: data.parentChain,
+        members,
+        nodes: Number(data.nodes),
+        blockHeight: Number(data.blockHeight),
+        txCount: Number(data.txCount),
+        createTime: data.createTime,
+        creator: data.creator,
+        isolation: data.isolation,
+      };
+      setSubchains((prev) => [...prev, newSubchain]);
+    } else if (dialogMode === "edit" && editingId) {
+      setSubchains((prev) =>
+        prev.map((s) =>
+          s.id === editingId
+            ? {
+                ...s,
+                name: data.name,
+                desc: data.desc,
+                status: data.status,
+                parentChain: data.parentChain,
+                members,
+                nodes: Number(data.nodes),
+                blockHeight: Number(data.blockHeight),
+                txCount: Number(data.txCount),
+                createTime: data.createTime,
+                creator: data.creator,
+                isolation: data.isolation,
+              }
+            : s
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editingId) {
+      setSubchains((prev) => prev.filter((s) => s.id !== editingId));
+    }
+    setDialogOpen(false);
+  };
+
+  const openDetail = (subchain: Subchain) => {
+    setDetailSubchain(subchain);
+    setDetailOpen(true);
+  };
+
+  const setStatus = (id: string, status: string) => {
+    setSubchains((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, status } : s))
+    );
+  };
+
+  const detailData = detailSubchain
+    ? {
+        ...detailSubchain,
+        blockHeight: detailSubchain.blockHeight.toLocaleString(),
+        txCount: detailSubchain.txCount.toLocaleString(),
+      }
+    : {};
 
   return (
     <div className="space-y-4">
@@ -169,7 +302,7 @@ export default function BlockchainSubchains() {
           <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">应用子链管理</h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">基于联盟链创建业务隔离或成员范围隔离的子链</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700">
+        <button onClick={handleCreate} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700 transition-colors">
           <Plus className="w-4 h-4" />
           创建子链
         </button>
@@ -186,7 +319,14 @@ export default function BlockchainSubchains() {
       {/* Subchain Cards */}
       <div className="grid grid-cols-2 gap-4">
         {filtered.map((sc) => (
-          <div key={sc.id} className={cn("rounded-xl border p-4", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
+          <div
+            key={sc.id}
+            onClick={() => openDetail(sc)}
+            className={cn(
+              "rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md",
+              "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]"
+            )}
+          >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-900/30 flex items-center justify-center">
@@ -200,13 +340,25 @@ export default function BlockchainSubchains() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-1">
-                {sc.status === "running" ? (
-                  <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155]" title="暂停"><Pause className="w-3.5 h-3.5 text-amber-500" /></button>
-                ) : (
-                  <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155]" title="启动"><Play className="w-3.5 h-3.5 text-emerald-500" /></button>
+              <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                {sc.status !== "running" && (
+                  <Button size="sm" variant="ghost" title="启动" onClick={() => setStatus(sc.id, "running")}>
+                    <Play className="w-3.5 h-3.5 text-emerald-500" />
+                  </Button>
                 )}
-                <button className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155]" title="删除"><Trash2 className="w-3.5 h-3.5 text-red-500" /></button>
+                {sc.status === "running" && (
+                  <Button size="sm" variant="ghost" title="暂停" onClick={() => setStatus(sc.id, "paused")}>
+                    <Pause className="w-3.5 h-3.5 text-amber-500" />
+                  </Button>
+                )}
+                {sc.status !== "stopped" && (
+                  <Button size="sm" variant="ghost" title="停止" onClick={() => setStatus(sc.id, "stopped")}>
+                    <Square className="w-3.5 h-3.5 text-red-500" />
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => openDetail(sc)}><Eye className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => handleEdit(sc)}><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(sc)}><Trash2 className="w-3.5 h-3.5" /></Button>
               </div>
             </div>
 
@@ -236,7 +388,28 @@ export default function BlockchainSubchains() {
         ))}
       </div>
 
-      {showCreate && <CreateModal onClose={() => setShowCreate(false)} />}
+      {/* DetailDrawer */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={`子链详情 - ${detailSubchain?.name || ""}`}
+        data={detailData}
+        fields={detailFields}
+        onEdit={detailSubchain ? () => handleEdit(detailSubchain) : undefined}
+        onDelete={detailSubchain ? () => handleDelete(detailSubchain) : undefined}
+      />
+
+      {/* CrudDialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogMode === "delete" ? `${subchains.find((s) => s.id === editingId)?.name || "子链"}` : "子链"}
+        fields={subchainFields}
+        data={dialogData}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
     </div>
   );
 }

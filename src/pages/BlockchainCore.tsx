@@ -5,15 +5,9 @@ import {
   HardDrive,
   Database,
   Blocks,
-  Zap,
-  Settings,
-  CheckCircle2,
-  AlertTriangle,
-  RotateCcw,
   Save,
-  Sliders,
-  Server,
   Activity,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +22,14 @@ function ConsensusConfig() {
     viewChangeTimeout: 10,
   });
 
+  const handleSave = () => {
+    console.log("Consensus config saved:", config);
+  };
+
+  const handleChange = (key: keyof typeof config, value: string | number) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -35,7 +37,10 @@ function ConsensusConfig() {
           <Cpu className="w-4 h-4 text-blue-600" />
           共识参数配置
         </h3>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+        >
           <Save className="w-3 h-3" />
           保存配置
         </button>
@@ -55,8 +60,8 @@ function ConsensusConfig() {
             <p className="text-[10px] text-slate-500 mb-2">{field.desc}</p>
             {field.type === "select" ? (
               <select
-                value={config[field.key as keyof typeof config]}
-                onChange={(e) => setConfig({ ...config, [field.key]: e.target.value })}
+                value={config[field.key as keyof typeof config] as string}
+                onChange={(e) => handleChange(field.key as keyof typeof config, e.target.value)}
                 className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
               >
                 {field.options?.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -64,8 +69,8 @@ function ConsensusConfig() {
             ) : (
               <input
                 type="number"
-                value={config[field.key as keyof typeof config]}
-                onChange={(e) => setConfig({ ...config, [field.key]: Number(e.target.value) })}
+                value={config[field.key as keyof typeof config] as number}
+                onChange={(e) => handleChange(field.key as keyof typeof config, Number(e.target.value))}
                 className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
               />
             )}
@@ -78,6 +83,23 @@ function ConsensusConfig() {
 
 /* ─── Network Config ─── */
 function NetworkConfig() {
+  const [config, setConfig] = useState({
+    p2pPort: "16789",
+    rpcPort: "8545",
+    channelPort: "20200",
+    maxConnections: "200",
+    connectionTimeout: "30",
+    maxPacketSize: "10",
+  });
+
+  const handleSave = () => {
+    console.log("Network config saved:", config);
+  };
+
+  const handleChange = (key: keyof typeof config, value: string) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -85,7 +107,10 @@ function NetworkConfig() {
           <Network className="w-4 h-4 text-violet-600" />
           网络配置
         </h3>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+        >
           <Save className="w-3 h-3" />
           保存配置
         </button>
@@ -93,19 +118,20 @@ function NetworkConfig() {
 
       <div className="grid grid-cols-2 gap-4">
         {[
-          { label: "P2P监听端口", value: "16789", desc: "节点间P2P通信端口" },
-          { label: "RPC服务端口", value: "8545", desc: "JSON-RPC服务端口" },
-          { label: "Channel端口", value: "20200", desc: "Channel协议端口" },
-          { label: "最大连接数", value: "200", desc: "P2P最大连接节点数" },
-          { label: "连接超时(秒)", value: "30", desc: "P2P连接超时时间" },
-          { label: "数据包大小限制(MB)", value: "10", desc: "单个数据包最大大小" },
+          { label: "P2P监听端口", key: "p2pPort", desc: "节点间P2P通信端口" },
+          { label: "RPC服务端口", key: "rpcPort", desc: "JSON-RPC服务端口" },
+          { label: "Channel端口", key: "channelPort", desc: "Channel协议端口" },
+          { label: "最大连接数", key: "maxConnections", desc: "P2P最大连接节点数" },
+          { label: "连接超时(秒)", key: "connectionTimeout", desc: "P2P连接超时时间" },
+          { label: "数据包大小限制(MB)", key: "maxPacketSize", desc: "单个数据包最大大小" },
         ].map((field) => (
-          <div key={field.label} className={cn("p-4 rounded-xl border", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
+          <div key={field.key} className={cn("p-4 rounded-xl border", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{field.label}</label>
             <p className="text-[10px] text-slate-500 mb-2">{field.desc}</p>
             <input
               type="text"
-              defaultValue={field.value}
+              value={config[field.key as keyof typeof config]}
+              onChange={(e) => handleChange(field.key as keyof typeof config, e.target.value)}
               className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
             />
           </div>
@@ -117,7 +143,28 @@ function NetworkConfig() {
 
 /* ─── Storage Config ─── */
 function StorageConfig() {
-  const [dbType, setDbType] = useState("leveldb");
+  const [config, setConfig] = useState({
+    stateEngine: "RocksDB",
+    stateCache: "512",
+    stateWriteBuf: "64",
+    stateMaxFiles: "1000",
+    stateCompress: "Snappy",
+    stateDir: "/data/state",
+    histEngine: "LevelDB",
+    histCache: "1024",
+    histDir: "/data/history",
+    idxTx: "启用",
+    idxBlock: "启用",
+    idxAddr: "启用",
+  });
+
+  const handleSave = () => {
+    console.log("Storage config saved:", config);
+  };
+
+  const handleChange = (key: keyof typeof config, value: string) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  };
 
   return (
     <div className="space-y-4">
@@ -126,7 +173,10 @@ function StorageConfig() {
           <HardDrive className="w-4 h-4 text-emerald-600" />
           存储与数据库配置
         </h3>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+        >
           <Save className="w-3 h-3" />
           保存配置
         </button>
@@ -140,18 +190,19 @@ function StorageConfig() {
         </h4>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "存储引擎", value: "RocksDB", key: "stateEngine" },
-            { label: "缓存大小(MB)", value: "512", key: "stateCache" },
-            { label: "写缓冲区大小(MB)", value: "64", key: "stateWriteBuf" },
-            { label: "最大打开文件数", value: "1000", key: "stateMaxFiles" },
-            { label: "压缩类型", value: "Snappy", key: "stateCompress" },
-            { label: "数据目录", value: "/data/state", key: "stateDir" },
+            { label: "存储引擎", key: "stateEngine" },
+            { label: "缓存大小(MB)", key: "stateCache" },
+            { label: "写缓冲区大小(MB)", key: "stateWriteBuf" },
+            { label: "最大打开文件数", key: "stateMaxFiles" },
+            { label: "压缩类型", key: "stateCompress" },
+            { label: "数据目录", key: "stateDir" },
           ].map((f) => (
             <div key={f.key}>
               <label className="block text-[10px] text-slate-500 mb-1">{f.label}</label>
               <input
                 type="text"
-                defaultValue={f.value}
+                value={config[f.key as keyof typeof config]}
+                onChange={(e) => handleChange(f.key as keyof typeof config, e.target.value)}
                 className={cn("w-full px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
               />
             </div>
@@ -167,15 +218,16 @@ function StorageConfig() {
         </h4>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "存储引擎", value: "LevelDB", key: "histEngine" },
-            { label: "区块缓存数", value: "1024", key: "histCache" },
-            { label: "数据目录", value: "/data/history", key: "histDir" },
+            { label: "存储引擎", key: "histEngine" },
+            { label: "区块缓存数", key: "histCache" },
+            { label: "数据目录", key: "histDir" },
           ].map((f) => (
             <div key={f.key}>
               <label className="block text-[10px] text-slate-500 mb-1">{f.label}</label>
               <input
                 type="text"
-                defaultValue={f.value}
+                value={config[f.key as keyof typeof config]}
+                onChange={(e) => handleChange(f.key as keyof typeof config, e.target.value)}
                 className={cn("w-full px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
               />
             </div>
@@ -191,13 +243,17 @@ function StorageConfig() {
         </h4>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { label: "交易索引", value: "启用", key: "idxTx" },
-            { label: "区块高度索引", value: "启用", key: "idxBlock" },
-            { label: "地址索引", value: "启用", key: "idxAddr" },
+            { label: "交易索引", key: "idxTx" },
+            { label: "区块高度索引", key: "idxBlock" },
+            { label: "地址索引", key: "idxAddr" },
           ].map((f) => (
             <div key={f.key}>
               <label className="block text-[10px] text-slate-500 mb-1">{f.label}</label>
-              <select className={cn("w-full px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}>
+              <select
+                value={config[f.key as keyof typeof config]}
+                onChange={(e) => handleChange(f.key as keyof typeof config, e.target.value)}
+                className={cn("w-full px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
+              >
                 <option>启用</option>
                 <option>禁用</option>
               </select>
@@ -209,104 +265,76 @@ function StorageConfig() {
   );
 }
 
-/* ─── Transaction Pool ─── */
-function TxPoolConfig() {
+/* ─── Crypto Config ─── */
+function CryptoConfig() {
+  const [config, setConfig] = useState({
+    encryptionAlgorithm: "AES-256-GCM",
+    hashAlgorithm: "SHA3-256",
+    keyLength: "256",
+    signatureAlgorithm: "ECDSA",
+    tlsVersion: "TLS 1.3",
+    certPath: "/etc/ssl/certs",
+    keyStoreType: "PKCS#12",
+    enableHardwareAcceleration: "启用",
+  });
+
+  const handleSave = () => {
+    console.log("Crypto config saved:", config);
+  };
+
+  const handleChange = (key: keyof typeof config, value: string) => {
+    setConfig((prev) => ({ ...prev, [key]: value }));
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-          <Zap className="w-4 h-4 text-amber-600" />
-          交易池与区块生成
+          <Shield className="w-4 h-4 text-amber-600" />
+          加密配置
         </h3>
-        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+        >
           <Save className="w-3 h-3" />
           保存配置
         </button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Transaction Pool */}
-        <div className={cn("rounded-xl border p-4", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
-          <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">交易池配置</h4>
-          <div className="space-y-3">
-            {[
-              { label: "交易池容量", value: "100000", desc: "交易池最大容纳交易数" },
-              { label: "交易超时(分钟)", value: "30", desc: "交易在池中最大等待时间" },
-              { label: " Gas价格下限", value: "1", desc: "交易最低Gas价格" },
-              { label: "Gas上限", value: "30000000", desc: "单笔交易最大Gas消耗" },
-            ].map((f) => (
-              <div key={f.label}>
-                <div className="flex justify-between">
-                  <label className="text-[10px] text-slate-500">{f.label}</label>
-                  <span className="text-[10px] text-slate-400">{f.desc}</span>
-                </div>
-                <input
-                  type="text"
-                  defaultValue={f.value}
-                  className={cn("w-full mt-1 px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Block Generation */}
-        <div className={cn("rounded-xl border p-4", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
-          <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3">区块生成配置</h4>
-          <div className="space-y-3">
-            {[
-              { label: "出块间隔(秒)", value: "5", desc: "共识出块时间间隔" },
-              { label: "最大区块大小(MB)", value: "2", desc: "区块数据大小限制" },
-              { label: "最大Gas/区块", value: "15000000", desc: "区块Gas消耗上限" },
-              { label: "空块生成", value: "启用", desc: "无交易时是否生成空块" },
-            ].map((f) => (
-              <div key={f.label}>
-                <div className="flex justify-between">
-                  <label className="text-[10px] text-slate-500">{f.label}</label>
-                  <span className="text-[10px] text-slate-400">{f.desc}</span>
-                </div>
-                {f.label === "空块生成" ? (
-                  <select className={cn("w-full mt-1 px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}>
-                    <option>启用</option>
-                    <option>禁用</option>
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    defaultValue={f.value}
-                    className={cn("w-full mt-1 px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* State Machine */}
-      <div className={cn("rounded-xl border p-4", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
-        <h4 className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-1.5">
-          <Sliders className="w-3.5 h-3.5" />
-          状态机管理
-        </h4>
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "状态模式", value: "MPT", desc: "Merkle Patricia Trie" },
-            { label: "状态根计算", value: "实时", desc: "每区块更新状态根" },
-            { label: "历史状态保留", value: "全部", desc: "保留所有历史状态" },
-            { label: "状态裁剪", value: "禁用", desc: "自动裁剪旧状态" },
-          ].map((f) => (
-            <div key={f.label}>
-              <label className="block text-[10px] text-slate-500 mb-1">{f.label}</label>
+        {[
+          { label: "加密算法", key: "encryptionAlgorithm", desc: "对称加密算法" },
+          { label: "哈希算法", key: "hashAlgorithm", desc: "哈希摘要算法" },
+          { label: "密钥长度(bit)", key: "keyLength", desc: "加密密钥长度" },
+          { label: "签名算法", key: "signatureAlgorithm", desc: "数字签名算法" },
+          { label: "TLS版本", key: "tlsVersion", desc: "传输层安全协议版本" },
+          { label: "证书路径", key: "certPath", desc: "SSL证书存储路径" },
+          { label: "密钥库类型", key: "keyStoreType", desc: "密钥存储格式" },
+          { label: "硬件加速", key: "enableHardwareAcceleration", desc: "是否启用硬件加速", type: "select" },
+        ].map((field) => (
+          <div key={field.key} className={cn("p-4 rounded-xl border", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
+            <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">{field.label}</label>
+            <p className="text-[10px] text-slate-500 mb-2">{field.desc}</p>
+            {field.type === "select" ? (
+              <select
+                value={config[field.key as keyof typeof config]}
+                onChange={(e) => handleChange(field.key as keyof typeof config, e.target.value)}
+                className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
+              >
+                <option>启用</option>
+                <option>禁用</option>
+              </select>
+            ) : (
               <input
                 type="text"
-                defaultValue={f.value}
-                className={cn("w-full px-2.5 py-1.5 rounded border text-xs", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
+                value={config[field.key as keyof typeof config]}
+                onChange={(e) => handleChange(field.key as keyof typeof config, e.target.value)}
+                className={cn("w-full px-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
               />
-              <p className="text-[9px] text-slate-400 mt-0.5">{f.desc}</p>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -314,13 +342,13 @@ function TxPoolConfig() {
 
 /* ─── Main ─── */
 export default function BlockchainCore() {
-  const [activeTab, setActiveTab] = useState<"consensus" | "network" | "storage" | "txpool">("consensus");
+  const [activeTab, setActiveTab] = useState<"consensus" | "network" | "storage" | "crypto">("consensus");
 
   const tabs = [
-    { key: "consensus" as const, label: "共识参数", icon: <Cpu className="w-4 h-4" /> },
+    { key: "consensus" as const, label: "共识配置", icon: <Cpu className="w-4 h-4" /> },
     { key: "network" as const, label: "网络配置", icon: <Network className="w-4 h-4" /> },
-    { key: "storage" as const, label: "存储与数据库", icon: <HardDrive className="w-4 h-4" /> },
-    { key: "txpool" as const, label: "交易池与区块", icon: <Zap className="w-4 h-4" /> },
+    { key: "storage" as const, label: "存储配置", icon: <HardDrive className="w-4 h-4" /> },
+    { key: "crypto" as const, label: "加密配置", icon: <Shield className="w-4 h-4" /> },
   ];
 
   return (
@@ -353,7 +381,7 @@ export default function BlockchainCore() {
           {activeTab === "consensus" && <ConsensusConfig />}
           {activeTab === "network" && <NetworkConfig />}
           {activeTab === "storage" && <StorageConfig />}
-          {activeTab === "txpool" && <TxPoolConfig />}
+          {activeTab === "crypto" && <CryptoConfig />}
         </div>
       </div>
     </div>

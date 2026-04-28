@@ -5,124 +5,222 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import {
-  Search, Play, Pause, Plus, Trash2, Edit3, Settings,
+  Search, Play, Pause, Plus, Trash2, Edit3,
   RotateCcw, FlaskConical, BookOpen, Clock, CheckCircle2,
   AlertTriangle, XCircle, Eye, Sparkles, BarChart3,
 } from "lucide-react";
 
-const algorithms = [
+const initialAlgorithms = [
   { id: "ALG-001", name: "XGBoost分类器", framework: "xgboost", version: "2.0.3", status: "active", accuracy: "0.923", created: "2024-01-15" },
   { id: "ALG-002", name: "LightGBM回归", framework: "lightgbm", version: "4.1.0", status: "active", accuracy: "0.887", created: "2024-02-01" },
   { id: "ALG-003", name: "神经网络MLP", framework: "pytorch", version: "2.1.0", status: "draft", accuracy: "-", created: "2024-02-10" },
   { id: "ALG-004", name: "随机森林", framework: "sklearn", version: "1.3.2", status: "active", accuracy: "0.901", created: "2024-01-20" },
+  { id: "ALG-005", name: "逻辑回归", framework: "sklearn", version: "1.3.2", status: "active", accuracy: "0.856", created: "2024-01-25" },
+  { id: "ALG-006", name: "CatBoost", framework: "catboost", version: "1.2.0", status: "active", accuracy: "0.915", created: "2024-02-05" },
+  { id: "ALG-007", name: "Transformer", framework: "pytorch", version: "2.1.0", status: "draft", accuracy: "-", created: "2024-02-15" },
+  { id: "ALG-008", name: "K-Means聚类", framework: "sklearn", version: "1.3.2", status: "active", accuracy: "0.812", created: "2024-01-28" },
+  { id: "ALG-009", name: "时间序列模型", framework: "pytorch", version: "2.1.0", status: "archived", accuracy: "0.789", created: "2023-12-10" },
+  { id: "ALG-010", name: "梯度提升树", framework: "xgboost", version: "2.0.3", status: "active", accuracy: "0.934", created: "2024-02-20" },
 ];
 
-const trainTasks = [
+const initialTrainTasks = [
   { id: "TR-001", name: "信用评分训练", algorithm: "ALG-001", status: "completed", epoch: 100, loss: "0.023", time: "45m", started: "2024-04-15 09:00" },
   { id: "TR-002", name: "流失预测训练", algorithm: "ALG-002", status: "running", epoch: 67, loss: "0.041", time: "-", started: "2024-04-15 10:30" },
   { id: "TR-003", name: "异常检测训练", algorithm: "ALG-004", status: "failed", epoch: 12, loss: "0.156", time: "8m", started: "2024-04-15 11:00" },
   { id: "TR-004", name: "神经网络训练", algorithm: "ALG-003", status: "pending", epoch: 0, loss: "-", time: "-", started: "-" },
+  { id: "TR-005", name: "逻辑回归训练", algorithm: "ALG-005", status: "completed", epoch: 100, loss: "0.035", time: "22m", started: "2024-04-15 08:00" },
+  { id: "TR-006", name: "CatBoost训练", algorithm: "ALG-006", status: "running", epoch: 45, loss: "0.028", time: "-", started: "2024-04-15 12:00" },
+  { id: "TR-007", name: "聚类分析训练", algorithm: "ALG-008", status: "paused", epoch: 30, loss: "0.062", time: "15m", started: "2024-04-15 07:30" },
+  { id: "TR-008", name: "Transformer训练", algorithm: "ALG-007", status: "pending", epoch: 0, loss: "-", time: "-", started: "-" },
+  { id: "TR-009", name: "时间序列训练", algorithm: "ALG-009", status: "failed", epoch: 5, loss: "0.189", time: "3m", started: "2024-04-15 06:00" },
+  { id: "TR-010", name: "梯度提升训练", algorithm: "ALG-010", status: "completed", epoch: 100, loss: "0.019", time: "55m", started: "2024-04-15 05:00" },
+];
+
+const algFields: FieldConfig[] = [
+  { key: "name", label: "算法名称", type: "text", required: true },
+  { key: "framework", label: "框架", type: "select", required: true, options: [
+    { label: "XGBoost", value: "xgboost" },
+    { label: "LightGBM", value: "lightgbm" },
+    { label: "PyTorch", value: "pytorch" },
+    { label: "Scikit-learn", value: "sklearn" },
+  ]},
+  { key: "version", label: "版本", type: "text", required: true },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "已激活", value: "active" },
+    { label: "草稿", value: "draft" },
+    { label: "已归档", value: "archived" },
+    { label: "测试中", value: "testing" },
+    { label: "已弃用", value: "deprecated" },
+    { label: "审核中", value: "reviewing" },
+  ]},
+  { key: "accuracy", label: "准确率", type: "text" },
+  { key: "created", label: "创建时间", type: "text" },
+];
+
+const taskFields: FieldConfig[] = [
+  { key: "name", label: "任务名称", type: "text", required: true },
+  { key: "algorithm", label: "选择算法", type: "select", required: true, options: [] },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "已完成", value: "completed" },
+    { label: "训练中", value: "running" },
+    { label: "失败", value: "failed" },
+    { label: "暂停", value: "paused" },
+    { label: "待执行", value: "pending" },
+  ]},
+  { key: "epoch", label: "轮次", type: "number" },
+  { key: "loss", label: "损失", type: "text" },
+  { key: "time", label: "耗时", type: "text" },
+  { key: "started", label: "开始时间", type: "text" },
+];
+
+const algDetailFields = [
+  { key: "id", label: "算法ID" },
+  { key: "name", label: "算法名称" },
+  { key: "framework", label: "框架", type: "badge" as const },
+  { key: "version", label: "版本" },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "accuracy", label: "准确率" },
+  { key: "created", label: "创建时间", type: "date" as const },
+];
+
+const taskDetailFields = [
+  { key: "id", label: "任务ID" },
+  { key: "name", label: "任务名称" },
+  { key: "algorithm", label: "算法", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "epoch", label: "轮次" },
+  { key: "loss", label: "损失" },
+  { key: "time", label: "耗时" },
+  { key: "started", label: "开始时间", type: "date" as const },
 ];
 
 export default function SandboxModelTrain() {
+  const [algorithms, setAlgorithms] = useState(initialAlgorithms);
+  const [trainTasks, setTrainTasks] = useState(initialTrainTasks);
   const [searchAlg, setSearchAlg] = useState("");
   const [searchTask, setSearchTask] = useState("");
-  const [algOpen, setAlgOpen] = useState(false);
-  const [editAlg, setEditAlg] = useState<any>(null);
-  const [algName, setAlgName] = useState("");
-  const [algFramework, setAlgFramework] = useState("");
-  const [algVersion, setAlgVersion] = useState("");
-  const [taskOpen, setTaskOpen] = useState(false);
-  const [editTask, setEditTask] = useState<any>(null);
-  const [taskName, setTaskName] = useState("");
-  const [taskAlg, setTaskAlg] = useState("");
+
+  const [algDialogOpen, setAlgDialogOpen] = useState(false);
+  const [algDialogMode, setAlgDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedAlg, setSelectedAlg] = useState<any>(null);
+  const [algDrawerOpen, setAlgDrawerOpen] = useState(false);
+
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskDialogMode, setTaskDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
 
   const filteredAlgs = algorithms.filter(a => a.name.includes(searchAlg) || a.id.includes(searchAlg));
   const filteredTasks = trainTasks.filter(t => t.name.includes(searchTask) || t.id.includes(searchTask));
 
+  const getTaskAlgOptions = () => {
+    return algorithms
+      .filter(a => a.status === "active")
+      .map(a => ({ label: `${a.name} (${a.id})`, value: a.id }));
+  };
+
   const handleAddAlg = () => {
-    setEditAlg(null);
-    setAlgName(""); setAlgFramework("xgboost"); setAlgVersion("");
-    setAlgOpen(true);
+    setSelectedAlg(null);
+    setAlgDialogMode("create");
+    setAlgDialogOpen(true);
   };
 
   const handleEditAlg = (a: any) => {
-    setEditAlg(a);
-    setAlgName(a.name); setAlgFramework(a.framework); setAlgVersion(a.version);
-    setAlgOpen(true);
+    setSelectedAlg(a);
+    setAlgDialogMode("edit");
+    setAlgDialogOpen(true);
   };
 
-  const handleSaveAlg = () => {
-    if (editAlg) {
-      editAlg.name = algName; editAlg.framework = algFramework; editAlg.version = algVersion;
+  const handleViewAlg = (a: any) => {
+    setSelectedAlg(a);
+    setAlgDrawerOpen(true);
+  };
+
+  const handleDeleteAlgPrompt = (a: any) => {
+    setSelectedAlg(a);
+    setAlgDialogMode("delete");
+    setAlgDialogOpen(true);
+  };
+
+  const handleSaveAlg = (data: Record<string, any>) => {
+    if (algDialogMode === "edit" && selectedAlg) {
+      setAlgorithms(prev => prev.map(a => a.id === selectedAlg.id ? { ...a, ...data } : a));
     } else {
-      algorithms.push({ id: `ALG-${String(algorithms.length + 1).padStart(3, '0')}`, name: algName, framework: algFramework, version: algVersion, status: "draft", accuracy: "-", created: new Date().toISOString().split('T')[0] });
+      const newId = `ALG-${String(algorithms.length + 1).padStart(3, '0')}`;
+      setAlgorithms(prev => [...prev, { id: newId, accuracy: "-", created: new Date().toISOString().split('T')[0], ...data } as any]);
     }
-    setAlgOpen(false);
   };
 
-  const handleDeleteAlg = (id: string) => {
-    const idx = algorithms.findIndex(a => a.id === id);
-    if (idx >= 0) algorithms.splice(idx, 1);
+  const handleConfirmDeleteAlg = () => {
+    if (selectedAlg) {
+      setAlgorithms(prev => prev.filter(a => a.id !== selectedAlg.id));
+    }
   };
 
   const handleAddTask = () => {
-    setEditTask(null);
-    setTaskName(""); setTaskAlg("");
-    setTaskOpen(true);
+    setSelectedTask(null);
+    setTaskDialogMode("create");
+    setTaskDialogOpen(true);
   };
 
   const handleEditTask = (t: any) => {
-    setEditTask(t);
-    setTaskName(t.name); setTaskAlg(t.algorithm);
-    setTaskOpen(true);
+    setSelectedTask(t);
+    setTaskDialogMode("edit");
+    setTaskDialogOpen(true);
   };
 
-  const handleSaveTask = () => {
-    if (editTask) {
-      editTask.name = taskName; editTask.algorithm = taskAlg;
+  const handleViewTask = (t: any) => {
+    setSelectedTask(t);
+    setTaskDrawerOpen(true);
+  };
+
+  const handleDeleteTaskPrompt = (t: any) => {
+    setSelectedTask(t);
+    setTaskDialogMode("delete");
+    setTaskDialogOpen(true);
+  };
+
+  const handleSaveTask = (data: Record<string, any>) => {
+    if (taskDialogMode === "edit" && selectedTask) {
+      setTrainTasks(prev => prev.map(t => t.id === selectedTask.id ? { ...t, ...data } : t));
     } else {
-      trainTasks.push({ id: `TR-${String(trainTasks.length + 1).padStart(3, '0')}`, name: taskName, algorithm: taskAlg, status: "pending", epoch: 0, loss: "-", time: "-", started: "-" });
+      const newId = `TR-${String(trainTasks.length + 1).padStart(3, '0')}`;
+      setTrainTasks(prev => [...prev, { id: newId, epoch: 0, loss: "-", time: "-", started: "-", ...data } as any]);
     }
-    setTaskOpen(false);
   };
 
-  const handleDeleteTask = (id: string) => {
-    const idx = trainTasks.findIndex(t => t.id === id);
-    if (idx >= 0) trainTasks.splice(idx, 1);
+  const handleConfirmDeleteTask = () => {
+    if (selectedTask) {
+      setTrainTasks(prev => prev.filter(t => t.id !== selectedTask.id));
+    }
   };
 
   const handleStartTask = (id: string) => {
-    const t = trainTasks.find(x => x.id === id);
-    if (t && t.status === "pending") t.status = "running";
+    setTrainTasks(prev => prev.map(t => t.id === id && t.status === "pending" ? { ...t, status: "running" } : t));
   };
 
   const handlePauseTask = (id: string) => {
-    const t = trainTasks.find(x => x.id === id);
-    if (t && t.status === "running") t.status = "paused";
+    setTrainTasks(prev => prev.map(t => t.id === id && t.status === "running" ? { ...t, status: "paused" } : t));
   };
 
   const handleStopTask = (id: string) => {
-    const t = trainTasks.find(x => x.id === id);
-    if (t) t.status = "failed";
+    setTrainTasks(prev => prev.map(t => t.id === id ? { ...t, status: "failed" } : t));
   };
 
   const handleRestartTask = (id: string) => {
-    const t = trainTasks.find(x => x.id === id);
-    if (t) { t.status = "running"; t.epoch = 0; }
+    setTrainTasks(prev => prev.map(t => t.id === id ? { ...t, status: "running", epoch: 0 } : t));
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">模型开发</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">模型开发</h1>
           <p className="text-sm text-gray-500 mt-1">算法管理、训练任务、模型评估</p>
         </div>
       </div>
@@ -165,9 +263,9 @@ export default function SandboxModelTrain() {
                       <TableCell className="text-xs text-gray-500">{a.created}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditAlg(a)}><Settings className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteAlg(a.id)}><Trash2 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewAlg(a)}><Eye className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditAlg(a)}><Edit3 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteAlgPrompt(a)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -216,8 +314,9 @@ export default function SandboxModelTrain() {
                           {t.status === "running" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handlePauseTask(t.id)}><Pause className="w-4 h-4" /></Button>}
                           {(t.status === "running" || t.status === "paused") && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStopTask(t.id)}><XCircle className="w-4 h-4" /></Button>}
                           {t.status === "failed" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRestartTask(t.id)}><RotateCcw className="w-4 h-4" /></Button>}
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewTask(t)}><Eye className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTask(t)}><Edit3 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteTask(t.id)}><Trash2 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteTaskPrompt(t)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -238,47 +337,47 @@ export default function SandboxModelTrain() {
         </TabsContent>
       </Tabs>
 
-      {/* Algorithm Dialog */}
-      <Dialog open={algOpen} onOpenChange={setAlgOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{editAlg ? "编辑算法" : "添加算法"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5"><label className="text-sm font-medium">算法名称</label><Input value={algName} onChange={e => setAlgName(e.target.value)} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">框架</label>
-              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={algFramework} onChange={e => setAlgFramework(e.target.value)}>
-                <option value="xgboost">XGBoost</option><option value="lightgbm">LightGBM</option><option value="pytorch">PyTorch</option><option value="sklearn">Scikit-learn</option>
-              </select>
-            </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">版本</label><Input value={algVersion} onChange={e => setAlgVersion(e.target.value)} placeholder="如：2.0.3" /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAlgOpen(false)}>取消</Button>
-            <Button onClick={handleSaveAlg} disabled={!algName || !algVersion}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={algDialogOpen}
+        onOpenChange={setAlgDialogOpen}
+        title={selectedAlg?.name || "算法"}
+        fields={algFields}
+        data={selectedAlg || {}}
+        mode={algDialogMode}
+        onSubmit={handleSaveAlg}
+        onDelete={handleConfirmDeleteAlg}
+      />
 
-      {/* Task Dialog */}
-      <Dialog open={taskOpen} onOpenChange={setTaskOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>{editTask ? "编辑任务" : "新建任务"}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5"><label className="text-sm font-medium">任务名称</label><Input value={taskName} onChange={e => setTaskName(e.target.value)} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">选择算法</label>
-              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={taskAlg} onChange={e => setTaskAlg(e.target.value)}>
-                <option value="">请选择</option>
-                {algorithms.filter(a => a.status === "active").map(a => (
-                  <option key={a.id} value={a.id}>{a.name} ({a.id})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTaskOpen(false)}>取消</Button>
-            <Button onClick={handleSaveTask} disabled={!taskName || !taskAlg}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        title={selectedTask?.name || "任务"}
+        fields={taskFields.map(f => f.key === "algorithm" ? { ...f, options: getTaskAlgOptions() } : f)}
+        data={selectedTask || {}}
+        mode={taskDialogMode}
+        onSubmit={handleSaveTask}
+        onDelete={handleConfirmDeleteTask}
+      />
+
+      <DetailDrawer
+        open={algDrawerOpen}
+        onOpenChange={setAlgDrawerOpen}
+        title="算法详情"
+        data={selectedAlg || {}}
+        fields={algDetailFields}
+        onEdit={() => { setAlgDrawerOpen(false); handleEditAlg(selectedAlg); }}
+        onDelete={() => { setAlgDrawerOpen(false); handleDeleteAlgPrompt(selectedAlg); }}
+      />
+
+      <DetailDrawer
+        open={taskDrawerOpen}
+        onOpenChange={setTaskDrawerOpen}
+        title="任务详情"
+        data={selectedTask || {}}
+        fields={taskDetailFields}
+        onEdit={() => { setTaskDrawerOpen(false); handleEditTask(selectedTask); }}
+        onDelete={() => { setTaskDrawerOpen(false); handleDeleteTaskPrompt(selectedTask); }}
+      />
     </div>
   );
 }

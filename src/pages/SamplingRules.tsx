@@ -24,6 +24,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import DataTable from "@/components/DataTable";
 import StatusTag from "@/components/StatusTag";
 import Drawer from "@/components/Drawer";
@@ -389,6 +395,57 @@ export default function SamplingRules() {
     setShowFilters(false);
   };
 
+  // ── Export ─────────────────────────
+
+  const exportToCsv = () => {
+    const headers = ["规则ID", "规则名称", "抽样方式", "数据源", "数据表", "抽样比例(%)", "状态", "创建人", "更新时间"];
+    const rows = filtered.map((r) => [
+      r.id,
+      r.name,
+      r.samplingType,
+      r.dataSource,
+      r.tableName,
+      r.samplingRatio,
+      STATUS_MAP[r.status]?.text || r.status,
+      r.creator,
+      r.updatedAt,
+    ]);
+    const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `抽样规则_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+  };
+
+  const exportToExcel = () => {
+    const headers = ["规则ID", "规则名称", "抽样方式", "数据源", "数据表", "抽样比例(%)", "状态", "创建人", "更新时间"];
+    const rows = filtered.map((r) => [
+      r.id,
+      r.name,
+      r.samplingType,
+      r.dataSource,
+      r.tableName,
+      r.samplingRatio,
+      STATUS_MAP[r.status]?.text || r.status,
+      r.creator,
+      r.updatedAt,
+    ]);
+
+    let html = "<table border='1'>";
+    html += "<tr>" + headers.map((h) => `<th>${h}</th>`).join("") + "</tr>";
+    rows.forEach((row) => {
+      html += "<tr>" + row.map((cell) => `<td>${cell}</td>`).join("") + "</tr>";
+    });
+    html += "</table>";
+
+    const blob = new Blob(["\ufeff" + html], { type: "application/vnd.ms-excel;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `抽样规则_${new Date().toISOString().slice(0, 10)}.xls`;
+    link.click();
+  };
+
   // ── CRUD ───────────────────────────
 
   const openCreateDrawer = () => {
@@ -710,10 +767,22 @@ export default function SamplingRules() {
             <RotateCcw className="w-3.5 h-3.5" />
             重置
           </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => {}}>
-            <Download className="w-3.5 h-3.5" />
-            导出
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs">
+                <Download className="w-3.5 h-3.5" />
+                导出
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToCsv}>
+                导出为 CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToExcel}>
+                导出为 Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {showFilters && (

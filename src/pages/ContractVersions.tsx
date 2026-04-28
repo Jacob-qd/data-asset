@@ -1,18 +1,34 @@
 import { useState } from "react";
 import {
-  GitBranch, Plus, Search, Clock, CheckCircle2, XCircle, AlertTriangle,
-  ChevronRight, ArrowUpCircle, RotateCcw, FileCode, Tag, User,
-  GitCommit, Diff, X
+  GitBranch, Plus, Search, CheckCircle2, RotateCcw, FileCode, Tag,
+  Eye, Pencil, Trash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+
+/* ─── Types ─── */
+interface ContractVersion {
+  version: string;
+  status: string;
+  deployTime: string;
+  deployer: string;
+  changes: string;
+  audit: string;
+  size: string;
+}
+
+interface Contract {
+  id: string;
+  name: string;
+  versions: ContractVersion[];
+}
 
 /* ─── Mock Contract Versions ─── */
-const contractVersionsData = [
+const initialContractVersionsData: Contract[] = [
   {
     id: "SC-001",
     name: "数据资产存证合约",
@@ -52,11 +68,107 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.text}</span>;
 }
 
-export default function ContractVersions() {
-  const [search, setSearch] = useState("");
-  const [detailContract, setDetailContract] = useState<typeof contractVersionsData[0] | null>(null);
+/* ─── Fields ─── */
+const contractFields: FieldConfig[] = [
+  { key: "id", label: "合约编号", type: "text", required: true },
+  { key: "name", label: "合约名称", type: "text", required: true },
+  { key: "versions", label: "版本列表 (JSON)", type: "textarea", required: true, placeholder: '[{"version":"v1.0.0","status":"current","deployTime":"2025-01-01","deployer":"管理员","changes":"...","audit":"已通过","size":"10KB"}]' },
+];
 
-  const filtered = contractVersionsData.filter(c => c.name.includes(search));
+const detailFields = [
+  { key: "id", label: "合约编号" },
+  { key: "name", label: "合约名称" },
+  { key: "versionCount", label: "版本数量" },
+];
+
+export default function ContractVersions() {
+  const [contracts, setContracts] = useState<Contract[]>(initialContractVersionsData);
+  const [search, setSearch] = useState("");
+
+  // CrudDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any> | undefined>(undefined);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // DetailDrawer state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailContract, setDetailContract] = useState<Contract | null>(null);
+
+  const filtered = contracts.filter(c => c.name.includes(search) || c.id.includes(search));
+
+  const handleCreate = () => {
+    setDialogMode("create");
+    setDialogData({ id: "", name: "", versions: "[]" });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (contract: Contract) => {
+    setDialogMode("edit");
+    setDialogData({
+      id: contract.id,
+      name: contract.name,
+      versions: JSON.stringify(contract.versions, null, 2),
+    });
+    setEditingId(contract.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (contract: Contract) => {
+    setDialogMode("delete");
+    setEditingId(contract.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    let parsedVersions: ContractVersion[] = [];
+    try {
+      parsedVersions = JSON.parse(data.versions || "[]");
+    } catch {
+      parsedVersions = [];
+    }
+
+    if (dialogMode === "create") {
+      const newContract: Contract = {
+        id: data.id,
+        name: data.name,
+        versions: parsedVersions,
+      };
+      setContracts(prev => [...prev, newContract]);
+    } else if (dialogMode === "edit" && editingId) {
+      setContracts(prev =>
+        prev.map(c =>
+          c.id === editingId
+            ? { ...c, id: data.id, name: data.name, versions: parsedVersions }
+            : c
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editingId) {
+      setContracts(prev => prev.filter(c => c.id !== editingId));
+    }
+    setDialogOpen(false);
+  };
+
+  const openDetail = (contract: Contract) => {
+    setDetailContract(contract);
+    setDetailOpen(true);
+  };
+
+  const detailData = detailContract
+    ? {
+        id: detailContract.id,
+        name: detailContract.name,
+        versionCount: detailContract.versions.length,
+      }
+    : {};
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -65,15 +177,15 @@ export default function ContractVersions() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">合约版本管理</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">管理智能合约版本迭代，追踪变更历史与审计状态</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Plus className="w-4 h-4" /> 发布新版本</Button>
+        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}><Plus className="w-4 h-4" /> 发布新版本</Button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "合约总数", value: contractVersionsData.length, icon: <FileCode className="w-5 h-5 text-indigo-500" />, color: "bg-indigo-50 dark:bg-indigo-900/20" },
-          { label: "当前版本", value: contractVersionsData.length, icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, color: "bg-emerald-50 dark:bg-emerald-900/20" },
-          { label: "历史版本", value: contractVersionsData.reduce((s, c) => s + c.versions.length - 1, 0), icon: <GitBranch className="w-5 h-5 text-amber-500" />, color: "bg-amber-50 dark:bg-amber-900/20" },
-          { label: "审计通过", value: contractVersionsData.reduce((s, c) => s + c.versions.filter(v => v.audit === "已通过").length, 0), icon: <Tag className="w-5 h-5 text-blue-500" />, color: "bg-blue-50 dark:bg-blue-900/20" },
+          { label: "合约总数", value: contracts.length, icon: <FileCode className="w-5 h-5 text-indigo-500" />, color: "bg-indigo-50 dark:bg-indigo-900/20" },
+          { label: "当前版本", value: contracts.length, icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, color: "bg-emerald-50 dark:bg-emerald-900/20" },
+          { label: "历史版本", value: contracts.reduce((s, c) => s + c.versions.length - 1, 0), icon: <GitBranch className="w-5 h-5 text-amber-500" />, color: "bg-amber-50 dark:bg-amber-900/20" },
+          { label: "审计通过", value: contracts.reduce((s, c) => s + c.versions.filter(v => v.audit === "已通过").length, 0), icon: <Tag className="w-5 h-5 text-blue-500" />, color: "bg-blue-50 dark:bg-blue-900/20" },
         ].map((s, i) => (
           <div key={i} className={cn("rounded-xl p-4 border border-slate-200 dark:border-slate-700", s.color)}>
             <div className="flex items-center justify-between"><span className="text-sm text-slate-600 dark:text-slate-400">{s.label}</span>{s.icon}</div>
@@ -98,7 +210,11 @@ export default function ContractVersions() {
                 <span className="font-medium text-slate-900 dark:text-slate-100">{contract.name}</span>
                 <Badge variant="outline">{contract.id}</Badge>
               </div>
-              <Button size="sm" variant="ghost" onClick={() => setDetailContract(contract)}><ChevronRight className="w-4 h-4" /></Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => openDetail(contract)}><Eye className="w-4 h-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => handleEdit(contract)}><Pencil className="w-4 h-4" /></Button>
+                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(contract)}><Trash className="w-4 h-4" /></Button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -134,40 +250,28 @@ export default function ContractVersions() {
         ))}
       </div>
 
-      <Dialog open={!!detailContract} onOpenChange={() => setDetailContract(null)}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><GitBranch className="w-5 h-5 text-indigo-500" />版本历史 - {detailContract?.name}</DialogTitle>
-          </DialogHeader>
-          {detailContract && (
-            <div className="space-y-4 pt-2">
-              <div className="relative pl-6 border-l-2 border-slate-200 dark:border-slate-700 space-y-6">
-                {detailContract.versions.map((v, i) => (
-                  <div key={i} className="relative">
-                    <div className={cn("absolute -left-[29px] w-4 h-4 rounded-full border-2", v.status === "current" ? "bg-emerald-500 border-emerald-500" : "bg-slate-200 border-slate-300 dark:bg-slate-700 dark:border-slate-600")} />
-                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Tag className="w-4 h-4 text-indigo-500" />
-                          <span className="font-medium text-slate-900 dark:text-slate-100">{v.version}</span>
-                          <StatusBadge status={v.status} />
-                        </div>
-                        <span className="text-xs text-slate-500 dark:text-slate-400">{v.deployTime}</span>
-                      </div>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">{v.changes}</p>
-                      <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
-                        <span className="flex items-center gap-1"><User className="w-3 h-3" />{v.deployer}</span>
-                        <span className="flex items-center gap-1"><FileCode className="w-3 h-3" />{v.size}</span>
-                        <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" />{v.audit}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* DetailDrawer */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={`合约详情 - ${detailContract?.name || ""}`}
+        data={detailData}
+        fields={detailFields}
+        onEdit={detailContract ? () => handleEdit(detailContract) : undefined}
+        onDelete={detailContract ? () => handleDelete(detailContract) : undefined}
+      />
+
+      {/* CrudDialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogMode === "delete" ? `${contracts.find((c) => c.id === editingId)?.name || "合约"}` : "合约"}
+        fields={contractFields}
+        data={dialogData}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
     </div>
   );
 }

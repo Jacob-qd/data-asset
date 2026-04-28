@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Users, Search, Plus, Eye, Edit2, KeyRound, Wifi, WifiOff } from "lucide-react";
+import { Users, Search, Plus, Eye, Edit2, Trash2, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import DataTable from "@/components/DataTable";
-import StatusTag from "@/components/StatusTag";
-import Drawer from "@/components/Drawer";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import { cn } from "@/lib/utils";
 
 interface PrivacyParty { id: string; name: string; type: string; status: string; ip: string; port: string; publicKey: string; registeredDate: string; role: string; projectCount: number; cpu: number; memory: number; }
@@ -21,13 +21,40 @@ const mockParties: PrivacyParty[] = [
   { id: "PP-008", name: "中科院", type: "机构", status: "online", ip: "10.0.5.10", port: "7070", publicKey: "h8i9j0...k1l2", registeredDate: "2026-04-10", role: "审计方", projectCount: 2, cpu: 15, memory: 28 },
 ];
 
+const fields: FieldConfig[] = [
+  { key: "name", label: "名称", type: "text", required: true },
+  { key: "type", label: "类型", type: "select", options: [{ label: "企业", value: "企业" }, { label: "机构", value: "机构" }] },
+  { key: "status", label: "状态", type: "select", options: [{ label: "在线", value: "online" }, { label: "离线", value: "offline" }] },
+  { key: "ip", label: "IP地址", type: "text" },
+  { key: "port", label: "端口", type: "text" },
+  { key: "publicKey", label: "公钥", type: "text" },
+  { key: "role", label: "角色", type: "select", options: [{ label: "数据方", value: "数据方" }, { label: "计算方", value: "计算方" }, { label: "审计方", value: "审计方" }, { label: "数据方+计算方", value: "数据方+计算方" }] },
+  { key: "projectCount", label: "项目数", type: "number" },
+];
+
+const detailFields = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "名称" },
+  { key: "type", label: "类型" },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "ip", label: "IP地址" },
+  { key: "port", label: "端口" },
+  { key: "publicKey", label: "公钥" },
+  { key: "role", label: "角色" },
+  { key: "projectCount", label: "项目数" },
+  { key: "cpu", label: "CPU使用率" },
+  { key: "memory", label: "内存使用率" },
+  { key: "registeredDate", label: "注册日期" },
+];
+
 export default function PrivacyParties() {
-  const [parties] = useState(mockParties);
+  const [parties, setParties] = useState<PrivacyParty[]>(mockParties);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [showDetail, setShowDetail] = useState(false);
-  const [detailParty, setDetailParty] = useState<PrivacyParty | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [selectedItem, setSelectedItem] = useState<PrivacyParty | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const filtered = parties.filter((p) => {
     const ms = p.name.toLowerCase().includes(search.toLowerCase());
@@ -41,6 +68,62 @@ export default function PrivacyParties() {
     { label: "离线", value: parties.filter((p) => p.status === "offline").length, icon: WifiOff, color: "text-red-500" },
   ];
 
+  const handleCreate = () => {
+    setSelectedItem(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (party: PrivacyParty) => {
+    setSelectedItem(party);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (party: PrivacyParty) => {
+    setParties((prev) => prev.filter((p) => p.id !== party.id));
+    setDrawerOpen(false);
+    setDialogOpen(false);
+  };
+
+  const handleView = (party: PrivacyParty) => {
+    setSelectedItem(party);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newParty: PrivacyParty = {
+        id: `PP-${Date.now().toString(36).toUpperCase()}`,
+        name: data.name || "",
+        type: data.type || "企业",
+        status: data.status || "online",
+        ip: data.ip || "",
+        port: data.port || "",
+        publicKey: data.publicKey || "",
+        registeredDate: new Date().toISOString().split("T")[0],
+        role: data.role || "数据方",
+        projectCount: Number(data.projectCount) || 0,
+        cpu: 0,
+        memory: 0,
+      };
+      setParties((prev) => [...prev, newParty]);
+    } else if (dialogMode === "edit" && selectedItem) {
+      setParties((prev) =>
+        prev.map((p) =>
+          p.id === selectedItem.id
+            ? {
+                ...p,
+                ...data,
+                projectCount: Number(data.projectCount) || p.projectCount,
+              }
+            : p
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
   const columns = [
     { key: "id", title: "ID", cell: (p: PrivacyParty) => <span className="font-mono text-xs text-slate-500">{p.id}</span> },
     { key: "name", title: "名称", cell: (p: PrivacyParty) => <span className="font-medium text-slate-800">{p.name}</span> },
@@ -51,9 +134,9 @@ export default function PrivacyParties() {
     { key: "projects", title: "项目数", cell: (p: PrivacyParty) => <span className="text-xs text-slate-500">{p.projectCount}</span> },
     { key: "actions", title: "操作", cell: (p: PrivacyParty) => (
       <div className="flex items-center gap-1">
-        <button onClick={() => { setDetailParty(p); setShowDetail(true); }} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Eye className="w-3.5 h-3.5" /></button>
-        <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Edit2 className="w-3.5 h-3.5" /></button>
-        <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><KeyRound className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleView(p)} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Eye className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleEdit(p)} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Edit2 className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleDelete(p)} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     )},
   ];
@@ -68,34 +151,28 @@ export default function PrivacyParties() {
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索参与方" className="pl-9 w-64" /></div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-3 rounded-lg border border-slate-200 text-sm"><option value="all">全部</option><option value="online">在线</option><option value="offline">离线</option></select>
         </div>
-        <Button onClick={() => setShowDrawer(true)} className="gap-2"><Plus className="w-4 h-4" />注册参与方</Button>
+        <Button onClick={handleCreate} className="gap-2"><Plus className="w-4 h-4" />注册参与方</Button>
       </div>
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden"><DataTable rowKey={(r: any) => r.id} columns={columns} data={filtered} /></div>
-      <Drawer open={showDrawer} onClose={() => setShowDrawer(false)} title="注册参与方" size="lg">
-        <div className="space-y-4">
-          <div><label className="text-sm font-medium text-slate-700">名称</label><Input placeholder="企业或机构名称" className="mt-1" /></div>
-          <div className="grid grid-cols-2 gap-3"><div><label className="text-sm font-medium text-slate-700">IP地址</label><Input placeholder="10.0.1.10" className="mt-1" /></div><div><label className="text-sm font-medium text-slate-700">端口</label><Input placeholder="8080" className="mt-1" /></div></div>
-          <div><label className="text-sm font-medium text-slate-700">公钥</label><textarea placeholder="粘贴公钥" className="mt-1 w-full h-20 px-3 py-2 rounded-lg border border-slate-200 text-sm resize-none" /></div>
-          <div><label className="text-sm font-medium text-slate-700">角色</label><select className="mt-1 w-full h-10 px-3 rounded-lg border border-slate-200 text-sm"><option>数据方</option><option>计算方</option><option>审计方</option><option>数据方+计算方</option></select></div>
-          <div className="flex justify-end gap-2 pt-4 border-t"><Button variant="outline" onClick={() => setShowDrawer(false)}>取消</Button><Button onClick={() => setShowDrawer(false)}>注册</Button></div>
-        </div>
-      </Drawer>
-      <Drawer open={showDetail} onClose={() => setShowDetail(false)} title={detailParty?.name || "详情"} size="lg">
-        {detailParty && <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">ID</div><div className="font-mono text-sm">{detailParty.id}</div></div>
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">状态</div><div className="text-sm">{detailParty.status === "online" ? "在线" : "离线"}</div></div>
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">地址</div><div className="font-mono text-xs text-gray-500">{detailParty.ip}:{detailParty.port}</div></div>
-            <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">角色</div><div className="text-sm">{detailParty.role}</div></div>
-          </div>
-          <div><h4 className="text-sm font-semibold text-slate-700 mb-2">资源使用</h4>
-            <div className="space-y-2">
-              <div><div className="flex justify-between text-xs mb-1"><span>CPU</span><span>{detailParty.cpu}%</span></div><div className="h-2 bg-slate-100 rounded-full"><div className="h-full bg-blue-500 rounded-full" style={{ width: `${detailParty.cpu}%` }} /></div></div>
-              <div><div className="flex justify-between text-xs mb-1"><span>内存</span><span>{detailParty.memory}%</span></div><div className="h-2 bg-slate-100 rounded-full"><div className="h-full bg-purple-500 rounded-full" style={{ width: `${detailParty.memory}%` }} /></div></div>
-            </div>
-          </div>
-        </div>}
-      </Drawer>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="参与方"
+        fields={fields}
+        data={selectedItem || {}}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={selectedItem ? () => handleDelete(selectedItem) : undefined}
+      />
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="参与方详情"
+        data={selectedItem || {}}
+        fields={detailFields}
+        onEdit={selectedItem ? () => handleEdit(selectedItem) : undefined}
+        onDelete={selectedItem ? () => handleDelete(selectedItem) : undefined}
+      />
     </div>
   );
 }

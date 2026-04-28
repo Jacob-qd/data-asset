@@ -15,11 +15,37 @@ import {
   Share2,
   Lock,
   Clock,
+  Plus,
+  Eye,
+  Pencil,
+  Trash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+
+/* ─── Types ─── */
+interface TraceNode {
+  stage: string;
+  actor: string;
+  time: string;
+  action: string;
+  txHash: string;
+  status: string;
+  detail: string;
+}
+
+interface TraceChain {
+  assetId: string;
+  assetName: string;
+  currentHolder: string;
+  traceCount: number;
+  nodes: TraceNode[];
+}
 
 /* ─── Mock Trace Data ─── */
-const traceChains = [
+const initialTraceChains: TraceChain[] = [
   {
     assetId: "DA-2025-001",
     assetName: "企业信用评价数据集",
@@ -61,8 +87,32 @@ const traceChains = [
   },
 ];
 
+/* ─── Fields ─── */
+const traceFields: FieldConfig[] = [
+  { key: "assetName", label: "资产名称", type: "text", required: true },
+  { key: "currentHolder", label: "当前持有方", type: "text", required: true },
+  { key: "traceCount", label: "溯源节点数", type: "number", required: true },
+  { key: "nodes", label: "溯源节点 (JSON)", type: "textarea", required: true, placeholder: '[{"stage":"...","actor":"...","time":"...","action":"...","txHash":"...","status":"completed","detail":"..."}]' },
+];
+
+const detailFields = [
+  { key: "assetId", label: "资产编号" },
+  { key: "assetName", label: "资产名称" },
+  { key: "currentHolder", label: "当前持有方" },
+  { key: "traceCount", label: "溯源节点数" },
+];
+
+function generateAssetId(chains: TraceChain[]): string {
+  const maxNum = chains.reduce((max, ch) => {
+    const match = ch.assetId.match(/DA-2025-(\d+)/);
+    const num = match ? parseInt(match[1], 10) : 0;
+    return Math.max(max, num);
+  }, 0);
+  return `DA-2025-${String(maxNum + 1).padStart(3, "0")}`;
+}
+
 /* ─── Trace Timeline ─── */
-function TraceTimeline({ nodes, expanded }: { nodes: typeof traceChains[0]["nodes"]; expanded: boolean }) {
+function TraceTimeline({ nodes, expanded }: { nodes: TraceNode[]; expanded: boolean }) {
   const displayNodes = expanded ? nodes : nodes.slice(0, 3);
 
   return (
@@ -127,8 +177,19 @@ function TraceTimeline({ nodes, expanded }: { nodes: typeof traceChains[0]["node
 
 /* ─── Main ─── */
 export default function BlockchainTrace() {
+  const [traceChains, setTraceChains] = useState<TraceChain[]>(initialTraceChains);
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>("DA-2025-001");
+
+  // CrudDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any> | undefined>(undefined);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // DetailDrawer state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailChain, setDetailChain] = useState<TraceChain | null>(null);
 
   const filtered = traceChains.filter(
     (c) =>
@@ -136,14 +197,118 @@ export default function BlockchainTrace() {
       c.assetId.includes(search)
   );
 
+  const handleCreate = () => {
+    setDialogMode("create");
+    setDialogData({
+      assetName: "",
+      currentHolder: "",
+      traceCount: 1,
+      nodes: JSON.stringify([
+        {
+          stage: "数据生成",
+          actor: "",
+          time: new Date().toISOString().replace("T", " ").slice(0, 19),
+          action: "原始数据采集",
+          txHash: "0x...",
+          status: "completed",
+          detail: "",
+        },
+      ], null, 2),
+    });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (chain: TraceChain) => {
+    setDialogMode("edit");
+    setDialogData({
+      assetName: chain.assetName,
+      currentHolder: chain.currentHolder,
+      traceCount: chain.traceCount,
+      nodes: JSON.stringify(chain.nodes, null, 2),
+    });
+    setEditingId(chain.assetId);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (chain: TraceChain) => {
+    setDialogMode("delete");
+    setEditingId(chain.assetId);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    let parsedNodes: TraceNode[] = [];
+    try {
+      parsedNodes = JSON.parse(data.nodes || "[]");
+    } catch {
+      parsedNodes = [];
+    }
+
+    if (dialogMode === "create") {
+      const assetId = generateAssetId(traceChains);
+      const newChain: TraceChain = {
+        assetId,
+        assetName: data.assetName,
+        currentHolder: data.currentHolder,
+        traceCount: Number(data.traceCount),
+        nodes: parsedNodes,
+      };
+      setTraceChains((prev) => [...prev, newChain]);
+    } else if (dialogMode === "edit" && editingId) {
+      setTraceChains((prev) =>
+        prev.map((chain) =>
+          chain.assetId === editingId
+            ? {
+                ...chain,
+                assetName: data.assetName,
+                currentHolder: data.currentHolder,
+                traceCount: Number(data.traceCount),
+                nodes: parsedNodes,
+              }
+            : chain
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editingId) {
+      setTraceChains((prev) => prev.filter((chain) => chain.assetId !== editingId));
+    }
+    setDialogOpen(false);
+  };
+
+  const openDetail = (chain: TraceChain) => {
+    setDetailChain(chain);
+    setDetailOpen(true);
+  };
+
+  const detailData = detailChain
+    ? {
+        assetId: detailChain.assetId,
+        assetName: detailChain.assetName,
+        currentHolder: detailChain.currentHolder,
+        traceCount: detailChain.traceCount,
+      }
+    : {};
+
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">溯源追踪</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          基于区块链的数据资产全生命周期溯源查询
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">溯源追踪</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            基于区块链的数据资产全生命周期溯源查询
+          </p>
+        </div>
+        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
+          <Plus className="w-4 h-4" /> 创建溯源
+        </Button>
       </div>
 
       {/* Search */}
@@ -211,10 +376,23 @@ export default function BlockchainTrace() {
                   </div>
                 </div>
               </div>
-              <ChevronRight className={cn(
-                "w-5 h-5 text-slate-400 transition-transform",
-                expandedId === chain.assetId && "rotate-90"
-              )} />
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button size="sm" variant="ghost" onClick={() => openDetail(chain)}>
+                    <Eye className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleEdit(chain)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(chain)}>
+                    <Trash className="w-4 h-4" />
+                  </Button>
+                </div>
+                <ChevronRight className={cn(
+                  "w-5 h-5 text-slate-400 transition-transform",
+                  expandedId === chain.assetId && "rotate-90"
+                )} />
+              </div>
             </div>
 
             {/* Expanded Timeline */}
@@ -261,6 +439,29 @@ export default function BlockchainTrace() {
           <p className="text-xs text-slate-400 mt-1">请检查输入的资产编号或名称</p>
         </div>
       )}
+
+      {/* DetailDrawer */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={`溯源详情 - ${detailChain?.assetName || ""}`}
+        data={detailData}
+        fields={detailFields}
+        onEdit={detailChain ? () => handleEdit(detailChain) : undefined}
+        onDelete={detailChain ? () => handleDelete(detailChain) : undefined}
+      />
+
+      {/* CrudDialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogMode === "delete" ? `${traceChains.find((c) => c.assetId === editingId)?.assetName || "溯源记录"}` : "溯源记录"}
+        fields={traceFields}
+        data={dialogData}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
     </div>
   );
 }

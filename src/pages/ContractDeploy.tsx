@@ -2,17 +2,33 @@ import { useState } from "react";
 import {
   Rocket, Plus, Search, CheckCircle2, XCircle, Clock, ChevronRight,
   Server, FileCode, Tag, Settings, RefreshCw, Upload, Eye,
-  Copy, Terminal, X, AlertTriangle
+  Copy, Terminal, X, AlertTriangle, Pencil, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { FieldConfig } from "@/components/CrudDialog";
+import { CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+/* ─── Types ─── */
+interface DeployTask {
+  id: string;
+  contract: string;
+  version: string;
+  network: string;
+  channel: string;
+  targetNodes: string[];
+  status: string;
+  deployTime: string;
+  deployer: string;
+  txHash: string;
+  gasUsed: string;
+}
 
 /* ─── Mock Deploy Tasks ─── */
-const deployTasksData = [
+const initialDeployTasksData: DeployTask[] = [
   { id: "DP-001", contract: "数据资产存证合约", version: "v2.0.0", network: "金融联盟链", channel: "金融交易通道", targetNodes: ["共识节点-01", "共识节点-02", "共识节点-03"], status: "success", deployTime: "2025-04-15 10:30:00", deployer: "管理员", txHash: "0x7a8b...c3d4", gasUsed: "0.0023 ETH" },
   { id: "DP-002", contract: "数据授权合约", version: "v1.1.0", network: "政务数据链", channel: "政务数据共享通道", targetNodes: ["共识节点-04", "共识节点-05"], status: "success", deployTime: "2025-03-20 14:00:00", deployer: "管理员", txHash: "0x9c1d...e2f3", gasUsed: "0.0018 ETH" },
   { id: "DP-003", contract: "数据溯源合约", version: "v1.2.0", network: "医疗数据链", channel: "医疗数据通道", targetNodes: ["共识节点-06", "共识节点-07", "共识节点-08"], status: "failed", deployTime: "2025-04-01 09:15:00", deployer: "管理员", txHash: "0x3e4f...a5b6", gasUsed: "0.0012 ETH" },
@@ -30,11 +46,102 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.text}</span>;
 }
 
-export default function ContractDeploy() {
-  const [search, setSearch] = useState("");
-  const [detailTask, setDetailTask] = useState<typeof deployTasksData[0] | null>(null);
+const formFields: FieldConfig[] = [
+  { key: "id", label: "任务ID", type: "text", required: true, placeholder: "如 DP-006" },
+  { key: "contract", label: "合约名称", type: "text", required: true },
+  { key: "version", label: "版本", type: "text", required: true, placeholder: "如 v1.0.0" },
+  { key: "network", label: "目标网络", type: "text", required: true },
+  { key: "channel", label: "通道", type: "text", required: true },
+  { key: "targetNodes", label: "目标节点", type: "text", required: true, placeholder: "用逗号分隔多个节点" },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "成功", value: "success" },
+    { label: "失败", value: "failed" },
+    { label: "部署中", value: "pending" },
+  ]},
+  { key: "deployTime", label: "部署时间", type: "text", placeholder: "如 2025-04-15 10:30:00" },
+  { key: "deployer", label: "部署人", type: "text" },
+  { key: "txHash", label: "交易哈希", type: "text" },
+  { key: "gasUsed", label: "Gas消耗", type: "text" },
+];
 
-  const filtered = deployTasksData.filter(d => d.contract.includes(search) || d.network.includes(search));
+const detailFields = [
+  { key: "id", label: "任务ID", type: "text" as const },
+  { key: "contract", label: "合约名称", type: "text" as const },
+  { key: "version", label: "版本", type: "badge" as const },
+  { key: "network", label: "目标网络", type: "text" as const },
+  { key: "channel", label: "通道", type: "text" as const },
+  { key: "targetNodes", label: "目标节点", type: "list" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "deployTime", label: "部署时间", type: "date" as const },
+  { key: "deployer", label: "部署人", type: "text" as const },
+  { key: "txHash", label: "交易哈希", type: "text" as const },
+  { key: "gasUsed", label: "Gas消耗", type: "text" as const },
+];
+
+export default function ContractDeploy() {
+  const [tasks, setTasks] = useState<DeployTask[]>(initialDeployTasksData);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedTask, setSelectedTask] = useState<DeployTask | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filtered = tasks.filter(d => d.contract.includes(search) || d.network.includes(search) || d.id.includes(search));
+
+  const openCreate = () => {
+    setDialogMode("create");
+    setSelectedTask(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (task: DeployTask) => {
+    setDialogMode("edit");
+    setSelectedTask(task);
+    setDialogOpen(true);
+  };
+
+  const openView = (task: DeployTask) => {
+    setSelectedTask(task);
+    setDrawerOpen(true);
+  };
+
+  const openDelete = (task: DeployTask) => {
+    setDialogMode("delete");
+    setSelectedTask(task);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    const processed = {
+      ...data,
+      targetNodes: typeof data.targetNodes === "string"
+        ? data.targetNodes.split(/[,，]/).map((s: string) => s.trim()).filter(Boolean)
+        : data.targetNodes || [],
+    };
+
+    if (dialogMode === "create") {
+      setTasks(prev => [...prev, processed as DeployTask]);
+    } else if (dialogMode === "edit" && selectedTask) {
+      setTasks(prev => prev.map(t => t.id === selectedTask.id ? processed as DeployTask : t));
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedTask) {
+      setTasks(prev => prev.filter(t => t.id !== selectedTask.id));
+    }
+  };
+
+  const stats = [
+    { label: "部署任务", value: tasks.length, icon: <Rocket className="w-5 h-5 text-indigo-500" />, color: "bg-indigo-50 dark:bg-indigo-900/20" },
+    { label: "部署成功", value: tasks.filter(d => d.status === "success").length, icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, color: "bg-emerald-50 dark:bg-emerald-900/20" },
+    { label: "部署失败", value: tasks.filter(d => d.status === "failed").length, icon: <XCircle className="w-5 h-5 text-red-500" />, color: "bg-red-50 dark:bg-red-900/20" },
+    { label: "进行中", value: tasks.filter(d => d.status === "pending").length, icon: <Clock className="w-5 h-5 text-blue-500" />, color: "bg-blue-50 dark:bg-blue-900/20" },
+  ];
+
+  const dialogData = selectedTask
+    ? { ...selectedTask, targetNodes: selectedTask.targetNodes.join(", ") }
+    : undefined;
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -43,16 +150,13 @@ export default function ContractDeploy() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">合约安装部署</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">部署智能合约到目标网络与节点，管理部署任务状态</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Rocket className="w-4 h-4" /> 部署合约</Button>
+        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={openCreate}>
+          <Rocket className="w-4 h-4" /> 部署合约
+        </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: "部署任务", value: deployTasksData.length, icon: <Rocket className="w-5 h-5 text-indigo-500" />, color: "bg-indigo-50 dark:bg-indigo-900/20" },
-          { label: "部署成功", value: deployTasksData.filter(d => d.status === "success").length, icon: <CheckCircle2 className="w-5 h-5 text-emerald-500" />, color: "bg-emerald-50 dark:bg-emerald-900/20" },
-          { label: "部署失败", value: deployTasksData.filter(d => d.status === "failed").length, icon: <XCircle className="w-5 h-5 text-red-500" />, color: "bg-red-50 dark:bg-red-900/20" },
-          { label: "进行中", value: deployTasksData.filter(d => d.status === "pending").length, icon: <Clock className="w-5 h-5 text-blue-500" />, color: "bg-blue-50 dark:bg-blue-900/20" },
-        ].map((s, i) => (
+        {stats.map((s, i) => (
           <div key={i} className={cn("rounded-xl p-4 border border-slate-200 dark:border-slate-700", s.color)}>
             <div className="flex items-center justify-between"><span className="text-sm text-slate-600 dark:text-slate-400">{s.label}</span>{s.icon}</div>
             <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 mt-2">{s.value}</div>
@@ -65,7 +169,9 @@ export default function ContractDeploy() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input placeholder="搜索合约/网络/通道" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <Button variant="outline" className="gap-2"><RefreshCw className="w-4 h-4" /> 刷新</Button>
+        <Button variant="outline" className="gap-2" onClick={() => setSearch("")}>
+          <RefreshCw className="w-4 h-4" /> 刷新
+        </Button>
       </div>
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-[#1e293b]">
@@ -89,7 +195,17 @@ export default function ContractDeploy() {
                 <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{task.deployTime}</td>
                 <td className="px-4 py-3">
-                  <Button size="sm" variant="ghost" onClick={() => setDetailTask(task)}><ChevronRight className="w-4 h-4" /></Button>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => openView(task)} title="查看">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => openEdit(task)} title="编辑">
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => openDelete(task)} title="删除">
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -97,54 +213,26 @@ export default function ContractDeploy() {
         </table>
       </div>
 
-      <Dialog open={!!detailTask} onOpenChange={() => setDetailTask(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><Rocket className="w-5 h-5 text-indigo-500" />部署详情 - {detailTask?.id}</DialogTitle>
-          </DialogHeader>
-          {detailTask && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "任务ID", value: detailTask.id },
-                  { label: "合约名称", value: detailTask.contract },
-                  { label: "版本", value: detailTask.version },
-                  { label: "目标网络", value: detailTask.network },
-                  { label: "通道", value: detailTask.channel },
-                  { label: "状态", value: detailTask.status },
-                  { label: "部署时间", value: detailTask.deployTime },
-                  { label: "部署人", value: detailTask.deployer },
-                  { label: "交易哈希", value: detailTask.txHash },
-                  { label: "Gas消耗", value: detailTask.gasUsed },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{item.label}</div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100 mt-1">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-                <div className="text-sm font-medium mb-2">目标节点</div>
-                <div className="flex flex-wrap gap-2">
-                  {detailTask.targetNodes.map((node, i) => (
-                    <Badge key={i} variant="secondary" className="gap-1"><Server className="w-3 h-3" />{node}</Badge>
-                  ))}
-                </div>
-              </div>
-              {detailTask.status === "failed" && (
-                <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
-                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400 text-sm font-medium mb-1"><AlertTriangle className="w-4 h-4" />失败原因</div>
-                  <p className="text-xs text-red-600 dark:text-red-300">节点共识超时，部署交易未在指定时间内获得足够背书签名</p>
-                </div>
-              )}
-              <div className="flex gap-2">
-                {detailTask.status === "failed" && <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><RefreshCw className="w-4 h-4" /> 重新部署</Button>}
-                <Button variant="outline" className="gap-2"><Terminal className="w-4 h-4" /> 查看日志</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={selectedTask ? selectedTask.contract : "部署任务"}
+        fields={formFields}
+        data={dialogData}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        mode={dialogMode}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={`部署详情 - ${selectedTask?.id || ""}`}
+        data={selectedTask || {}}
+        fields={detailFields}
+        onEdit={selectedTask ? () => { setDrawerOpen(false); openEdit(selectedTask); } : undefined}
+        onDelete={selectedTask ? () => { setDrawerOpen(false); openDelete(selectedTask); } : undefined}
+      />
     </div>
   );
 }

@@ -1,13 +1,29 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   Monitor, Activity, Server, Network, AlertTriangle, CheckCircle2,
   Clock, BarChart3, Cpu, HardDrive, Wifi, Zap, ChevronDown, RefreshCw,
-  FileCode, Database, ArrowUpRight, ArrowDownRight, X
+  FileCode, Database, ArrowUpRight, ArrowDownRight, X, Plus, Search, Settings,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+import type { FieldConfig } from "@/components/CrudDialog";
+
+/* ─── Types ─── */
+interface AlertEvent {
+  id: string;
+  level: string;
+  title: string;
+  metric: string;
+  time: string;
+  status: string;
+}
 
 /* ─── Mock Network Metrics ─── */
 const metricsData = {
@@ -27,7 +43,7 @@ const nodeMetrics = [
   { name: "共识节点-05", cpu: 35, memory: 48, disk: 55, network: 250, status: "online" },
 ];
 
-const alertsData = [
+const initialAlerts: AlertEvent[] = [
   { id: "AL-001", level: "critical", title: "共识节点-04 CPU使用率过高", metric: "CPU 78%", time: "2025-04-22 10:30:00", status: "unresolved" },
   { id: "AL-002", level: "warning", title: "存储节点-02 磁盘空间不足", metric: "磁盘 88%", time: "2025-04-22 09:15:00", status: "unresolved" },
   { id: "AL-003", level: "info", title: "金融联盟链出块时间波动", metric: "出块 3.5s", time: "2025-04-22 08:00:00", status: "resolved" },
@@ -44,6 +60,15 @@ function AlertBadge({ level }: { level: string }) {
   return <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.text}</span>;
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { text: string; class: string }> = {
+    resolved: { text: "已恢复", class: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
+    unresolved: { text: "未恢复", class: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
+  };
+  const c = config[status] || config.unresolved;
+  return <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.text}</span>;
+}
+
 function MiniBar({ value, color }: { value: number; color: string }) {
   return (
     <div className="w-16 h-1.5 rounded-full bg-slate-100 dark:bg-[#334155] overflow-hidden">
@@ -52,7 +77,85 @@ function MiniBar({ value, color }: { value: number; color: string }) {
   );
 }
 
+const alertFields: FieldConfig[] = [
+  { key: "id", label: "告警ID", type: "text", required: true },
+  { key: "level", label: "级别", type: "select", required: true, options: [
+    { label: "严重", value: "critical" },
+    { label: "警告", value: "warning" },
+    { label: "提示", value: "info" },
+  ]},
+  { key: "title", label: "标题", type: "text", required: true },
+  { key: "metric", label: "指标", type: "text", required: true },
+  { key: "time", label: "时间", type: "text", required: true, placeholder: "YYYY-MM-DD HH:mm:ss" },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "未恢复", value: "unresolved" },
+    { label: "已恢复", value: "resolved" },
+  ]},
+];
+
+const detailFields = [
+  { key: "id", label: "告警ID" },
+  { key: "level", label: "级别", type: "badge" as const },
+  { key: "title", label: "标题" },
+  { key: "metric", label: "指标" },
+  { key: "time", label: "时间", type: "date" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+];
+
 export default function BlockchainMonitoring() {
+  const [alerts, setAlerts] = useState<AlertEvent[]>(initialAlerts);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [selectedAlert, setSelectedAlert] = useState<AlertEvent | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filteredAlerts = alerts.filter(a =>
+    a.title.includes(search) || a.id.includes(search) || a.metric.includes(search)
+  );
+
+  const criticalCount = alerts.filter(a => a.level === "critical").length;
+  const warningCount = alerts.filter(a => a.level === "warning").length;
+  const unresolvedCount = alerts.filter(a => a.status === "unresolved").length;
+  const resolvedCount = alerts.filter(a => a.status === "resolved").length;
+
+  const handleCreate = () => {
+    setSelectedAlert(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (alert: AlertEvent) => {
+    setSelectedAlert(alert);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (alert: AlertEvent) => {
+    setSelectedAlert(alert);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleView = (alert: AlertEvent) => {
+    setSelectedAlert(alert);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      setAlerts([...alerts, data as AlertEvent]);
+    } else if (dialogMode === "edit" && selectedAlert) {
+      setAlerts(alerts.map(a => a.id === selectedAlert.id ? { ...data, id: selectedAlert.id } as AlertEvent : a));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedAlert) {
+      setAlerts(alerts.filter(a => a.id !== selectedAlert.id));
+    }
+  };
+
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
       <div className="flex items-center justify-between">
@@ -136,30 +239,48 @@ export default function BlockchainMonitoring() {
           </div>
         </TabsContent>
 
-        <TabsContent value="alerts" className="pt-4">
+        <TabsContent value="alerts" className="space-y-4 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input placeholder="搜索告警标题/ID/指标" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500" />严重 {criticalCount}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500" />警告 {warningCount}</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" />已恢复 {resolvedCount}</span>
+              </div>
+              <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
+                <Plus className="w-4 h-4" /> 新建告警
+              </Button>
+            </div>
+          </div>
+
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-[#1e293b]">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 dark:bg-[#273548]">
                 <tr>
-                  {["告警ID", "级别", "标题", "指标", "时间", "状态"].map(h => (
+                  {["告警ID", "级别", "标题", "指标", "时间", "状态", "操作"].map(h => (
                     <th key={h} className="px-4 py-3 text-left font-medium text-slate-600 dark:text-slate-400">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {alertsData.map(alert => (
+                {filteredAlerts.map(alert => (
                   <tr key={alert.id} className="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-[#273548]/50">
                     <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{alert.id}</td>
                     <td className="px-4 py-3"><AlertBadge level={alert.level} /></td>
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{alert.title}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{alert.metric}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{alert.time}</td>
+                    <td className="px-4 py-3"><StatusBadge status={alert.status} /></td>
                     <td className="px-4 py-3">
-                      {alert.status === "resolved" ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-600"><CheckCircle2 className="w-3 h-3" />已恢复</span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-amber-600"><AlertTriangle className="w-3 h-3" />未恢复</span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => handleView(alert)}><Eye className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(alert)}><Settings className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleDelete(alert)}><X className="w-4 h-4" /></Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -168,6 +289,33 @@ export default function BlockchainMonitoring() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={selectedAlert?.title || "告警事件"}
+        fields={alertFields}
+        data={selectedAlert || {}}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+        mode={dialogMode}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={`告警详情 - ${selectedAlert?.title}`}
+        data={selectedAlert || {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          if (selectedAlert) handleEdit(selectedAlert);
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          if (selectedAlert) handleDelete(selectedAlert);
+        }}
+      />
     </div>
   );
 }

@@ -10,20 +10,17 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
   BarChart3, Play, Pause, RotateCcw, FileOutput,
   Eye, Plus, Search, Filter, TrendingUp,
   Users, CheckCircle2, Clock, AlertTriangle,
-  BarChart4, Settings, Download, Trash2, Copy,
+  BarChart4, Settings, Download, Trash2, Copy, Pencil,
 } from "lucide-react";
+import { CrudDialog } from "@/components/CrudDialog";
+import type { FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
 interface StatsTask {
   id: string;
@@ -38,14 +35,6 @@ interface StatsTask {
   resultSize: string;
 }
 
-const statsTasks: StatsTask[] = [
-  { id: "JS-2024-001", name: "金融客户联合画像统计", status: "completed", metrics: "年龄分布、收入层级、风险偏好", groupBy: "地域、行业", aggMethod: "COUNT, AVG, PERCENTILE", parties: 3, createTime: "2024-04-15 09:30", completeTime: "2024-04-15 10:15", resultSize: "2.4 MB" },
-  { id: "JS-2024-002", name: "医疗数据联合流行病学分析", status: "running", metrics: "发病率、治愈率、存活率", groupBy: "年龄段、性别", aggMethod: "SUM, RATE, CONFIDENCE", parties: 5, createTime: "2024-04-16 14:00", completeTime: "-", resultSize: "-" },
-  { id: "JS-2024-003", name: "电商联合消费行为统计", status: "pending", metrics: "客单价、复购率、品类偏好", groupBy: "用户等级、渠道", aggMethod: "AVG, COUNT_DISTINCT, TOPN", parties: 4, createTime: "2024-04-17 11:20", completeTime: "-", resultSize: "-" },
-  { id: "JS-2024-004", name: "政务数据联合人口统计", status: "completed", metrics: "人口结构、就业分布、教育水平", groupBy: "行政区划", aggMethod: "COUNT, RATIO, PERCENTILE", parties: 6, createTime: "2024-04-10 08:00", completeTime: "2024-04-10 09:45", resultSize: "8.1 MB" },
-  { id: "JS-2024-005", name: "保险联合风险评估统计", status: "failed", metrics: "赔付率、风险评分、保额分布", groupBy: "险种、区域", aggMethod: "AVG, STD, PERCENTILE", parties: 3, createTime: "2024-04-14 16:30", completeTime: "2024-04-14 16:35", resultSize: "-" },
-];
-
 const statusMap: Record<string, { label: string; color: string; icon: any }> = {
   completed: { label: "已完成", color: "bg-green-50 text-green-700 border-green-200", icon: <CheckCircle2 className="w-3.5 h-3.5" /> },
   running: { label: "执行中", color: "bg-blue-50 text-blue-700 border-blue-200", icon: <Clock className="w-3.5 h-3.5" /> },
@@ -59,20 +48,26 @@ const templates = [
 ];
 
 export default function SecretJointStats() {
+  const [statsTasks, setStatsTasks] = useState<StatsTask[]>([
+    { id: "JS-2024-001", name: "金融客户联合画像统计", status: "completed", metrics: "年龄分布、收入层级、风险偏好", groupBy: "地域、行业", aggMethod: "COUNT, AVG, PERCENTILE", parties: 3, createTime: "2024-04-15 09:30", completeTime: "2024-04-15 10:15", resultSize: "2.4 MB" },
+    { id: "JS-2024-002", name: "医疗数据联合流行病学分析", status: "running", metrics: "发病率、治愈率、存活率", groupBy: "年龄段、性别", aggMethod: "SUM, RATE, CONFIDENCE", parties: 5, createTime: "2024-04-16 14:00", completeTime: "-", resultSize: "-" },
+    { id: "JS-2024-003", name: "电商联合消费行为统计", status: "pending", metrics: "客单价、复购率、品类偏好", groupBy: "用户等级、渠道", aggMethod: "AVG, COUNT_DISTINCT, TOPN", parties: 4, createTime: "2024-04-17 11:20", completeTime: "-", resultSize: "-" },
+    { id: "JS-2024-004", name: "政务数据联合人口统计", status: "completed", metrics: "人口结构、就业分布、教育水平", groupBy: "行政区划", aggMethod: "COUNT, RATIO, PERCENTILE", parties: 6, createTime: "2024-04-10 08:00", completeTime: "2024-04-10 09:45", resultSize: "8.1 MB" },
+    { id: "JS-2024-005", name: "保险联合风险评估统计", status: "failed", metrics: "赔付率、风险评分、保额分布", groupBy: "险种、区域", aggMethod: "AVG, STD, PERCENTILE", parties: 3, createTime: "2024-04-14 16:30", completeTime: "2024-04-14 16:35", resultSize: "-" },
+    { id: "JS-2024-006", name: "教育数据联合成绩分析", status: "completed", metrics: "平均分、及格率、优秀率", groupBy: "学校、年级", aggMethod: "AVG, RATIO, PERCENTILE", parties: 4, createTime: "2024-04-13 09:00", completeTime: "2024-04-13 10:30", resultSize: "1.2 MB" },
+    { id: "JS-2024-007", name: "交通流量联合统计", status: "running", metrics: "车流量、拥堵指数、事故率", groupBy: "路段、时段", aggMethod: "SUM, AVG, RATE", parties: 5, createTime: "2024-04-18 08:00", completeTime: "-", resultSize: "-" },
+    { id: "JS-2024-008", name: "能源消耗联合分析", status: "pending", metrics: "用电量、峰值、谷值", groupBy: "区域、行业", aggMethod: "SUM, AVG, STD", parties: 3, createTime: "2024-04-19 14:00", completeTime: "-", resultSize: "-" },
+    { id: "JS-2024-009", name: "零售销售联合统计", status: "completed", metrics: "销售额、毛利率、库存周转", groupBy: "品类、门店", aggMethod: "SUM, AVG, RATIO", parties: 4, createTime: "2024-04-12 10:00", completeTime: "2024-04-12 11:20", resultSize: "3.5 MB" },
+    { id: "JS-2024-010", name: "环境污染联合监测", status: "failed", metrics: "PM2.5、SO2、NO2浓度", groupBy: "监测点、时间", aggMethod: "AVG, MAX, MIN", parties: 6, createTime: "2024-04-11 16:00", completeTime: "2024-04-11 16:10", resultSize: "-" },
+  ]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StatsTask | null>(null);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
-
-  const [formName, setFormName] = useState("");
-  const [formMetrics, setFormMetrics] = useState("");
-  const [formGroupBy, setFormGroupBy] = useState("");
-  const [formAgg, setFormAgg] = useState("");
-  const [formParties, setFormParties] = useState(2);
 
   const filteredTasks = statsTasks.filter((task) => {
     const matchSearch = task.name.includes(searchQuery) || task.id.includes(searchQuery);
@@ -81,45 +76,150 @@ export default function SecretJointStats() {
   });
 
   const handleCreate = () => {
-    setFormName(""); setFormMetrics(""); setFormGroupBy(""); setFormAgg(""); setFormParties(2);
-    setCreateOpen(true);
+    setSelectedItem(null);
+    setDialogMode("create");
+    setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formName) return;
-    statsTasks.unshift({
-      id: `JS-2024-${String(statsTasks.length + 1).padStart(3, '0')}`,
-      name: formName, status: "pending",
-      metrics: formMetrics || "未配置",
-      groupBy: formGroupBy || "未配置",
-      aggMethod: formAgg || "COUNT",
-      parties: formParties,
-      createTime: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      completeTime: "-", resultSize: "-",
-    });
-    setCreateOpen(false);
+  const handleEdit = (task: StatsTask) => {
+    setSelectedItem(task);
+    setDialogMode("edit");
+    setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => { setDeleteId(id); setDeleteOpen(true); };
-  const confirmDelete = () => {
-    const idx = statsTasks.findIndex(t => t.id === deleteId);
-    if (idx >= 0) statsTasks.splice(idx, 1);
-    setDeleteOpen(false);
-    if (selectedItem?.id === deleteId) setDetailOpen(false);
+  const handleView = (task: StatsTask) => {
+    setSelectedItem(task);
+    setDrawerOpen(true);
+  };
+
+  const handleDelete = (task: StatsTask) => {
+    setSelectedItem(task);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newTask: StatsTask = {
+        id: Date.now().toString(36).toUpperCase(),
+        name: data.name,
+        status: "pending",
+        metrics: data.metrics || "未配置",
+        groupBy: data.groupBy || "未配置",
+        aggMethod: data.aggMethod || "COUNT",
+        parties: Number(data.parties) || 2,
+        createTime: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        completeTime: "-",
+        resultSize: "-",
+      };
+      setStatsTasks(prev => [newTask, ...prev]);
+    } else if (dialogMode === "edit" && selectedItem) {
+      setStatsTasks(prev => prev.map(t =>
+        t.id === selectedItem.id
+          ? {
+              ...t,
+              name: data.name,
+              metrics: data.metrics || "未配置",
+              groupBy: data.groupBy || "未配置",
+              aggMethod: data.aggMethod || "COUNT",
+              parties: Number(data.parties) || t.parties,
+              status: data.status || t.status,
+            }
+          : t
+      ));
+    }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (selectedItem) {
+      setStatsTasks(prev => prev.filter(t => t.id !== selectedItem.id));
+      if (drawerOpen) setDrawerOpen(false);
+    }
   };
 
   const handleToggleStatus = (id: string) => {
-    const t = statsTasks.find(x => x.id === id);
-    if (!t) return;
-    if (t.status === "pending") t.status = "running";
-    else if (t.status === "running") t.status = "paused";
-    else if (t.status === "paused") t.status = "running";
-    else if (t.status === "failed") t.status = "pending";
+    setStatsTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      let newStatus = t.status;
+      if (t.status === "pending") newStatus = "running";
+      else if (t.status === "running") newStatus = "paused";
+      else if (t.status === "paused") newStatus = "running";
+      else if (t.status === "failed") newStatus = "pending";
+      return { ...t, status: newStatus };
+    }));
   };
 
   const handleCopy = (task: StatsTask) => {
-    statsTasks.unshift({ ...task, id: `JS-2024-${String(statsTasks.length + 1).padStart(3, '0')}`, name: `${task.name} (复制)`, status: "pending", completeTime: "-", resultSize: "-" });
+    const newTask: StatsTask = {
+      ...task,
+      id: Date.now().toString(36).toUpperCase(),
+      name: `${task.name} (复制)`,
+      status: "pending",
+      completeTime: "-",
+      resultSize: "-",
+    };
+    setStatsTasks(prev => [newTask, ...prev]);
   };
+
+  const handleUseTemplate = (tp: typeof templates[0]) => {
+    setSelectedItem({
+      id: "",
+      name: tp.name,
+      status: "pending",
+      metrics: tp.metrics,
+      groupBy: tp.groupBy,
+      aggMethod: tp.aggMethod,
+      parties: tp.parties,
+      createTime: "",
+      completeTime: "-",
+      resultSize: "-",
+    });
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const crudFields: FieldConfig[] = [
+    { key: "name", label: "任务名称", type: "text", required: true },
+    { key: "metrics", label: "统计指标", type: "text", placeholder: "如：年龄分布、收入层级" },
+    { key: "groupBy", label: "分组字段", type: "text", placeholder: "如：地域、行业" },
+    { key: "aggMethod", label: "聚合方式", type: "select", options: [
+      { label: "COUNT", value: "COUNT" },
+      { label: "AVG", value: "AVG" },
+      { label: "SUM", value: "SUM" },
+      { label: "STD", value: "STD" },
+      { label: "PERCENTILE", value: "PERCENTILE" },
+      { label: "COUNT_DISTINCT", value: "COUNT_DISTINCT" },
+      { label: "RATIO", value: "RATIO" },
+      { label: "RATE", value: "RATE" },
+      { label: "CONFIDENCE", value: "CONFIDENCE" },
+      { label: "TOPN", value: "TOPN" },
+    ]},
+    { key: "parties", label: "参与方数", type: "number" },
+    ...(dialogMode === "edit" ? [{
+      key: "status" as const,
+      label: "状态" as const,
+      type: "select" as const,
+      options: [
+        { label: "已完成", value: "completed" },
+        { label: "执行中", value: "running" },
+        { label: "待执行", value: "pending" },
+        { label: "执行失败", value: "failed" },
+      ],
+    }] : []),
+  ];
+
+  const detailFields = [
+    { key: "id", label: "任务ID", type: "text" as const },
+    { key: "name", label: "任务名称", type: "text" as const },
+    { key: "status", label: "状态", type: "badge" as const },
+    { key: "metrics", label: "统计指标", type: "text" as const },
+    { key: "groupBy", label: "分组字段", type: "text" as const },
+    { key: "aggMethod", label: "聚合方式", type: "text" as const },
+    { key: "parties", label: "参与方数", type: "text" as const },
+    { key: "createTime", label: "创建时间", type: "date" as const },
+    { key: "completeTime", label: "完成时间", type: "date" as const },
+    { key: "resultSize", label: "结果大小", type: "text" as const },
+  ];
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -193,9 +293,10 @@ export default function SecretJointStats() {
                             {task.status === "running" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(task.id)}><Pause className="w-4 h-4" /></Button>}
                             {task.status === "failed" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(task.id)}><RotateCcw className="w-4 h-4" /></Button>}
                             {task.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(task); setExportOpen(true); }}><FileOutput className="w-4 h-4" /></Button>}
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(task); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(task)}><Eye className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(task)}><Pencil className="w-4 h-4" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(task)}><Copy className="w-4 h-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(task.id)}><Trash2 className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(task)}><Trash2 className="w-4 h-4" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -230,7 +331,7 @@ export default function SecretJointStats() {
                     <TableCell>{tp.parties} 方</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="sm" className="h-8" onClick={() => { setFormName(tp.name); setFormMetrics(tp.metrics); setFormGroupBy(tp.groupBy); setFormAgg(tp.aggMethod); setFormParties(tp.parties); setCreateOpen(true); }}>使用模板</Button>
+                        <Button variant="ghost" size="sm" className="h-8" onClick={() => handleUseTemplate(tp)}>使用模板</Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8"><Settings className="w-4 h-4" /></Button>
                       </div>
                     </TableCell>
@@ -260,7 +361,7 @@ export default function SecretJointStats() {
                     <TableCell>{t.parties} 方</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(t); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(t)}><Eye className="w-4 h-4" /></Button>
                         {t.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="w-4 h-4" /></Button>}
                       </div>
                     </TableCell>
@@ -272,72 +373,36 @@ export default function SecretJointStats() {
         </TabsContent>
       </Tabs>
 
-      {/* Create Dialog */}
-      {createOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setCreateOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-1">创建统计任务</h2>
-            <p className="text-sm text-gray-500 mb-4">配置统计指标、分组和聚合方式</p>
-            <div className="space-y-4">
-              <div className="space-y-2"><label className="text-sm font-medium">任务名称 <span className="text-red-500">*</span></label><Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="如：人口结构统计" /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">统计指标</label><Input value={formMetrics} onChange={e => setFormMetrics(e.target.value)} placeholder="如：年龄分布、收入层级" /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">分组字段</label><Input value={formGroupBy} onChange={e => setFormGroupBy(e.target.value)} placeholder="如：地域、行业" /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">聚合方式</label>
-                <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={formAgg} onChange={e => setFormAgg(e.target.value)}>
-                  <option value="">请选择</option><option value="COUNT">COUNT</option><option value="AVG">AVG</option><option value="SUM">SUM</option><option value="STD">STD</option><option value="PERCENTILE">PERCENTILE</option><option value="COUNT_DISTINCT">COUNT_DISTINCT</option>
-                </select>
-              </div>
-              <div className="space-y-2"><label className="text-sm font-medium">参与方数</label>
-                <Input type="number" min={2} max={10} value={formParties} onChange={e => setFormParties(Number(e.target.value))} />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-              <Button onClick={handleSave} disabled={!formName}>创建任务</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CrudDialog
+        key={`${dialogMode}-${selectedItem?.id || "new"}`}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="联合统计任务"
+        fields={crudFields}
+        data={selectedItem || undefined}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleDeleteConfirm}
+      />
 
-      {/* Detail Sheet */}
-      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader><SheetTitle>任务详情</SheetTitle><SheetDescription>查看统计任务完整信息</SheetDescription></SheetHeader>
-          {selectedItem && (
-            <div className="space-y-5 mt-6">
-              <div className="space-y-3">
-                {[
-                  ["任务ID", selectedItem.id], ["任务名称", selectedItem.name], ["统计指标", selectedItem.metrics],
-                  ["分组字段", selectedItem.groupBy], ["聚合方式", selectedItem.aggMethod], ["参与方数", `${selectedItem.parties} 方`],
-                  ["创建时间", selectedItem.createTime], ["完成时间", selectedItem.completeTime],
-                ].map(([label, val]) => (
-                  <div key={label} className="flex justify-between"><span className="text-sm text-gray-500">{label}</span><span className="text-sm">{val}</span></div>
-                ))}
-                <div className="flex justify-between"><span className="text-sm text-gray-500">结果大小</span><span className="text-sm font-semibold">{selectedItem.resultSize || "-"}</span></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
-                <Button variant="outline" className="gap-2" onClick={() => handleToggleStatus(selectedItem.id)}>{selectedItem.status === "running" ? <><Pause className="w-4 h-4" />暂停</> : <><Play className="w-4 h-4" />启动</>}</Button>
-                <Button variant="outline" className="gap-2 text-red-500" onClick={() => handleDelete(selectedItem.id)}><Trash2 className="w-4 h-4" />删除</Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="联合统计任务详情"
+        data={selectedItem || {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          setDialogMode("edit");
+          setDialogOpen(true);
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          setDialogMode("delete");
+          setDialogOpen(true);
+        }}
+      />
 
-      {/* Delete Confirm */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-2">确认删除</h2>
-            <p className="text-sm text-gray-500 mb-4">删除任务 {deleteId} 后不可恢复，确认继续？</p>
-            <div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleteOpen(false)}>取消</Button><Button variant="destructive" onClick={confirmDelete}>确认删除</Button></div>
-          </div>
-        </div>
-      )}
-
-      {/* Export Dialog */}
       {exportOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/50" onClick={() => setExportOpen(false)} />

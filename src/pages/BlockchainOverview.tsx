@@ -19,6 +19,21 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { type FieldConfig, CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+
+/* ─── Types ─── */
+type AlertLevel = "critical" | "warning" | "info" | "notice" | "debug" | "emergency" | "fatal";
+type AlertStatus = "unhandled" | "handled" | "processing" | "escalated" | "ignored";
+
+interface AlertRecord {
+  id: string;
+  level: AlertLevel;
+  content: string;
+  time: string;
+  status: AlertStatus;
+}
 
 /* ─── Mock Data ─── */
 const chainStats = [
@@ -39,14 +54,6 @@ const componentStatus = [
   { name: "证书管理", status: "normal", latency: "1ms", uptime: "100%", detail: "证书未过期" },
 ];
 
-const recentAlerts = [
-  { id: "ALT-001", level: "warning", content: "状态数据库内存使用率超过80%", time: "2025-04-22 14:30:00", status: "unhandled" },
-  { id: "ALT-002", level: "info", content: "节点node-04网络延迟升高至45ms", time: "2025-04-22 13:15:00", status: "handled" },
-  { id: "ALT-003", level: "critical", content: "存储节点-03离线超过10分钟", time: "2025-04-22 12:48:00", status: "handled" },
-  { id: "ALT-004", level: "info", content: "智能合约DataSharing完成升级", time: "2025-04-22 11:20:00", status: "handled" },
-  { id: "ALT-005", level: "warning", content: "交易池待处理交易数超过阈值", time: "2025-04-22 10:05:00", status: "handled" },
-];
-
 const tpsHistory = [
   { time: "00:00", value: 1200 },
   { time: "02:00", value: 980 },
@@ -62,8 +69,156 @@ const tpsHistory = [
   { time: "22:00", value: 1400 },
 ];
 
+const alertFields: FieldConfig[] = [
+  { key: "id", label: "告警编号", type: "text", required: true, placeholder: "例如：ALT-006" },
+  { key: "level", label: "级别", type: "select", required: true, options: [
+    { label: "严重", value: "critical" },
+    { label: "警告", value: "warning" },
+    { label: "信息", value: "info" },
+    { label: "提示", value: "notice" },
+    { label: "调试", value: "debug" },
+    { label: "紧急", value: "emergency" },
+  ]},
+  { key: "content", label: "内容", type: "textarea", required: true, placeholder: "告警内容描述" },
+  { key: "time", label: "时间", type: "text", required: true, placeholder: "2025-04-22 14:30:00" },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "未处理", value: "unhandled" },
+    { label: "处理中", value: "processing" },
+    { label: "已处理", value: "handled" },
+    { label: "已忽略", value: "ignored" },
+    { label: "已升级", value: "escalated" },
+  ]},
+];
+
+const detailFields = [
+  { key: "id", label: "告警编号", type: "text" as const },
+  { key: "level", label: "级别", type: "badge" as const },
+  { key: "content", label: "内容", type: "text" as const },
+  { key: "time", label: "时间", type: "date" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+];
+
+/* ─── Helper ─── */
+function getLevelLabel(level: AlertLevel): string {
+  const map: Record<string, string> = {
+    critical: "严重", warning: "警告", info: "信息", notice: "提示",
+    debug: "调试", emergency: "紧急", fatal: "致命",
+  };
+  return map[level] || level;
+}
+
+function getLevelBadgeClass(level: AlertLevel): string {
+  const map: Record<string, string> = {
+    critical: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    warning: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    info: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    notice: "bg-slate-50 text-slate-600 dark:bg-slate-800/30 dark:text-slate-400",
+    debug: "bg-gray-50 text-gray-600 dark:bg-gray-800/30 dark:text-gray-400",
+    emergency: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+    fatal: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
+  };
+  return map[level] || map.info;
+}
+
+function getStatusLabel(status: AlertStatus): string {
+  const map: Record<string, string> = {
+    handled: "已处理", unhandled: "未处理", processing: "处理中",
+    escalated: "已升级", ignored: "已忽略",
+  };
+  return map[status] || status;
+}
+
 /* ─── Component ─── */
 export default function BlockchainOverview() {
+  const [alerts, setAlerts] = useState<AlertRecord[]>([
+    { id: "ALT-001", level: "warning", content: "状态数据库内存使用率超过80%", time: "2025-04-22 14:30:00", status: "unhandled" },
+    { id: "ALT-002", level: "info", content: "节点node-04网络延迟升高至45ms", time: "2025-04-22 13:15:00", status: "handled" },
+    { id: "ALT-003", level: "critical", content: "存储节点-03离线超过10分钟", time: "2025-04-22 12:48:00", status: "handled" },
+    { id: "ALT-004", level: "info", content: "智能合约DataSharing完成升级", time: "2025-04-22 11:20:00", status: "handled" },
+    { id: "ALT-005", level: "warning", content: "交易池待处理交易数超过阈值", time: "2025-04-22 10:05:00", status: "handled" },
+    { id: "ALT-006", level: "critical", content: "共识节点-02 CPU使用率超过90%", time: "2025-04-22 09:30:00", status: "processing" },
+    { id: "ALT-007", level: "notice", content: "节点node-08磁盘空间使用率85%", time: "2025-04-22 08:45:00", status: "unhandled" },
+    { id: "ALT-008", level: "info", content: "系统备份任务完成", time: "2025-04-22 08:00:00", status: "handled" },
+    { id: "ALT-009", level: "warning", content: "跨链路由延迟超过3秒", time: "2025-04-22 07:30:00", status: "escalated" },
+    { id: "ALT-010", level: "debug", content: "日志清理任务执行完成", time: "2025-04-22 06:00:00", status: "ignored" },
+  ]);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any>>({});
+  const [dialogTitle, setDialogTitle] = useState("告警");
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerData, setDrawerData] = useState<AlertRecord | null>(null);
+
+  const openCreate = () => {
+    setDialogMode("create");
+    setDialogData({});
+    setDialogTitle("告警");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (alert: AlertRecord) => {
+    setDialogMode("edit");
+    setDialogData(alert);
+    setDialogTitle(`告警 ${alert.id}`);
+    setDialogOpen(true);
+  };
+
+  const openView = (alert: AlertRecord) => {
+    setDrawerData(alert);
+    setDrawerOpen(true);
+  };
+
+  const openDelete = (alert: AlertRecord) => {
+    setDialogMode("delete");
+    setDialogData(alert);
+    setDialogTitle(`告警 ${alert.id}`);
+    setDialogOpen(true);
+  };
+
+  const handleCreate = (data: Record<string, any>) => {
+    const newAlert: AlertRecord = {
+      id: data.id || `ALT-${String(Date.now()).slice(-3)}`,
+      level: data.level as AlertLevel,
+      content: data.content,
+      time: data.time,
+      status: data.status as AlertStatus,
+    };
+    setAlerts((prev) => [newAlert, ...prev]);
+  };
+
+  const handleEdit = (data: Record<string, any>) => {
+    const originalId = dialogData.id as string;
+    setAlerts((prev) =>
+      prev.map((a) =>
+        a.id === originalId
+          ? {
+              ...a,
+              id: data.id,
+              level: data.level as AlertLevel,
+              content: data.content,
+              time: data.time,
+              status: data.status as AlertStatus,
+            }
+          : a
+      )
+    );
+  };
+
+  const handleDelete = () => {
+    const id = dialogData.id as string;
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleDialogSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      handleCreate(data);
+    } else if (dialogMode === "edit") {
+      handleEdit(data);
+    }
+  };
+
   return (
     <div className="space-y-5">
       {/* Header */}
@@ -171,9 +326,14 @@ export default function BlockchainOverview() {
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               告警事件
             </h3>
-            <Link to="/blockchain/ops" className="text-[10px] text-primary-600 flex items-center gap-0.5">
-              告警管理 <ArrowUpRight className="w-3 h-3" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={openCreate}>
+                + 新增告警
+              </Button>
+              <Link to="/blockchain/ops" className="text-[10px] text-primary-600 flex items-center gap-0.5">
+                告警管理 <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            </div>
           </div>
           <div className="px-4 pb-4">
             <table className="w-full text-xs">
@@ -183,19 +343,15 @@ export default function BlockchainOverview() {
                   <th className="text-left py-2 font-medium">内容</th>
                   <th className="text-left py-2 font-medium">时间</th>
                   <th className="text-center py-2 font-medium">状态</th>
+                  <th className="text-center py-2 font-medium">操作</th>
                 </tr>
               </thead>
               <tbody>
-                {recentAlerts.map((a) => (
+                {alerts.map((a) => (
                   <tr key={a.id} className="border-b border-slate-50 dark:border-[#334155] last:border-0">
                     <td className="py-2">
-                      <span className={cn(
-                        "px-1.5 py-0.5 rounded-full text-[10px]",
-                        a.level === "critical" ? "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                        a.level === "warning" ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
-                        "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                      )}>
-                        {a.level === "critical" ? "严重" : a.level === "warning" ? "警告" : "信息"}
+                      <span className={cn("px-1.5 py-0.5 rounded-full text-[10px]", getLevelBadgeClass(a.level))}>
+                        {getLevelLabel(a.level)}
                       </span>
                     </td>
                     <td className="py-2 text-slate-700 dark:text-slate-300">{a.content}</td>
@@ -206,6 +362,28 @@ export default function BlockchainOverview() {
                       ) : (
                         <Clock className="w-3.5 h-3.5 text-amber-500 inline" />
                       )}
+                    </td>
+                    <td className="py-2 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400"
+                          onClick={() => openView(a)}
+                        >
+                          查看
+                        </button>
+                        <button
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-slate-50 text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                          onClick={() => openEdit(a)}
+                        >
+                          编辑
+                        </button>
+                        <button
+                          className="px-1.5 py-0.5 rounded text-[10px] bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
+                          onClick={() => openDelete(a)}
+                        >
+                          删除
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -243,6 +421,39 @@ export default function BlockchainOverview() {
           </div>
         </div>
       </div>
+
+      {/* CRUD Dialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogTitle}
+        fields={alertFields}
+        data={dialogData}
+        onSubmit={handleDialogSubmit}
+        onDelete={handleDelete}
+        mode={dialogMode}
+      />
+
+      {/* Detail Drawer */}
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={`告警详情 — ${drawerData?.id || ""}`}
+        data={drawerData ? {
+          ...drawerData,
+          level: getLevelLabel(drawerData.level),
+          status: getStatusLabel(drawerData.status),
+        } : {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          if (drawerData) openEdit(drawerData);
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          if (drawerData) openDelete(drawerData);
+        }}
+      />
     </div>
   );
 }

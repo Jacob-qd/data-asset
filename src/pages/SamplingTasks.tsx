@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { ReactNode } from "react";
 import {
   Plus,
@@ -28,6 +28,8 @@ import {
   Filter,
   ChevronDown,
   ShieldCheck,
+  Box,
+  Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,6 +65,7 @@ interface SamplingTask {
   resultColumns?: string[];
   resultPreview?: Record<string, unknown>[];
   qcStatus?: "pending" | "passed" | "failed" | "not_triggered";
+  sentToSandbox?: boolean;
 }
 
 interface TaskLog {
@@ -570,6 +573,8 @@ export default function SamplingTasks() {
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<SamplingTask | null>(null);
   const [detailTab, setDetailTab] = useState<"overview" | "logs" | "results" | "stats">("overview");
+  const [resultPage, setResultPage] = useState(1);
+  const resultPageSize = 10;
 
   // New task wizard
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -587,6 +592,20 @@ export default function SamplingTasks() {
   // Delete confirm
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTask, setDeleteTask] = useState<SamplingTask | null>(null);
+
+  // Sandbox send confirm
+  const [sandboxDialogOpen, setSandboxDialogOpen] = useState(false);
+  const [sandboxDialogTask, setSandboxDialogTask] = useState<SamplingTask | null>(null);
+  const [sentToSandboxIds, setSentToSandboxIds] = useState<Set<string>>(new Set());
+
+  // Toast notification
+  const [toastMsg, setToastMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const timer = setTimeout(() => setToastMsg(null), 3000);
+    return () => clearTimeout(timer);
+  }, [toastMsg]);
 
   // ── Stats ──────────────────────────
 
@@ -617,6 +636,7 @@ export default function SamplingTasks() {
       if (d) {
         const now = new Date("2026-04-20");
         if (d === "today") result = result.filter((r) => r.startTime?.startsWith("2026-04-20"));
+        if (d === "yesterday") result = result.filter((r) => r.startTime?.startsWith("2026-04-19"));
         if (d === "week") {
           const weekAgo = new Date(now); weekAgo.setDate(weekAgo.getDate() - 7);
           result = result.filter((r) => r.startTime && new Date(r.startTime) >= weekAgo);
@@ -624,6 +644,10 @@ export default function SamplingTasks() {
         if (d === "month") {
           const monthAgo = new Date(now); monthAgo.setDate(monthAgo.getDate() - 30);
           result = result.filter((r) => r.startTime && new Date(r.startTime) >= monthAgo);
+        }
+        if (d === "quarter") {
+          const quarterAgo = new Date(now); quarterAgo.setDate(quarterAgo.getDate() - 90);
+          result = result.filter((r) => r.startTime && new Date(r.startTime) >= quarterAgo);
         }
       }
       if (c) result = result.filter((r) => r.creator === c);
@@ -665,6 +689,7 @@ export default function SamplingTasks() {
   const openDetail = (task: SamplingTask) => {
     setDetailTask(task);
     setDetailTab("overview");
+    setResultPage(1);
     setDetailOpen(true);
   };
 
@@ -753,7 +778,83 @@ export default function SamplingTasks() {
   };
 
   const handleExport = (format: string) => {
-    alert(`导出 ${format.toUpperCase()} 格式文件`);
+    if (!detailTask) return;
+    if (format === "csv") {
+      const headers = detailTask.resultColumns || [];
+      const rows = detailTask.resultPreview || [];
+      const csv = [
+        headers.join(","),
+        ...rows.map(row => headers.map(h => String(row[h] || "")).join(","))
+      ].join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${detailTask.id}_结果_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    } else {
+      alert(`导出 ${format.toUpperCase()} 格式功能开发中`);
+    }
+  };
+
+  const triggerQC = (task: SamplingTask) => {
+    const next = tasks.map((t) =>
+      t.id === task.id
+        ? { ...t, qcStatus: "pending" as const }
+        : t
+    );
+    setTasks(next);
+    setFiltered(next);
+    setTimeout(() => {
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, qcStatus: "passed" as const }
+            : t
+        )
+      );
+      setFiltered((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, qcStatus: "passed" as const }
+            : t
+        )
+      );
+    }, 3000);
+  };
+
+  const openSandboxConfirm = (task: SamplingTask) => {
+    setSandboxDialogTask(task);
+    setSandboxDialogOpen(true);
+  };
+
+  const executeSendToSandbox = () => {
+    if (!sandboxDialogTask) return;
+    const taskId = sandboxDialogTask.id;
+    const now = new Date();
+    const timeStr = now.toTimeString().slice(0, 8);
+
+    const updateTask = (t: SamplingTask) => {
+      if (t.id !== taskId) return t;
+      return {
+        ...t,
+        timeline: [
+          ...t.timeline,
+          { label: "发送到沙箱", status: "done" as const, time: timeStr, detail: "样本数据集已成功发送到沙箱环境" },
+        ],
+        sentToSandbox: true,
+      };
+    };
+
+    setTasks((prev) => prev.map(updateTask));
+    setFiltered((prev) => prev.map(updateTask));
+    setSentToSandboxIds((prev) => {
+      const next = new Set(prev);
+      next.add(taskId);
+      return next;
+    });
+    setSandboxDialogOpen(false);
+    setSandboxDialogTask(null);
+    setToastMsg({ text: `任务 "${sandboxDialogTask.name}" 已成功发送到沙箱`, type: "success" });
   };
 
   // ── Table columns ──────────────────
@@ -764,7 +865,14 @@ export default function SamplingTasks() {
       title: "任务名称",
       render: (row: SamplingTask) => (
         <div>
-          <div className="font-medium text-slate-800 dark:text-slate-200">{row.name}</div>
+          <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            {row.name}
+            {sentToSandboxIds.has(row.id) && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                已入沙箱
+              </span>
+            )}
+          </div>
           <div className="text-xs text-slate-400">{row.id}</div>
         </div>
       ),
@@ -898,8 +1006,18 @@ export default function SamplingTasks() {
               </Button>
             )}
             {task.status === "completed" && (!task.qcStatus || task.qcStatus === "not_triggered") && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1" onClick={(e) => { e.stopPropagation(); }} title="触发质检">
+              <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1" onClick={(e) => { e.stopPropagation(); triggerQC(task); }} title="触发质检">
                 <ShieldCheck className="w-3 h-3" />质检
+              </Button>
+            )}
+            {task.status === "completed" && !sentToSandboxIds.has(task.id) && (
+              <Button size="sm" className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white gap-1" onClick={(e) => { e.stopPropagation(); openSandboxConfirm(task); }} title="发送到沙箱">
+                <Upload className="w-3 h-3" />发送到沙箱
+              </Button>
+            )}
+            {task.status === "completed" && sentToSandboxIds.has(task.id) && (
+              <Button size="sm" className="h-7 px-2 text-xs bg-slate-200 text-slate-500 cursor-not-allowed gap-1" disabled title="已发送到沙箱">
+                <Box className="w-3 h-3" />已发送到沙箱
               </Button>
             )}
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); confirmDelete(task); }} title="删除">
@@ -997,7 +1115,7 @@ export default function SamplingTasks() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">日期范围</label>
-                <FieldSelect value={filterDateRange} onChange={(v) => handleFilterChange("date", v)} options={["today", "week", "month"]} placeholder="全部时间" />
+                <FieldSelect value={filterDateRange} onChange={(v) => handleFilterChange("date", v)} options={["today", "yesterday", "week", "month", "quarter"]} placeholder="全部时间" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-slate-500 mb-1.5">创建人</label>
@@ -1141,7 +1259,9 @@ export default function SamplingTasks() {
                 {detailTask.resultPreview && detailTask.resultPreview.length > 0 ? (
                   <>
                     <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">共 {detailTask.rowCount.toLocaleString()} 行，展示前 20 行</span>
+                      <span className="text-xs text-slate-500">
+                        共 {detailTask.rowCount.toLocaleString()} 行，第 {resultPage} / {Math.ceil((detailTask.resultPreview?.length || 0) / resultPageSize)} 页
+                      </span>
                     </div>
                     <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-[#334155]">
                       <table className="w-full text-xs">
@@ -1155,7 +1275,9 @@ export default function SamplingTasks() {
                           </tr>
                         </thead>
                         <tbody>
-                          {detailTask.resultPreview.map((row, i) => (
+                          {detailTask.resultPreview
+                            .slice((resultPage - 1) * resultPageSize, resultPage * resultPageSize)
+                            .map((row, i) => (
                             <tr key={i} className="border-b border-slate-100 dark:border-[#334155]/50 hover:bg-slate-50 dark:hover:bg-[#273548]/50">
                               {detailTask.resultColumns?.map((col) => (
                                 <td key={col} className="px-3 py-2 whitespace-nowrap">
@@ -1170,6 +1292,29 @@ export default function SamplingTasks() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                    <div className="flex items-center justify-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={resultPage <= 1}
+                        onClick={() => setResultPage((p) => p - 1)}
+                      >
+                        <ChevronLeft className="w-3 h-3" />
+                      </Button>
+                      <span className="text-xs text-slate-500">
+                        {resultPage} / {Math.ceil((detailTask.resultPreview?.length || 0) / resultPageSize)}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        disabled={resultPage >= Math.ceil((detailTask.resultPreview?.length || 0) / resultPageSize)}
+                        onClick={() => setResultPage((p) => p + 1)}
+                      >
+                        <ChevronRight className="w-3 h-3" />
+                      </Button>
                     </div>
                   </>
                 ) : (
@@ -1446,6 +1591,39 @@ export default function SamplingTasks() {
       </DialogContent>
       </Dialog>
 
+      {/* ─── Sandbox Confirm Modal ─── */}
+      <Modal
+        open={sandboxDialogOpen}
+        onClose={() => setSandboxDialogOpen(false)}
+        title="确认发送到沙箱"
+        size="md"
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={() => setSandboxDialogOpen(false)}>
+              取消
+            </Button>
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-1" onClick={executeSendToSandbox}>
+              <Upload className="w-3.5 h-3.5" />
+              确认发送
+            </Button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-3">
+          <Box className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              确定要将任务 <strong>"{sandboxDialogTask?.name}"</strong> 的样本数据集发送到沙箱吗？
+            </p>
+            <div className="mt-3 space-y-1 text-xs text-slate-500">
+              <div>任务编号: <span className="text-slate-700 dark:text-slate-300">{sandboxDialogTask?.id}</span></div>
+              <div>数据源: <span className="text-slate-700 dark:text-slate-300">{sandboxDialogTask?.dataSource}</span></div>
+              <div>数据量: <span className="text-slate-700 dark:text-slate-300">{sandboxDialogTask?.dataVolume} ({sandboxDialogTask?.rowCount.toLocaleString()} 行)</span></div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
       {/* ─── Delete Confirm Modal ─── */}
       <Modal
         open={deleteOpen}
@@ -1474,6 +1652,19 @@ export default function SamplingTasks() {
           </div>
         </div>
       </Modal>
+
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg border text-sm animate-fadeIn",
+            toastMsg.type === "success" && "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+          )}>
+            <CheckCircle className="w-4 h-4" />
+            {toastMsg.text}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

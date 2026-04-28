@@ -1,18 +1,36 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   Server, Plus, Search, Activity, Cpu, MemoryStick, HardDrive,
   CheckCircle2, AlertTriangle, XCircle, RefreshCw, Settings, Power,
   Monitor, ChevronRight, X, Terminal
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+import type { FieldConfig } from "@/components/CrudDialog";
+
+/* ─── Types ─── */
+interface Host {
+  id: string;
+  name: string;
+  ip: string;
+  os: string;
+  cpuCores: number;
+  memory: number;
+  disk: number;
+  status: string;
+  region: string;
+  nodeCount: number;
+  uptime: string;
+  agentVersion: string;
+}
 
 /* ─── Mock Hosts Data ─── */
-const hostsData = [
+const initialHosts: Host[] = [
   { id: "H-001", name: "区块链主机-01", ip: "192.168.10.101", os: "Ubuntu 22.04", cpuCores: 32, memory: 128, disk: 2048, status: "online", region: "北京-华北", nodeCount: 4, uptime: "99.99%", agentVersion: "v3.2.1" },
   { id: "H-002", name: "区块链主机-02", ip: "192.168.10.102", os: "CentOS 8.5", cpuCores: 24, memory: 64, disk: 1024, status: "online", region: "上海-华东", nodeCount: 3, uptime: "99.95%", agentVersion: "v3.2.1" },
   { id: "H-003", name: "区块链主机-03", ip: "192.168.10.103", os: "Ubuntu 22.04", cpuCores: 16, memory: 32, disk: 512, status: "warning", region: "广州-华南", nodeCount: 2, uptime: "98.50%", agentVersion: "v3.1.8" },
@@ -21,7 +39,7 @@ const hostsData = [
 ];
 
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { text: string; icon: React.ReactNode; class: string }> = {
+  const config: Record<string, { text: string; icon: ReactNode; class: string }> = {
     online: { text: "在线", icon: <CheckCircle2 className="w-3 h-3" />, class: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
     warning: { text: "警告", icon: <AlertTriangle className="w-3 h-3" />, class: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
     offline: { text: "离线", icon: <XCircle className="w-3 h-3" />, class: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
@@ -30,18 +48,103 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium", c.class)}>{c.icon}{c.text}</span>;
 }
 
-export default function BlockchainHostManage() {
-  const [search, setSearch] = useState("");
-  const [detailHost, setDetailHost] = useState<typeof hostsData[0] | null>(null);
+const hostFields: FieldConfig[] = [
+  { key: "id", label: "主机ID", type: "text", required: true },
+  { key: "name", label: "主机名称", type: "text", required: true },
+  { key: "ip", label: "IP地址", type: "text", required: true },
+  { key: "os", label: "操作系统", type: "select", required: true, options: [
+    { label: "Ubuntu 22.04", value: "Ubuntu 22.04" },
+    { label: "CentOS 8.5", value: "CentOS 8.5" },
+  ]},
+  { key: "cpuCores", label: "CPU核数", type: "number", required: true },
+  { key: "memory", label: "内存(GB)", type: "number", required: true },
+  { key: "disk", label: "磁盘(GB)", type: "number", required: true },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "在线", value: "online" },
+    { label: "警告", value: "warning" },
+    { label: "离线", value: "offline" },
+  ]},
+  { key: "region", label: "区域", type: "text", required: true },
+  { key: "nodeCount", label: "节点数", type: "number", required: true },
+  { key: "uptime", label: "运行时间", type: "text", required: true },
+  { key: "agentVersion", label: "Agent版本", type: "text", required: true },
+];
 
-  const filtered = hostsData.filter(h =>
+const detailFields = [
+  { key: "id", label: "主机ID" },
+  { key: "name", label: "主机名称" },
+  { key: "ip", label: "IP地址" },
+  { key: "os", label: "操作系统", type: "badge" as const },
+  { key: "cpuCores", label: "CPU核数" },
+  { key: "memory", label: "内存(GB)" },
+  { key: "disk", label: "磁盘(GB)" },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "region", label: "区域" },
+  { key: "nodeCount", label: "节点数" },
+  { key: "uptime", label: "运行时间" },
+  { key: "agentVersion", label: "Agent版本", type: "badge" as const },
+];
+
+export default function BlockchainHostManage() {
+  const [hosts, setHosts] = useState<Host[]>(initialHosts);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [selectedHost, setSelectedHost] = useState<Host | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filtered = hosts.filter(h =>
     h.name.includes(search) || h.ip.includes(search) || h.region.includes(search)
   );
 
-  const onlineCount = hostsData.filter(h => h.status === "online").length;
-  const warningCount = hostsData.filter(h => h.status === "warning").length;
-  const offlineCount = hostsData.filter(h => h.status === "offline").length;
-  const totalNodes = hostsData.reduce((sum, h) => sum + h.nodeCount, 0);
+  const onlineCount = hosts.filter(h => h.status === "online").length;
+  const warningCount = hosts.filter(h => h.status === "warning").length;
+  const offlineCount = hosts.filter(h => h.status === "offline").length;
+  const totalNodes = hosts.reduce((sum, h) => sum + h.nodeCount, 0);
+
+  const handleCreate = () => {
+    setSelectedHost(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (host: Host) => {
+    setSelectedHost(host);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (host: Host) => {
+    setSelectedHost(host);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleView = (host: Host) => {
+    setSelectedHost(host);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    const processed = {
+      ...data,
+      cpuCores: Number(data.cpuCores),
+      memory: Number(data.memory),
+      disk: Number(data.disk),
+      nodeCount: Number(data.nodeCount),
+    };
+    if (dialogMode === "create") {
+      setHosts([...hosts, processed as Host]);
+    } else if (dialogMode === "edit" && selectedHost) {
+      setHosts(hosts.map(h => h.id === selectedHost.id ? { ...processed, id: selectedHost.id } as Host : h));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedHost) {
+      setHosts(hosts.filter(h => h.id !== selectedHost.id));
+    }
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -50,7 +153,7 @@ export default function BlockchainHostManage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">主机管理</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">管理区块链节点主机资源，监控主机健康状态</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
           <Plus className="w-4 h-4" /> 注册主机
         </Button>
       </div>
@@ -108,9 +211,9 @@ export default function BlockchainHostManage() {
                 <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{host.agentVersion}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setDetailHost(host)}><Monitor className="w-4 h-4" /></Button>
-                    <Button size="sm" variant="ghost"><Terminal className="w-4 h-4" /></Button>
-                    <Button size="sm" variant="ghost"><Settings className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleView(host)}><Monitor className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleEdit(host)}><Settings className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(host)}><X className="w-4 h-4" /></Button>
                   </div>
                 </td>
               </tr>
@@ -119,58 +222,32 @@ export default function BlockchainHostManage() {
         </table>
       </div>
 
-      <Dialog open={!!detailHost} onOpenChange={() => setDetailHost(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Server className="w-5 h-5 text-indigo-500" />
-              主机详情 - {detailHost?.name}
-            </DialogTitle>
-          </DialogHeader>
-          {detailHost && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "主机ID", value: detailHost.id },
-                  { label: "IP地址", value: detailHost.ip },
-                  { label: "操作系统", value: detailHost.os },
-                  { label: "区域", value: detailHost.region },
-                  { label: "CPU", value: `${detailHost.cpuCores}核` },
-                  { label: "内存", value: `${detailHost.memory}GB` },
-                  { label: "磁盘", value: `${detailHost.disk}GB` },
-                  { label: "运行时间", value: detailHost.uptime },
-                  { label: "Agent版本", value: detailHost.agentVersion },
-                  { label: "节点数量", value: `${detailHost.nodeCount}个` },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{item.label}</div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100 mt-1">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
-                <div className="text-sm font-medium mb-3">资源使用率</div>
-                <div className="space-y-3">
-                  {[
-                    { label: "CPU使用率", value: 42, color: "bg-indigo-500" },
-                    { label: "内存使用率", value: 58, color: "bg-emerald-500" },
-                    { label: "磁盘使用率", value: 67, color: "bg-amber-500" },
-                  ].map(r => (
-                    <div key={r.label}>
-                      <div className="flex justify-between text-xs mb-1"><span className="text-slate-600 dark:text-slate-400">{r.label}</span><span className="text-slate-900 dark:text-slate-100">{r.value}%</span></div>
-                      <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden"><div className={cn("h-full rounded-full", r.color)} style={{ width: `${r.value}%` }} /></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Power className="w-4 h-4" /> 重启主机</Button>
-                <Button variant="outline" className="gap-2"><RefreshCw className="w-4 h-4" /> 更新Agent</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={selectedHost?.name || "主机"}
+        fields={hostFields}
+        data={selectedHost || {}}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+        mode={dialogMode}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={`主机详情 - ${selectedHost?.name}`}
+        data={selectedHost || {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          if (selectedHost) handleEdit(selectedHost);
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          if (selectedHost) handleDelete(selectedHost);
+        }}
+      />
     </div>
   );
 }

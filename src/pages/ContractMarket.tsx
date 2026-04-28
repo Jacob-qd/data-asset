@@ -1,17 +1,40 @@
 import { useState } from "react";
 import {
   ShoppingCart, Search, Star, Download, FileCode, ShieldCheck,
-  Users, Clock, ChevronRight, Tag, Eye, Heart, X
+  Users, Eye, Plus, Pencil, Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
-/* ─── Mock Contract Market ─── */
-const marketContracts = [
+interface MarketContract {
+  id: string;
+  name: string;
+  desc: string;
+  category: string;
+  author: string;
+  rating: number;
+  downloads: number;
+  license: string;
+  version: string;
+  size: string;
+  audit: string;
+  tags: string[];
+}
+
+interface InstalledContract {
+  name: string;
+  version: string;
+  installTime: string;
+  network: string;
+  status: string;
+}
+
+const initialMarketContracts: MarketContract[] = [
   { id: "MK-001", name: "标准存证合约", desc: "通用数据哈希上链存证，支持完整性校验", category: "存证", author: "InsightOne官方", rating: 4.8, downloads: 12560, license: "MIT", version: "v2.0.0", size: "12.5KB", audit: "已通过", tags: ["存证", "通用", "推荐"] },
   { id: "MK-002", name: "ERC20代币合约", desc: "标准代币发行与管理，支持转账/授权/冻结", category: "金融", author: "OpenZeppelin", rating: 4.9, downloads: 89320, license: "MIT", version: "v4.9.0", size: "8.2KB", audit: "已通过", tags: ["代币", "金融"] },
   { id: "MK-003", name: "数据授权合约", desc: "支持多级授权与期限管理的数据访问控制", category: "权限", author: "InsightOne官方", rating: 4.7, downloads: 6780, license: "Apache-2.0", version: "v1.1.0", size: "15.3KB", audit: "已通过", tags: ["授权", "权限"] },
@@ -20,16 +43,110 @@ const marketContracts = [
   { id: "MK-006", name: "跨链资产桥合约", desc: "支持HTLC协议的跨链资产锁定与释放", category: "跨链", author: "InsightOne官方", rating: 4.4, downloads: 4560, license: "MIT", version: "v1.2.0", size: "25.4KB", audit: "已通过", tags: ["跨链", "资产桥"] },
 ];
 
-const myContracts = [
+const initialMyContracts: InstalledContract[] = [
   { name: "数据资产存证合约", version: "v2.0.0", installTime: "2025-04-15", network: "金融联盟链", status: "installed" },
   { name: "数据授权合约", version: "v1.1.0", installTime: "2025-03-20", network: "政务数据链", status: "installed" },
 ];
 
-export default function ContractMarket() {
-  const [search, setSearch] = useState("");
-  const [detailContract, setDetailContract] = useState<typeof marketContracts[0] | null>(null);
+const crudFields: FieldConfig[] = [
+  { key: "name", label: "合约名称", type: "text", required: true, placeholder: "输入合约名称" },
+  { key: "desc", label: "描述", type: "textarea", required: true, placeholder: "输入合约描述" },
+  { key: "category", label: "分类", type: "text", required: true, placeholder: "输入分类" },
+  { key: "author", label: "作者", type: "text", required: true, placeholder: "输入作者" },
+  { key: "rating", label: "评分", type: "number", required: true, placeholder: "输入评分" },
+  { key: "downloads", label: "下载量", type: "number", required: true, placeholder: "输入下载量" },
+  { key: "license", label: "许可证", type: "text", required: true, placeholder: "输入许可证" },
+  { key: "version", label: "版本", type: "text", required: true, placeholder: "输入版本号" },
+  { key: "size", label: "大小", type: "text", required: true, placeholder: "输入合约大小" },
+  { key: "audit", label: "审计状态", type: "text", required: true, placeholder: "输入审计状态" },
+  { key: "tags", label: "标签", type: "text", required: true, placeholder: "用逗号分隔多个标签" },
+];
 
-  const filtered = marketContracts.filter(c => c.name.includes(search) || c.category.includes(search) || c.tags.some(t => t.includes(search)));
+const detailFields = [
+  { key: "id", label: "合约ID" },
+  { key: "name", label: "合约名称" },
+  { key: "desc", label: "描述" },
+  { key: "category", label: "分类", type: "badge" as const },
+  { key: "author", label: "作者" },
+  { key: "rating", label: "评分" },
+  { key: "downloads", label: "下载量" },
+  { key: "license", label: "许可证", type: "badge" as const },
+  { key: "version", label: "版本", type: "badge" as const },
+  { key: "size", label: "大小" },
+  { key: "audit", label: "审计状态", type: "badge" as const },
+  { key: "tags", label: "标签", type: "list" as const },
+];
+
+export default function ContractMarket() {
+  const [marketContracts, setMarketContracts] = useState<MarketContract[]>(initialMarketContracts);
+  const [myContracts] = useState<InstalledContract[]>(initialMyContracts);
+  const [search, setSearch] = useState("");
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [selectedContract, setSelectedContract] = useState<MarketContract | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const filtered = marketContracts.filter(c =>
+    c.name.includes(search) || c.category.includes(search) || c.tags.some(t => t.includes(search))
+  );
+
+  const openCreate = () => {
+    setSelectedContract(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (contract: MarketContract) => {
+    setSelectedContract(contract);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const openDelete = (contract: MarketContract) => {
+    setSelectedContract(contract);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const openView = (contract: MarketContract) => {
+    setSelectedContract(contract);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (formData: Record<string, unknown>) => {
+    const tags = String(formData.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+    const payload: MarketContract = {
+      id: selectedContract?.id || `MK-${String(marketContracts.length + 1).padStart(3, "0")}`,
+      name: String(formData.name || ""),
+      desc: String(formData.desc || ""),
+      category: String(formData.category || ""),
+      author: String(formData.author || ""),
+      rating: Number(formData.rating) || 0,
+      downloads: Number(formData.downloads) || 0,
+      license: String(formData.license || ""),
+      version: String(formData.version || ""),
+      size: String(formData.size || ""),
+      audit: String(formData.audit || ""),
+      tags,
+    };
+
+    if (dialogMode === "create") {
+      setMarketContracts(prev => [...prev, payload]);
+    } else if (dialogMode === "edit" && selectedContract) {
+      setMarketContracts(prev => prev.map(c => (c.id === selectedContract.id ? payload : c)));
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedContract) {
+      setMarketContracts(prev => prev.filter(c => c.id !== selectedContract.id));
+    }
+  };
+
+  const dialogData = selectedContract
+    ? { ...selectedContract, tags: selectedContract.tags.join(", ") }
+    : undefined;
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -38,6 +155,9 @@ export default function ContractMarket() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">智能合约市场</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">浏览、下载与安装经过审计的智能合约模板</p>
         </div>
+        <Button onClick={openCreate} className="gap-1">
+          <Plus className="w-4 h-4" /> 新建合约
+        </Button>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -87,7 +207,9 @@ export default function ContractMarket() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Button size="sm" className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white gap-1"><Download className="w-3 h-3" /> 安装</Button>
-                  <Button size="sm" variant="outline" onClick={() => setDetailContract(c)}><Eye className="w-3 h-3" /></Button>
+                  <Button size="sm" variant="outline" onClick={() => openView(c)}><Eye className="w-3 h-3" /></Button>
+                  <Button size="sm" variant="outline" onClick={() => openEdit(c)}><Pencil className="w-3 h-3" /></Button>
+                  <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => openDelete(c)}><Trash2 className="w-3 h-3" /></Button>
                 </div>
               </div>
             ))}
@@ -123,40 +245,32 @@ export default function ContractMarket() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={!!detailContract} onOpenChange={() => setDetailContract(null)}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileCode className="w-5 h-5 text-indigo-500" />{detailContract?.name}</DialogTitle>
-          </DialogHeader>
-          {detailContract && (
-            <div className="space-y-4">
-              <p className="text-sm text-slate-600 dark:text-slate-400">{detailContract.desc}</p>
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: "合约ID", value: detailContract.id },
-                  { label: "版本", value: detailContract.version },
-                  { label: "作者", value: detailContract.author },
-                  { label: "分类", value: detailContract.category },
-                  { label: "许可证", value: detailContract.license },
-                  { label: "大小", value: detailContract.size },
-                  { label: "评分", value: `${detailContract.rating}/5.0` },
-                  { label: "下载量", value: detailContract.downloads.toLocaleString() },
-                  { label: "审计状态", value: detailContract.audit },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-slate-200 dark:border-slate-700 p-3">
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{item.label}</div>
-                    <div className="text-sm font-medium text-slate-900 dark:text-slate-100 mt-1">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"><Download className="w-4 h-4" /> 安装合约</Button>
-                <Button variant="outline" className="gap-2"><FileCode className="w-4 h-4" /> 查看源码</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={selectedContract?.name || "合约"}
+        fields={crudFields}
+        data={dialogData}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        mode={dialogMode}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selectedContract?.name || "合约详情"}
+        data={selectedContract || {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          if (selectedContract) openEdit(selectedContract);
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          if (selectedContract) openDelete(selectedContract);
+        }}
+      />
     </div>
   );
 }

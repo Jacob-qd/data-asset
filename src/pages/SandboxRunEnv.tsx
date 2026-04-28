@@ -6,14 +6,25 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { ChevronRight, Play, Pause, Square, Clock, Cpu, MemoryStick, HardDrive, Zap, CheckCircle, AlertTriangle, Server, FileCheck, ArrowRight } from "lucide-react";
+import { ChevronRight, Play, Pause, Square, Clock, Cpu, MemoryStick, HardDrive, Zap, CheckCircle, AlertTriangle, Server, FileCheck, ArrowRight, Plus, Eye, Pencil, Trash2 } from "lucide-react";
+import { CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+import type { FieldConfig } from "@/components/CrudDialog";
 
-const runTasks = [
-  { id: "RT-001", name: "全量数据清洗-用户画像", script: "data_clean.py", status: "执行中", progress: 67, cpu: "78%", memory: "12.5GB", storage: "500GB", startTime: "2026-04-24 10:00", estEnd: "2026-04-24 15:30", output: "已处理 845,230 / 1,256,789 行", records: "1,256,789" },
-  { id: "RT-002", name: "特征工程-信用评分", script: "feature_engineer.py", status: "排队中", progress: 0, cpu: "--", memory: "--", storage: "200GB", startTime: "--", estEnd: "--", output: "等待依赖任务完成", records: "568,920" },
-  { id: "RT-003", name: "数据对齐-多方ID", script: "id_alignment.py", status: "已完成", progress: 100, cpu: "45%", memory: "8.2GB", storage: "300GB", startTime: "2026-04-24 08:00", estEnd: "2026-04-24 11:45", output: "对齐完成，匹配率 98.7%", records: "2,340,000" },
-  { id: "RT-004", name: "模型训练-评分卡", script: "scorecard_train.py", status: "已暂停", progress: 35, cpu: "--", memory: "--", storage: "1TB", startTime: "2026-04-24 09:00", estEnd: "--", output: "用户手动暂停", records: "1,256,789" },
-];
+type RunTask = {
+  id: string;
+  name: string;
+  script: string;
+  status: string;
+  progress: number;
+  cpu: string;
+  memory: string;
+  storage: string;
+  startTime: string;
+  estEnd: string;
+  output: string;
+  records: string;
+};
 
 const statusColor: Record<string, string> = {
   "执行中": "bg-blue-50 text-blue-700 border-blue-100",
@@ -23,9 +34,109 @@ const statusColor: Record<string, string> = {
   "执行失败": "bg-red-50 text-red-700 border-red-100",
 };
 
+const statusOptions = ["执行中", "排队中", "已完成", "已暂停", "执行失败"];
+
+const taskFields: FieldConfig[] = [
+  { key: "id", label: "任务ID", type: "text", required: true, placeholder: "如 RT-001" },
+  { key: "name", label: "任务名称", type: "text", required: true },
+  { key: "script", label: "脚本", type: "text", required: true },
+  { key: "status", label: "状态", type: "select", required: true, options: statusOptions.map(s => ({ label: s, value: s })) },
+  { key: "progress", label: "进度", type: "number", required: true, placeholder: "0-100" },
+  { key: "cpu", label: "CPU", type: "text", required: true, placeholder: "如 78%" },
+  { key: "memory", label: "内存", type: "text", required: true, placeholder: "如 12.5GB" },
+  { key: "storage", label: "存储", type: "text", required: true, placeholder: "如 500GB" },
+  { key: "startTime", label: "开始时间", type: "text", placeholder: "如 2026-04-24 10:00" },
+  { key: "estEnd", label: "预计完成", type: "text", placeholder: "如 2026-04-24 15:30" },
+  { key: "output", label: "输出", type: "textarea", required: true },
+  { key: "records", label: "数据量", type: "text", required: true, placeholder: "如 1,256,789" },
+];
+
+const detailFields = [
+  { key: "id", label: "任务ID" },
+  { key: "name", label: "任务名称" },
+  { key: "script", label: "脚本", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "progress", label: "进度" },
+  { key: "cpu", label: "CPU" },
+  { key: "memory", label: "内存" },
+  { key: "storage", label: "存储" },
+  { key: "startTime", label: "开始时间" },
+  { key: "estEnd", label: "预计完成" },
+  { key: "output", label: "输出" },
+  { key: "records", label: "数据量" },
+];
+
 export default function SandboxRunEnv() {
+  const [runTasks, setRunTasks] = useState<RunTask[]>([
+    { id: "RT-001", name: "全量数据清洗-用户画像", script: "data_clean.py", status: "执行中", progress: 67, cpu: "78%", memory: "12.5GB", storage: "500GB", startTime: "2026-04-24 10:00", estEnd: "2026-04-24 15:30", output: "已处理 845,230 / 1,256,789 行", records: "1,256,789" },
+    { id: "RT-002", name: "特征工程-信用评分", script: "feature_engineer.py", status: "排队中", progress: 0, cpu: "--", memory: "--", storage: "200GB", startTime: "--", estEnd: "--", output: "等待依赖任务完成", records: "568,920" },
+    { id: "RT-003", name: "数据对齐-多方ID", script: "id_alignment.py", status: "已完成", progress: 100, cpu: "45%", memory: "8.2GB", storage: "300GB", startTime: "2026-04-24 08:00", estEnd: "2026-04-24 11:45", output: "对齐完成，匹配率 98.7%", records: "2,340,000" },
+    { id: "RT-004", name: "模型训练-评分卡", script: "scorecard_train.py", status: "已暂停", progress: 35, cpu: "--", memory: "--", storage: "1TB", startTime: "2026-04-24 09:00", estEnd: "--", output: "用户手动暂停", records: "1,256,789" },
+  ]);
+
   const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedItem, setSelectedItem] = useState<RunTask | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
   const filtered = runTasks.filter((t) => t.name.includes(search) || t.id.includes(search));
+
+  const handleCreate = () => {
+    setSelectedItem(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (item: RunTask) => {
+    setSelectedItem(item);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleView = (item: RunTask) => {
+    setSelectedItem(item);
+    setDrawerOpen(true);
+  };
+
+  const handleDelete = (item: RunTask) => {
+    setSelectedItem(item);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      setRunTasks([...runTasks, data as RunTask]);
+    } else if (dialogMode === "edit" && selectedItem) {
+      setRunTasks(runTasks.map(t => t.id === selectedItem.id ? { ...data, id: selectedItem.id } as RunTask : t));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedItem) {
+      setRunTasks(runTasks.filter(t => t.id !== selectedItem.id));
+    }
+  };
+
+  const handleStatusChange = (item: RunTask, newStatus: string) => {
+    setRunTasks(runTasks.map(t => {
+      if (t.id !== item.id) return t;
+      const updates: Partial<RunTask> = { status: newStatus };
+      if (newStatus === "执行中") {
+        updates.startTime = updates.startTime || new Date().toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "-");
+        if (t.progress === 0) updates.progress = 1;
+      }
+      if (newStatus === "已完成") {
+        updates.progress = 100;
+        updates.estEnd = new Date().toLocaleString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(/\//g, "-");
+      }
+      if (newStatus === "已暂停") {
+        updates.estEnd = "--";
+      }
+      return { ...t, ...updates };
+    }));
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -42,7 +153,10 @@ export default function SandboxRunEnv() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">运行环境</h1>
           <p className="text-sm text-gray-500 mt-1.5">全量数据运行环境，调试通过的代码在此执行，原始数据不出库</p>
         </div>
-        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">全量数据模式</Badge>
+        <div className="flex items-center gap-3">
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">全量数据模式</Badge>
+          <Button onClick={handleCreate} className="gap-2"><Plus className="h-4 w-4" />新建任务</Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">
@@ -95,13 +209,16 @@ export default function SandboxRunEnv() {
                 <TableCell className="py-3.5 px-4">
                   <div className="flex gap-1">
                     {t.status === "执行中" ? (
-                      <><Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"><Pause className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Square className="h-4 w-4" /></Button></>
+                      <><Button variant="ghost" size="icon" onClick={() => handleStatusChange(t, "已暂停")} className="h-8 w-8 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"><Pause className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleStatusChange(t, "已完成")} className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Square className="h-4 w-4" /></Button></>
                     ) : t.status === "排队中" ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><ArrowRight className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleStatusChange(t, "执行中")} className="h-8 w-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><ArrowRight className="h-4 w-4" /></Button>
                     ) : t.status === "已暂停" ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Play className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleStatusChange(t, "执行中")} className="h-8 w-8 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"><Play className="h-4 w-4" /></Button>
                     ) : null}
+                    <Button variant="ghost" size="icon" onClick={() => handleView(t)} className="h-8 w-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"><Eye className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit(t)} className="h-8 w-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(t)} className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -109,6 +226,27 @@ export default function SandboxRunEnv() {
           </TableBody>
         </Table>
       </Card>
+
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="运行任务"
+        fields={taskFields}
+        data={selectedItem || undefined}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+        mode={dialogMode}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selectedItem?.name || "任务详情"}
+        data={selectedItem || {}}
+        fields={detailFields}
+        onEdit={() => { if (selectedItem) { setDrawerOpen(false); handleEdit(selectedItem); } }}
+        onDelete={() => { if (selectedItem) { setDrawerOpen(false); handleDelete(selectedItem); } }}
+      />
     </div>
   );
 }

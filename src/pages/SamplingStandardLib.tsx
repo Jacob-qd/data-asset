@@ -4,13 +4,31 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import {
-  ChevronRight, Plus, Search, BookOpen, Filter, CheckCircle, Hash, FileText, Eye, AlertTriangle, Link2,
+  ChevronRight, Plus, Search, BookOpen, Filter, CheckCircle, Hash, FileText, Eye, AlertTriangle, Link2, Pencil, Trash2, Power, PowerOff,
 } from "lucide-react";
 
-const standards = [
+interface Standard {
+  id: string;
+  name: string;
+  batchSize: string;
+  sampleCode: string;
+  sampleSize: number;
+  ac: number;
+  re: number;
+  aql: string;
+  status: string;
+  level: string;
+  type: string;
+  desc: string;
+  affectedRules?: string[];
+  updatedAt?: string;
+}
+
+const initialStandards: Standard[] = [
   { id: "STD-001", name: "GB/T 2828.1-2012 一般检验水平I", batchSize: "2~8", sampleCode: "A", sampleSize: 2, ac: 0, re: 1, aql: "1.0", status: "已启用", level: "I", type: "一般检验", desc: "适用于破坏性检验或检验费用较高的场景", affectedRules: ["RULE-003", "RULE-007"], updatedAt: "2024-06-01" },
   { id: "STD-002", name: "GB/T 2828.1-2012 一般检验水平II", batchSize: "9~15", sampleCode: "B", sampleSize: 3, ac: 0, re: 1, aql: "1.0", status: "已启用", level: "II", type: "一般检验", desc: "正常检验水平，适用于大多数常规检验场景", affectedRules: ["RULE-001", "RULE-002", "RULE-004", "RULE-005", "RULE-006"], updatedAt: "2025-01-15" },
   { id: "STD-003", name: "GB/T 2828.1-2012 一般检验水平II", batchSize: "16~25", sampleCode: "C", sampleSize: 5, ac: 0, re: 1, aql: "1.0", status: "已启用", level: "II", type: "一般检验", desc: "正常检验水平，适用于大多数常规检验场景" },
@@ -28,13 +46,139 @@ const statusColor: Record<string, string> = {
   "已禁用": "bg-gray-100 text-gray-500 border-gray-200",
 };
 
+const standardFields: FieldConfig[] = [
+  { key: "name", label: "标准名称", type: "text", required: true },
+  { key: "batchSize", label: "批量范围", type: "text", required: true },
+  { key: "sampleCode", label: "样本量字码", type: "text", required: true },
+  { key: "sampleSize", label: "样本量", type: "number", required: true },
+  { key: "ac", label: "允收数", type: "number", required: true },
+  { key: "re", label: "拒收数", type: "number", required: true },
+  { key: "aql", label: "AQL", type: "text", required: true },
+  { key: "level", label: "检验水平", type: "select", required: true, options: [
+    { label: "I", value: "I" },
+    { label: "II", value: "II" },
+    { label: "III", value: "III" },
+    { label: "加严", value: "加严" },
+    { label: "放宽", value: "放宽" },
+  ]},
+  { key: "type", label: "检验类型", type: "select", required: true, options: [
+    { label: "一般检验", value: "一般检验" },
+    { label: "加严检验", value: "加严检验" },
+    { label: "放宽检验", value: "放宽检验" },
+    { label: "特宽检验", value: "特宽检验" },
+    { label: "单次抽样", value: "单次抽样" },
+    { label: "双次抽样", value: "双次抽样" },
+  ]},
+  { key: "desc", label: "说明", type: "textarea" },
+];
+
+const detailFields = [
+  { key: "id", label: "标准ID" },
+  { key: "name", label: "标准名称" },
+  { key: "batchSize", label: "批量范围" },
+  { key: "sampleCode", label: "样本量字码", type: "badge" as const },
+  { key: "sampleSize", label: "样本量" },
+  { key: "ac", label: "允收数(Ac)" },
+  { key: "re", label: "拒收数(Re)" },
+  { key: "aql", label: "AQL", type: "badge" as const },
+  { key: "level", label: "检验水平" },
+  { key: "type", label: "检验类型" },
+  { key: "status", label: "状态" },
+  { key: "desc", label: "说明" },
+  { key: "affectedRules", label: "引用规则", type: "list" as const },
+  { key: "updatedAt", label: "更新时间", type: "date" as const },
+];
+
+let nextId = 11;
+
 export default function SamplingStandardLib() {
+  const [standards, setStandards] = useState<Standard[]>(initialStandards);
   const [search, setSearch] = useState("");
-  const [detailStd, setDetailStd] = useState<typeof standards[0] | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [newStd, setNewStd] = useState({ name: "", batchSize: "", sampleCode: "", sampleSize: "", ac: "", re: "", aql: "1.0", level: "II", type: "一般检验", desc: "" });
+  const [detailStd, setDetailStd] = useState<Standard | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [selectedStd, setSelectedStd] = useState<Standard | null>(null);
 
   const filtered = standards.filter((s) => s.name.includes(search) || s.id.includes(search));
+
+  const handleAdd = () => {
+    setSelectedStd(null);
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (std: Standard) => {
+    setSelectedStd(std);
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (std: Standard) => {
+    setSelectedStd(std);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleToggleStatus = (std: Standard) => {
+    setStandards((prev) =>
+      prev.map((s) =>
+        s.id === std.id
+          ? { ...s, status: s.status === "已启用" ? "已禁用" : "已启用" }
+          : s
+      )
+    );
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newStd = {
+        id: `STD-${String(nextId).padStart(3, "0")}`,
+        name: data.name as string,
+        batchSize: data.batchSize as string,
+        sampleCode: data.sampleCode as string,
+        sampleSize: Number(data.sampleSize),
+        ac: Number(data.ac),
+        re: Number(data.re),
+        aql: data.aql as string,
+        level: data.level as string,
+        type: data.type as string,
+        desc: (data.desc as string) || "",
+        status: "已启用" as string,
+        affectedRules: [] as string[],
+        updatedAt: new Date().toISOString().split("T")[0],
+      };
+      nextId++;
+      setStandards((prev) => [...prev, newStd]);
+    } else if (dialogMode === "edit" && selectedStd) {
+      setStandards((prev) =>
+        prev.map((s) =>
+          s.id === selectedStd.id
+            ? {
+                ...s,
+                ...data,
+                sampleSize: Number(data.sampleSize),
+                ac: Number(data.ac),
+                re: Number(data.re),
+                updatedAt: new Date().toISOString().split("T")[0],
+              }
+            : s
+        )
+      );
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedStd) {
+      setStandards((prev) => prev.filter((s) => s.id !== selectedStd.id));
+      if (detailStd?.id === selectedStd.id) {
+        setDetailStd(null);
+      }
+    }
+  };
+
+  const enabledCount = standards.filter((s) => s.status === "已启用").length;
+  const aqlValues = Array.from(new Set(standards.map((s) => s.aql))).sort();
+  const levelValues = Array.from(new Set(standards.map((s) => s.level))).sort();
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -53,16 +197,16 @@ export default function SamplingStandardLib() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">抽样标准库</h1>
           <p className="text-sm text-gray-500 mt-1.5">基于GB/T 2828.1-2012 建立抽样标准库，支持批量大小/检查水平/AQL配置</p>
         </div>
-        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={() => setAddOpen(true)}>
+        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleAdd}>
           <Plus className="mr-2 h-4 w-4" />添加标准
         </Button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><BookOpen className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-gray-500">标准总数</p><p className="text-lg font-bold">{standards.length}</p></div></CardContent></Card>
-        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><CheckCircle className="h-5 w-5 text-emerald-600" /><div><p className="text-sm text-gray-500">已启用</p><p className="text-lg font-bold">{standards.filter((s) => s.status === "已启用").length}</p></div></CardContent></Card>
-        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Hash className="h-5 w-5 text-violet-600" /><div><p className="text-sm text-gray-500">AQL覆盖</p><p className="text-lg font-bold">1.0, 2.5, 4.0</p></div></CardContent></Card>
-        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Filter className="h-5 w-5 text-amber-600" /><div><p className="text-sm text-gray-500">检验水平</p><p className="text-lg font-bold">I, II, III</p></div></CardContent></Card>
+        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><CheckCircle className="h-5 w-5 text-emerald-600" /><div><p className="text-sm text-gray-500">已启用</p><p className="text-lg font-bold">{enabledCount}</p></div></CardContent></Card>
+        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Hash className="h-5 w-5 text-violet-600" /><div><p className="text-sm text-gray-500">AQL覆盖</p><p className="text-lg font-bold">{aqlValues.join(", ") || "-"}</p></div></CardContent></Card>
+        <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Filter className="h-5 w-5 text-amber-600" /><div><p className="text-sm text-gray-500">检验水平</p><p className="text-lg font-bold">{levelValues.join(", ") || "-"}</p></div></CardContent></Card>
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><FileText className="h-5 w-5 text-cyan-600" /><div><p className="text-sm text-gray-500">来源标准</p><p className="text-lg font-bold">GB/T 2828.1</p></div></CardContent></Card>
       </div>
 
@@ -103,7 +247,14 @@ export default function SamplingStandardLib() {
                   </span>
                 </TableCell>
                 <TableCell className="py-3.5 px-4">
-                  <Button size="sm" variant="ghost" onClick={() => setDetailStd(s)}><Eye className="w-4 h-4" /></Button>
+                  <div className="flex items-center gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => setDetailStd(s)}><Eye className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(s)}>
+                      {s.status === "已启用" ? <PowerOff className="w-4 h-4 text-amber-600" /> : <Power className="w-4 h-4 text-emerald-600" />}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(s)}><Trash2 className="w-4 h-4 text-red-600" /></Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -111,98 +262,26 @@ export default function SamplingStandardLib() {
         </Table>
       </Card>
 
-      {/* Detail Dialog */}
-      <Dialog open={!!detailStd} onOpenChange={() => setDetailStd(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>标准详情 - {detailStd?.id}</DialogTitle></DialogHeader>
-          {detailStd && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: "标准名称", value: detailStd.name },
-                  { label: "批量范围", value: detailStd.batchSize },
-                  { label: "样本量字码", value: detailStd.sampleCode },
-                  { label: "样本量", value: detailStd.sampleSize },
-                  { label: "允收数(Ac)", value: detailStd.ac },
-                  { label: "拒收数(Re)", value: detailStd.re },
-                  { label: "AQL", value: detailStd.aql },
-                  { label: "检验水平", value: detailStd.level },
-                  { label: "检验类型", value: detailStd.type },
-                  { label: "状态", value: detailStd.status },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-gray-200 p-3">
-                    <div className="text-xs text-gray-500">{item.label}</div>
-                    <div className="text-sm font-medium text-gray-900 mt-1">{item.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-lg border border-gray-200 p-3">
-                <div className="text-xs text-gray-500">说明</div>
-                <div className="text-sm text-gray-700 mt-1">{detailStd.desc}</div>
-              </div>
-              {detailStd.affectedRules && detailStd.affectedRules.length > 0 && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
-                    <span className="text-sm font-medium text-amber-800">变更影响提醒</span>
-                  </div>
-                  <p className="text-xs text-amber-700 mb-2">此标准变更将影响以下 {detailStd.affectedRules.length} 条抽样规则，请确认是否需要同步更新：</p>
-                  <div className="flex flex-wrap gap-2">
-                    {detailStd.affectedRules.map((ruleId) => (
-                      <Badge key={ruleId} variant="outline" className="text-xs bg-white border-amber-300 text-amber-700 gap-1">
-                        <Link2 className="w-3 h-3" />{ruleId}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white">应用此标准</Button>
-                <Button variant="outline">复制标准</Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <DetailDrawer
+        open={!!detailStd}
+        onOpenChange={(open) => !open && setDetailStd(null)}
+        title={`标准详情 - ${detailStd?.id || ""}`}
+        data={detailStd || {}}
+        fields={detailFields}
+        onEdit={detailStd ? () => { handleEdit(detailStd); } : undefined}
+        onDelete={detailStd ? () => { handleDelete(detailStd); } : undefined}
+      />
 
-      {/* Add Standard Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>添加抽样标准</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-2">
-            {[
-              { label: "标准名称", key: "name", placeholder: "如：GB/T 2828.1-2012 一般检验水平II" },
-              { label: "批量范围", key: "batchSize", placeholder: "如：26~50" },
-              { label: "样本量字码", key: "sampleCode", placeholder: "如：D" },
-              { label: "样本量", key: "sampleSize", placeholder: "如：8", type: "number" },
-              { label: "允收数(Ac)", key: "ac", placeholder: "如：0", type: "number" },
-              { label: "拒收数(Re)", key: "re", placeholder: "如：1", type: "number" },
-              { label: "AQL", key: "aql", placeholder: "如：1.0" },
-              { label: "检验水平", key: "level", placeholder: "如：II" },
-              { label: "检验类型", key: "type", placeholder: "如：一般检验" },
-            ].map((field) => (
-              <div key={field.key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
-                <Input
-                  value={newStd[field.key as keyof typeof newStd]}
-                  onChange={(e) => setNewStd({ ...newStd, [field.key]: e.target.value })}
-                  placeholder={field.placeholder}
-                  type={field.type || "text"}
-                  className="h-9"
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">说明</label>
-              <Input value={newStd.desc} onChange={(e) => setNewStd({ ...newStd, desc: e.target.value })} placeholder="标准适用场景说明" className="h-9" />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>取消</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setAddOpen(false)}>保存标准</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="抽样标准"
+        fields={standardFields}
+        data={dialogMode === "edit" ? selectedStd || undefined : undefined}
+        onSubmit={handleSubmit}
+        onDelete={dialogMode === "delete" ? handleConfirmDelete : undefined}
+        mode={dialogMode}
+      />
     </div>
   );
 }

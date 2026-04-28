@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ClipboardList, Plus, Search, Play, Square, RotateCcw, Eye, Clock, CheckCircle, XCircle, PauseCircle, ChevronRight, Database, Users, Cpu } from "lucide-react";
+import { ClipboardList, Plus, Search, Play, Square, RotateCcw, Eye, Clock, CheckCircle, XCircle, PauseCircle, ChevronRight, Database, Users, Cpu, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import DataTable from "@/components/DataTable";
 import StatusTag from "@/components/StatusTag";
 import Drawer from "@/components/Drawer";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import { cn } from "@/lib/utils";
 
 interface SecretTask {
@@ -15,7 +17,7 @@ interface SecretTask {
   progress: number; participants: number; startTime: string; duration: string;
 }
 
-const mockTasks: SecretTask[] = [
+const initialTasks: SecretTask[] = [
   { id: "ST-001", name: "联合训练-第3轮", project: "联合风控建模", algorithm: "MPC", status: "running", progress: 65, participants: 5, startTime: "2026-04-21 09:00", duration: "2h 15m" },
   { id: "ST-002", name: "数据聚合统计", project: "跨机构统计", algorithm: "MPC", status: "running", progress: 42, participants: 6, startTime: "2026-04-21 08:30", duration: "3h 45m" },
   { id: "ST-003", name: "基因序列比对", project: "基因数据计算", algorithm: "HE", status: "failed", progress: 0, participants: 7, startTime: "2026-04-20 14:00", duration: "-" },
@@ -38,13 +40,51 @@ const mockTasks: SecretTask[] = [
 
 const algoColors: Record<string, string> = { MPC: "bg-blue-500/15 text-blue-500", HE: "bg-purple-500/15 text-purple-500", ZKP: "bg-emerald-500/15 text-emerald-500", TEE: "bg-amber-500/15 text-amber-500" };
 
+const fields: FieldConfig[] = [
+  { key: "name", label: "任务名称", type: "text", required: true },
+  { key: "project", label: "所属项目", type: "text", required: true },
+  { key: "algorithm", label: "算法", type: "select", required: true, options: [
+    { label: "MPC", value: "MPC" },
+    { label: "HE", value: "HE" },
+    { label: "ZKP", value: "ZKP" },
+    { label: "TEE", value: "TEE" },
+  ]},
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "待执行", value: "pending" },
+    { label: "执行中", value: "running" },
+    { label: "已完成", value: "completed" },
+    { label: "失败", value: "failed" },
+    { label: "已暂停", value: "paused" },
+  ]},
+  { key: "progress", label: "进度", type: "number", required: true },
+  { key: "participants", label: "参与方", type: "number", required: true },
+  { key: "startTime", label: "开始时间", type: "text" },
+  { key: "duration", label: "持续时间", type: "text" },
+];
+
+const detailFields = [
+  { key: "id", label: "任务ID" },
+  { key: "name", label: "任务名称" },
+  { key: "project", label: "所属项目" },
+  { key: "algorithm", label: "算法类型", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "progress", label: "进度" },
+  { key: "participants", label: "参与方数" },
+  { key: "startTime", label: "开始时间" },
+  { key: "duration", label: "持续时间" },
+];
+
 export default function SecretTasks() {
-  const [tasks] = useState<SecretTask[]>(mockTasks);
+  const [tasks, setTasks] = useState<SecretTask[]>(initialTasks);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [showDrawer, setShowDrawer] = useState(false);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [selectedItem, setSelectedItem] = useState<Partial<SecretTask>>({});
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<SecretTask | null>(null);
-  const [showDetail, setShowDetail] = useState(false);
 
   const filtered = tasks.filter((t) => {
     const matchSearch = t.name.toLowerCase().includes(search.toLowerCase()) || t.id.toLowerCase().includes(search.toLowerCase());
@@ -59,6 +99,76 @@ export default function SecretTasks() {
     { key: "failed", label: "失败", count: tasks.filter((t) => t.status === "failed").length, color: "bg-red-50 text-red-600", icon: XCircle },
   ];
 
+  const handleCreate = () => {
+    setSelectedItem({});
+    setDialogMode("create");
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (task: SecretTask) => {
+    setSelectedItem({ ...task });
+    setDialogMode("edit");
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (task: SecretTask) => {
+    setSelectedItem({ ...task });
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleView = (task: SecretTask) => {
+    setDetailTask(task);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newTask: SecretTask = {
+        id: data.id || Date.now().toString(36).toUpperCase(),
+        name: data.name || "",
+        project: data.project || "",
+        algorithm: data.algorithm || "MPC",
+        status: data.status || "pending",
+        progress: Number(data.progress) || 0,
+        participants: Number(data.participants) || 0,
+        startTime: data.startTime || "-",
+        duration: data.duration || "-",
+      };
+      setTasks((prev) => [newTask, ...prev]);
+    } else if (dialogMode === "edit") {
+      const id = selectedItem.id;
+      if (!id) return;
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                name: data.name || t.name,
+                project: data.project || t.project,
+                algorithm: data.algorithm || t.algorithm,
+                status: data.status || t.status,
+                progress: Number(data.progress ?? t.progress),
+                participants: Number(data.participants ?? t.participants),
+                startTime: data.startTime ?? t.startTime,
+                duration: data.duration ?? t.duration,
+              }
+            : t
+        )
+      );
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    const id = selectedItem.id;
+    if (!id) return;
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (detailTask?.id === id) {
+      setDrawerOpen(false);
+      setDetailTask(null);
+    }
+  };
+
   const columns = [
     { key: "id", title: "任务ID", cell: (t: SecretTask) => <span className="font-mono text-xs text-slate-500">{t.id}</span> },
     { key: "name", title: "任务名称", cell: (t: SecretTask) => <span className="font-medium text-slate-800">{t.name}</span> },
@@ -71,7 +181,9 @@ export default function SecretTasks() {
     { key: "participants", title: "参与方", cell: (t: SecretTask) => <span className="flex items-center gap-1 text-xs text-slate-500"><Users className="w-3 h-3" />{t.participants}</span> },
     { key: "actions", title: "操作", cell: (t: SecretTask) => (
       <div className="flex items-center gap-1">
-        <button onClick={() => { setDetailTask(t); setShowDetail(true); }} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"><Eye className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleView(t)} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600"><Eye className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleEdit(t)} className="p-1.5 rounded-md hover:bg-blue-50 text-slate-400 hover:text-blue-500"><Pencil className="w-3.5 h-3.5" /></button>
+        <button onClick={() => handleDelete(t)} className="p-1.5 rounded-md hover:bg-red-50 text-slate-400 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
         {t.status === "pending" && <button className="p-1.5 rounded-md hover:bg-blue-50 text-blue-500"><Play className="w-3.5 h-3.5" /></button>}
         {t.status === "running" && <button className="p-1.5 rounded-md hover:bg-amber-50 text-amber-500"><Square className="w-3.5 h-3.5" /></button>}
         {t.status === "failed" && <button className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><RotateCcw className="w-3.5 h-3.5" /></button>}
@@ -95,42 +207,31 @@ export default function SecretTasks() {
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索任务ID或名称" className="pl-9 w-64" /></div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-600"><option value="all">全部状态</option><option value="pending">待执行</option><option value="running">执行中</option><option value="completed">已完成</option><option value="failed">失败</option><option value="paused">已暂停</option></select>
         </div>
-        <Button onClick={() => setShowDrawer(true)} className="gap-2"><Plus className="w-4 h-4" />新建任务</Button>
+        <Button onClick={handleCreate} className="gap-2"><Plus className="w-4 h-4" />新建任务</Button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden"><DataTable rowKey={(r: any) => r.id} columns={columns} data={filtered} /></div>
 
-      <Drawer open={showDrawer} onClose={() => setShowDrawer(false)} title="新建密态计算任务" size="lg">
-        <div className="space-y-5">
-          <div><label className="text-sm font-medium text-slate-700">选择项目</label><select className="mt-1 w-full h-10 px-3 rounded-lg border border-slate-200 text-sm"><option>联合风控建模</option><option>医疗数据融合</option><option>跨机构统计</option></select></div>
-          <div><label className="text-sm font-medium text-slate-700">任务名称</label><Input placeholder="输入任务名称" className="mt-1" /></div>
-          <div><label className="text-sm font-medium text-slate-700">算法配置</label>
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              {["MPC", "HE", "ZKP", "TEE"].map((a) => <div key={a} className="p-4 rounded-lg border-2 border-slate-200 hover:border-primary-500 cursor-pointer"><div className="font-semibold">{a}</div><div className="text-xs text-slate-500 mt-1">{a === "MPC" ? "安全多方计算" : a === "HE" ? "同态加密" : a === "ZKP" ? "零知识证明" : "可信执行环境"}</div></div>)}
-            </div>
-          </div>
-          <div><label className="text-sm font-medium text-slate-700">参与方</label><div className="mt-2 space-y-2">{["张三","李四","王五","赵六"].map((u) => <label key={u} className="flex items-center gap-2 p-2 rounded-lg border border-slate-100"><input type="checkbox" className="rounded" defaultChecked /><span className="text-sm">{u}</span></label>)}</div></div>
-          <div className="flex justify-end gap-2 pt-4 border-t"><Button variant="outline" onClick={() => setShowDrawer(false)}>取消</Button><Button onClick={() => setShowDrawer(false)}>创建任务</Button></div>
-        </div>
-      </Drawer>
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="密态任务"
+        fields={fields}
+        data={selectedItem}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
 
-      <Drawer open={showDetail} onClose={() => setShowDetail(false)} title={detailTask?.name || "任务详情"} size="lg">
-        {detailTask && <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-lg p-4"><div className="text-xs text-slate-500">任务ID</div><div className="font-mono text-sm text-slate-800 mt-1">{detailTask.id}</div></div>
-            <div className="bg-slate-50 rounded-lg p-4"><div className="text-xs text-slate-500">所属项目</div><div className="text-sm text-slate-800 mt-1">{detailTask.project}</div></div>
-            <div className="bg-slate-50 rounded-lg p-4"><div className="text-xs text-slate-500">算法类型</div><div className="text-sm text-slate-800 mt-1">{detailTask.algorithm}</div></div>
-            <div className="bg-slate-50 rounded-lg p-4"><div className="text-xs text-slate-500">参与方数</div><div className="text-sm text-slate-800 mt-1">{detailTask.participants}</div></div>
-          </div>
-          <div><h4 className="text-sm font-semibold text-slate-700 mb-2">执行进度</h4>
-            <div className="space-y-3">
-              {["任务初始化","数据加载","安全计算","结果汇总","结果输出"].map((s, i) => (
-                <div key={s} className="flex items-center gap-3"><div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-xs", i < 3 ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-400")}>{i < 3 ? "✓" : i + 1}</div><span className="text-sm text-slate-700">{s}</span></div>
-              ))}
-            </div>
-          </div>
-        </div>}
-      </Drawer>
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="密态任务详情"
+        data={detailTask || {}}
+        fields={detailFields}
+        onEdit={() => detailTask && handleEdit(detailTask)}
+        onDelete={() => detailTask && handleDelete(detailTask)}
+      />
     </div>
   );
 }

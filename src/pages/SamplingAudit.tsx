@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { ShieldCheck, Search, Plus, Eye, CheckCircle, XCircle, RotateCcw, Clock, Check, X, FileText, User, Calendar } from "lucide-react";
+import { Search, Plus, Eye, CheckCircle, XCircle, RotateCcw, Clock, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import DataTable from "@/components/DataTable";
 import StatusTag from "@/components/StatusTag";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import Modal from "@/components/Modal";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import { cn } from "@/lib/utils";
 
 interface AuditRecord {
@@ -34,7 +34,7 @@ const mockAudits: AuditRecord[] = [
 ];
 
 export default function SamplingAudit() {
-  const [audits] = useState(mockAudits);
+  const [audits, setAudits] = useState<AuditRecord[]>(mockAudits);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showAuditModal, setShowAuditModal] = useState(false);
@@ -43,6 +43,14 @@ export default function SamplingAudit() {
   const [auditComment, setAuditComment] = useState("");
   const [showDetail, setShowDetail] = useState(false);
   const [detailAudit, setDetailAudit] = useState<AuditRecord | null>(null);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [submitForm, setSubmitForm] = useState({
+    taskName: "",
+    ruleName: "",
+    samplingRatio: "",
+    dataVolume: "",
+    submitter: "",
+  });
 
   const filtered = audits.filter((a) => {
     const ms = a.taskName.toLowerCase().includes(search.toLowerCase()) || a.id.toLowerCase().includes(search.toLowerCase());
@@ -57,6 +65,51 @@ export default function SamplingAudit() {
     { key: "withdrawn", label: "已撤回", count: audits.filter((a) => a.status === "withdrawn").length, color: "bg-slate-50 text-slate-600", icon: RotateCcw },
   ];
 
+  const handleAuditConfirm = () => {
+    if (!currentAudit) return;
+    const now = new Date();
+    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    setAudits((prev) =>
+      prev.map((a) =>
+        a.id === currentAudit.id
+          ? {
+              ...a,
+              status: auditAction === "approve" ? "approved" : "rejected",
+              auditor: "当前用户",
+              auditTime: timeStr,
+              comment: auditComment,
+            }
+          : a
+      )
+    );
+    setShowAuditModal(false);
+    setAuditComment("");
+    setCurrentAudit(null);
+  };
+
+  const handleSubmitAudit = () => {
+    if (!submitForm.taskName || !submitForm.ruleName || !submitForm.samplingRatio || !submitForm.dataVolume || !submitForm.submitter) return;
+    const now = new Date();
+    const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const newId = `SA-${String(audits.length + 1).padStart(3, "0")}`;
+    const newAudit: AuditRecord = {
+      id: newId,
+      taskName: submitForm.taskName,
+      ruleName: submitForm.ruleName,
+      submitter: submitForm.submitter,
+      submitTime: timeStr,
+      auditor: "-",
+      status: "pending",
+      auditTime: "-",
+      comment: "",
+      samplingRatio: submitForm.samplingRatio,
+      dataVolume: submitForm.dataVolume,
+    };
+    setAudits((prev) => [newAudit, ...prev]);
+    setShowSubmitModal(false);
+    setSubmitForm({ taskName: "", ruleName: "", samplingRatio: "", dataVolume: "", submitter: "" });
+  };
+
   const columns = [
     { key: "id", title: "审核ID", cell: (a: AuditRecord) => <span className="font-mono text-xs text-slate-500">{a.id}</span> },
     { key: "task", title: "抽样任务", cell: (a: AuditRecord) => <span className="font-medium text-slate-800">{a.taskName}</span> },
@@ -68,11 +121,39 @@ export default function SamplingAudit() {
     { key: "actions", title: "操作", cell: (a: AuditRecord) => (
       <div className="flex items-center gap-1">
         <button onClick={() => { setDetailAudit(a); setShowDetail(true); }} className="p-1.5 rounded-md hover:bg-slate-100 text-slate-400"><Eye className="w-3.5 h-3.5" /></button>
-        {a.status === "pending" && <button onClick={() => { setCurrentAudit(a); setShowAuditModal(true); setAuditAction("approve"); }} className="p-1.5 rounded-md hover:bg-emerald-50 text-emerald-500"><Check className="w-3.5 h-3.5" /></button>}
-        {a.status === "pending" && <button onClick={() => { setCurrentAudit(a); setShowAuditModal(true); setAuditAction("reject"); }} className="p-1.5 rounded-md hover:bg-red-50 text-red-500"><X className="w-3.5 h-3.5" /></button>}
+        {a.status === "pending" && <button onClick={() => { setCurrentAudit(a); setShowAuditModal(true); setAuditAction("approve"); setAuditComment(""); }} className="p-1.5 rounded-md hover:bg-emerald-50 text-emerald-500"><Check className="w-3.5 h-3.5" /></button>}
+        {a.status === "pending" && <button onClick={() => { setCurrentAudit(a); setShowAuditModal(true); setAuditAction("reject"); setAuditComment(""); }} className="p-1.5 rounded-md hover:bg-red-50 text-red-500"><X className="w-3.5 h-3.5" /></button>}
       </div>
     )},
   ];
+
+  const detailFields = [
+    { key: "id", label: "审核ID" },
+    { key: "taskName", label: "抽样任务" },
+    { key: "ruleName", label: "规则", type: "badge" as const },
+    { key: "status", label: "状态", type: "badge" as const },
+    { key: "submitter", label: "提交人" },
+    { key: "submitTime", label: "提交时间", type: "date" as const },
+    { key: "auditor", label: "审核人" },
+    { key: "auditTime", label: "审核时间", type: "date" as const },
+    { key: "samplingRatio", label: "抽样比例", type: "badge" as const },
+    { key: "dataVolume", label: "数据量", type: "badge" as const },
+    { key: "comment", label: "审核意见" },
+  ];
+
+  const detailData = detailAudit
+    ? {
+        ...detailAudit,
+        status:
+          detailAudit.status === "pending"
+            ? "待审核"
+            : detailAudit.status === "approved"
+            ? "已通过"
+            : detailAudit.status === "rejected"
+            ? "已驳回"
+            : "已撤回",
+      }
+    : {};
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -90,7 +171,7 @@ export default function SamplingAudit() {
           <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="搜索审核ID或任务名" className="pl-9 w-64" /></div>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 px-3 rounded-lg border border-slate-200 text-sm text-slate-600"><option value="all">全部状态</option><option value="pending">待审核</option><option value="approved">已通过</option><option value="rejected">已驳回</option><option value="withdrawn">已撤回</option></select>
         </div>
-        <Button className="gap-2"><Plus className="w-4 h-4" />提交审核</Button>
+        <Button className="gap-2" onClick={() => setShowSubmitModal(true)}><Plus className="w-4 h-4" />提交审核</Button>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden"><DataTable rowKey={(r: any) => r.id} columns={columns} data={filtered} /></div>
@@ -99,24 +180,48 @@ export default function SamplingAudit() {
         {currentAudit && <div className="space-y-4">
           <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">抽样任务</div><div className="text-sm font-medium text-slate-800">{currentAudit.taskName}</div></div>
           <div><label className="text-sm font-medium text-slate-700">审核意见</label><textarea value={auditComment} onChange={(e) => setAuditComment(e.target.value)} placeholder={auditAction === "approve" ? "输入通过理由（可选）" : "输入驳回原因（必填）"} className="mt-1 w-full h-20 px-3 py-2 rounded-lg border border-slate-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-500" /></div>
-          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowAuditModal(false)}>取消</Button><Button onClick={() => setShowAuditModal(false)} className={auditAction === "approve" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600"}>{auditAction === "approve" ? "通过" : "驳回"}</Button></div>
+          <div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setShowAuditModal(false)}>取消</Button><Button onClick={handleAuditConfirm} className={auditAction === "approve" ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600"}>{auditAction === "approve" ? "通过" : "驳回"}</Button></div>
         </div>}
       </Modal>
 
-      <Dialog open={showDetail} onOpenChange={setShowDetail}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>审核详情</DialogTitle></DialogHeader>
-          {detailAudit && <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">审核ID</div><div className="font-mono text-sm text-slate-800">{detailAudit.id}</div></div>
-              <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">状态</div><div className="text-sm text-slate-800">{detailAudit.status === "pending" ? "待审核" : detailAudit.status === "approved" ? "已通过" : detailAudit.status === "rejected" ? "已驳回" : "已撤回"}</div></div>
-              <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">抽样比例</div><div className="text-sm text-slate-800">{detailAudit.samplingRatio}</div></div>
-              <div className="bg-slate-50 rounded-lg p-3"><div className="text-xs text-slate-500">数据量</div><div className="text-sm text-slate-800">{detailAudit.dataVolume}</div></div>
+      <Modal open={showSubmitModal} onClose={() => setShowSubmitModal(false)} title="提交审核">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700">抽样任务</label>
+            <Input value={submitForm.taskName} onChange={(e) => setSubmitForm((p) => ({ ...p, taskName: e.target.value }))} placeholder="输入任务名称" className="mt-1" />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">规则</label>
+            <Input value={submitForm.ruleName} onChange={(e) => setSubmitForm((p) => ({ ...p, ruleName: e.target.value }))} placeholder="输入规则名称" className="mt-1" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-700">抽样比例</label>
+              <Input value={submitForm.samplingRatio} onChange={(e) => setSubmitForm((p) => ({ ...p, samplingRatio: e.target.value }))} placeholder="如 20%" className="mt-1" />
             </div>
-            <div><h4 className="text-sm font-semibold text-slate-700 mb-1">审核意见</h4><p className="text-sm text-slate-600 bg-slate-50 rounded-lg p-3">{detailAudit.comment || "暂无审核意见"}</p></div>
-          </div>}
-        </DialogContent>
-      </Dialog>
+            <div>
+              <label className="text-sm font-medium text-slate-700">数据量</label>
+              <Input value={submitForm.dataVolume} onChange={(e) => setSubmitForm((p) => ({ ...p, dataVolume: e.target.value }))} placeholder="如 1.2M" className="mt-1" />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">提交人</label>
+            <Input value={submitForm.submitter} onChange={(e) => setSubmitForm((p) => ({ ...p, submitter: e.target.value }))} placeholder="输入提交人姓名" className="mt-1" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowSubmitModal(false)}>取消</Button>
+            <Button onClick={handleSubmitAudit}>提交</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <DetailDrawer
+        open={showDetail}
+        onOpenChange={setShowDetail}
+        title="审核详情"
+        data={detailData || {}}
+        fields={detailFields}
+      />
     </div>
   );
 }

@@ -133,6 +133,10 @@ const SANDBOXES: Sandbox[] = [
   { id: "sb-4", name: "沙箱-医疗数据分析", status: "running", type: "development", cpu: "4核", memory: "8GB", storage: "500GB", createdAt: "2026-04-12", expiresAt: "2026-05-12", owner: "赵六" },
   { id: "sb-5", name: "沙箱-供应链预测", status: "stopped", type: "production", cpu: "8核", memory: "16GB", storage: "1TB", createdAt: "2026-04-01", expiresAt: "2026-06-01", owner: "钱七" },
   { id: "sb-6", name: "沙箱-推荐系统", status: "running", type: "development", cpu: "4核", memory: "8GB", storage: "500GB", createdAt: "2026-04-14", expiresAt: "2026-05-14", owner: "孙八" },
+  { id: "sb-7", name: "沙箱-销量预测", status: "running", type: "production", cpu: "8核", memory: "16GB", storage: "1TB", createdAt: "2026-04-15", expiresAt: "2026-07-15", owner: "周九" },
+  { id: "sb-8", name: "沙箱-异常检测", status: "stopped", type: "development", cpu: "2核", memory: "4GB", storage: "100GB", createdAt: "2026-04-16", expiresAt: "2026-05-16", owner: "吴十" },
+  { id: "sb-9", name: "沙箱-NLP分析", status: "running", type: "development", cpu: "4核", memory: "8GB", storage: "500GB", createdAt: "2026-04-17", expiresAt: "2026-05-17", owner: "郑十一" },
+  { id: "sb-10", name: "沙箱-时间序列", status: "running", type: "production", cpu: "8核", memory: "16GB", storage: "1TB", createdAt: "2026-04-18", expiresAt: "2026-07-18", owner: "王十二" },
 ];
 
 const FILE_TREE: FileNode[] = [
@@ -224,6 +228,63 @@ const DB_TABLES: DBTable[] = [
       { name: "event_time", type: "DATETIME", nullable: false, description: "事件时间" },
     ],
   },
+  {
+    name: "dws_user_summary",
+    columnCount: 45,
+    columns: [
+      { name: "user_id", type: "BIGINT", nullable: false, description: "用户ID", isPk: true },
+      { name: "total_orders", type: "INT", nullable: false, description: "总订单数" },
+      { name: "total_amount", type: "DECIMAL(18,2)", nullable: false, description: "总金额" },
+      { name: "avg_order_value", type: "DECIMAL(18,2)", nullable: false, description: "平均订单金额" },
+      { name: "last_order_date", type: "DATE", nullable: true, description: "最后订单日期" },
+      { name: "register_days", type: "INT", nullable: false, description: "注册天数" },
+    ],
+  },
+  {
+    name: "ads_sales_daily",
+    columnCount: 28,
+    columns: [
+      { name: "stat_date", type: "DATE", nullable: false, description: "统计日期", isPk: true },
+      { name: "gmv", type: "DECIMAL(18,2)", nullable: false, description: "GMV" },
+      { name: "order_count", type: "INT", nullable: false, description: "订单数" },
+      { name: "buyer_count", type: "INT", nullable: false, description: "买家数" },
+      { name: "new_buyer_count", type: "INT", nullable: false, description: "新买家数" },
+    ],
+  },
+  {
+    name: "dim_region_info",
+    columnCount: 12,
+    columns: [
+      { name: "region_id", type: "INT", nullable: false, description: "地区ID", isPk: true },
+      { name: "region_name", type: "VARCHAR(100)", nullable: false, description: "地区名称" },
+      { name: "parent_id", type: "INT", nullable: true, description: "父级ID" },
+      { name: "region_level", type: "TINYINT", nullable: false, description: "地区级别" },
+    ],
+  },
+  {
+    name: "dwd_payment_detail",
+    columnCount: 22,
+    columns: [
+      { name: "payment_id", type: "BIGINT", nullable: false, description: "支付ID", isPk: true },
+      { name: "order_id", type: "BIGINT", nullable: false, description: "订单ID", isIndex: true },
+      { name: "payment_amount", type: "DECIMAL(18,2)", nullable: false, description: "支付金额" },
+      { name: "payment_method", type: "VARCHAR(50)", nullable: false, description: "支付方式" },
+      { name: "payment_status", type: "TINYINT", nullable: false, description: "支付状态" },
+      { name: "payment_time", type: "DATETIME", nullable: true, description: "支付时间" },
+    ],
+  },
+  {
+    name: "ods_inventory",
+    columnCount: 36,
+    columns: [
+      { name: "sku_id", type: "BIGINT", nullable: false, description: "SKU ID", isPk: true },
+      { name: "warehouse_id", type: "INT", nullable: false, description: "仓库ID" },
+      { name: "quantity", type: "INT", nullable: false, description: "库存数量" },
+      { name: "available_qty", type: "INT", nullable: false, description: "可用数量" },
+      { name: "reserved_qty", type: "INT", nullable: false, description: "预留数量" },
+      { name: "last_update_time", type: "DATETIME", nullable: false, description: "最后更新时间" },
+    ],
+  },
 ];
 
 const SYSTEM_FUNCTIONS = [
@@ -245,6 +306,11 @@ const CUSTOM_FUNCTIONS = [
   { name: "rfm_score", sig: "rfm_score(r,f,m)", desc: "计算RFM综合评分" },
   { name: "user_segment", sig: "user_segment(score)", desc: "用户分层计算" },
   { name: "credit_rating", sig: "credit_rating(x)", desc: "信用评级函数" },
+  { name: "churn_probability", sig: "churn_probability(user_id)", desc: "流失概率预测" },
+  { name: "ltv_predict", sig: "ltv_predict(user_id,months)", desc: "客户生命周期价值预测" },
+  { name: "anomaly_score", sig: "anomaly_score(record)", desc: "异常分数计算" },
+  { name: "fraud_detect", sig: "fraud_detect(transaction)", desc: "欺诈检测评分" },
+  { name: "sentiment_analysis", sig: "sentiment_analysis(text)", desc: "情感分析" },
 ];
 
 const LOGS: LogEntry[] = [
@@ -266,6 +332,11 @@ const MODELS: ModelItem[] = [
   { id: "m3", name: "churn_predictor", type: "Python模型", version: "v1.2.0", status: "草稿", description: "用户流失预测模型，基于用户行为特征", createdAt: "2026-04-01", lastRunAt: "2026-04-10 16:45", runCount: 23, metrics: { accuracy: "87.5%", recall: "82.1%", f1: "84.7%" } },
   { id: "m4", name: "product_recommend", type: "配置模型", version: "v1.0.0", status: "已发布", description: "商品推荐规则配置，基于协同过滤结果", createdAt: "2026-02-10", lastRunAt: "2026-04-15 08:00", runCount: 312, metrics: { precision: "12.5%", recall: "8.3%", coverage: "95.2%" } },
   { id: "m5", name: "data_quality_check", type: "SQL模型", version: "v1.1.0", status: "已归档", description: "数据质量检查规则集", createdAt: "2026-01-05", lastRunAt: "2026-03-20 11:00", runCount: 500, metrics: { passRate: "96.8%", ruleCount: "42" } },
+  { id: "m6", name: "sales_forecast", type: "Python模型", version: "v2.0.0", status: "已发布", description: "销量预测模型，基于时间序列分析", createdAt: "2026-02-20", lastRunAt: "2026-04-15 10:00", runCount: 120, metrics: { mape: "8.3%", rmse: "1250", coverage: "99.1%" } },
+  { id: "m7", name: "anomaly_detector", type: "Python模型", version: "v1.5.0", status: "草稿", description: "异常检测模型，基于孤立森林算法", createdAt: "2026-03-25", lastRunAt: "2026-04-12 14:30", runCount: 45, metrics: { precision: "91.2%", recall: "88.7%", f1: "89.9%" } },
+  { id: "m8", name: "inventory_optimization", type: "配置模型", version: "v1.2.0", status: "已发布", description: "库存优化配置规则", createdAt: "2026-01-15", lastRunAt: "2026-04-14 16:00", runCount: 230, metrics: { turnoverRate: "12.5", stockoutRate: "2.1%", excessRate: "5.3%" } },
+  { id: "m9", name: "nlp_sentiment", type: "Python模型", version: "v1.0.0", status: "草稿", description: "NLP情感分析模型，基于BERT", createdAt: "2026-04-05", lastRunAt: "2026-04-15 09:00", runCount: 18, metrics: { accuracy: "93.1%", f1: "92.8%", latency: "45ms" } },
+  { id: "m10", name: "customer_segmentation", type: "SQL模型", version: "v3.0.0", status: "已发布", description: "客户分群模型，基于K-Means聚类", createdAt: "2026-02-01", lastRunAt: "2026-04-15 11:30", runCount: 180, metrics: { silhouette: "0.68", coverage: "97.2%", stability: "0.91" } },
 ];
 
 const SAMPLE_SQL = `-- 用户RFM模型计算\nWITH user_rfm AS (\n  SELECT\n    user_id,\n    DATEDIFF(CURRENT_DATE, MAX(order_date)) AS recency,\n    COUNT(DISTINCT order_id) AS frequency,\n    SUM(amount) AS monetary\n  FROM dwd_order_detail\n  WHERE order_date >= DATE_SUB(CURRENT_DATE, 365)\n  GROUP BY user_id\n)\nSELECT\n  user_id,\n  recency,\n  frequency,\n  monetary,\n  CASE\n    WHEN recency <= 30 AND frequency >= 10 THEN '高价值客户'\n    WHEN recency <= 90 AND frequency >= 5 THEN '潜力客户'\n    WHEN recency <= 180 THEN '一般客户'\n    ELSE '流失客户'\n  END AS user_segment\nFROM user_rfm\nORDER BY monetary DESC\nLIMIT 1000;`;

@@ -5,18 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
-} from "@/components/ui/dialog";
-import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import {
-  Search, Settings, Play, Plus, Trash2, Edit3, Pause,
+  Search, Play, Plus, Trash2, Edit3, Pause,
   RotateCcw, ArrowUp, ArrowDown, CheckCircle2, AlertTriangle,
   Eye, Wand2, SlidersHorizontal, Sparkles,
 } from "lucide-react";
 
-const tools = [
+const initialTools = [
   { id: "T-001", name: "缺失值填充", category: "清洗", status: "enabled", config: "均值填充" },
   { id: "T-002", name: "异常值检测", category: "清洗", status: "enabled", config: "3σ原则" },
   { id: "T-003", name: "数据标准化", category: "转换", status: "enabled", config: "Z-Score" },
@@ -24,118 +23,211 @@ const tools = [
   { id: "T-005", name: "特征选择", category: "特征", status: "enabled", config: "方差阈值" },
   { id: "T-006", name: "PCA降维", category: "特征", status: "disabled", config: "-" },
   { id: "T-007", name: "数据分箱", category: "转换", status: "enabled", config: "等频分箱" },
+  { id: "T-008", name: "数据脱敏", category: "清洗", status: "enabled", config: "哈希脱敏" },
+  { id: "T-009", name: "数据合并", category: "转换", status: "enabled", config: "左连接" },
+  { id: "T-010", name: "时间特征提取", category: "特征", status: "disabled", config: "-" },
+  { id: "T-011", name: "文本分词", category: "清洗", status: "enabled", config: "jieba" },
+  { id: "T-012", name: "离群点剔除", category: "清洗", status: "enabled", config: "IQR法则" },
 ];
 
-const pipelineSteps = [
+const initialPipelineSteps = [
   { id: "S-001", name: "缺失值填充", tool: "T-001", status: "completed", duration: "15s", output: "2.4M" },
   { id: "S-002", name: "异常值检测", tool: "T-002", status: "completed", duration: "32s", output: "2.38M" },
   { id: "S-003", name: "数据标准化", tool: "T-003", status: "running", duration: "-", output: "-" },
   { id: "S-004", name: "特征选择", tool: "T-005", status: "pending", duration: "-", output: "-" },
+  { id: "S-005", name: "数据脱敏", tool: "T-008", status: "pending", duration: "-", output: "-" },
+  { id: "S-006", name: "数据合并", tool: "T-009", status: "pending", duration: "-", output: "-" },
+  { id: "S-007", name: "文本分词", tool: "T-011", status: "pending", duration: "-", output: "-" },
+  { id: "S-008", name: "离群点剔除", tool: "T-012", status: "pending", duration: "-", output: "-" },
+];
+
+const toolFields: FieldConfig[] = [
+  { key: "name", label: "工具名称", type: "text", required: true },
+  { key: "category", label: "分类", type: "select", required: true, options: [
+    { label: "清洗", value: "清洗" },
+    { label: "转换", value: "转换" },
+    { label: "特征", value: "特征" },
+    { label: "聚合", value: "聚合" },
+    { label: "标注", value: "标注" },
+    { label: "验证", value: "验证" },
+  ]},
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "已启用", value: "enabled" },
+    { label: "已禁用", value: "disabled" },
+    { label: "测试中", value: "testing" },
+    { label: "已弃用", value: "deprecated" },
+    { label: "维护中", value: "maintenance" },
+    { label: "计划中", value: "planned" },
+  ]},
+  { key: "config", label: "当前配置", type: "text" },
+];
+
+const stepFields: FieldConfig[] = [
+  { key: "name", label: "步骤名称", type: "text", required: true },
+  { key: "tool", label: "使用工具", type: "select", required: true, options: [] },
+  { key: "status", label: "状态", type: "select", required: true, options: [
+    { label: "已完成", value: "completed" },
+    { label: "执行中", value: "running" },
+    { label: "暂停", value: "paused" },
+    { label: "待执行", value: "pending" },
+    { label: "失败", value: "failed" },
+    { label: "跳过", value: "skipped" },
+  ]},
+  { key: "duration", label: "耗时", type: "text" },
+  { key: "output", label: "输出", type: "text" },
+];
+
+const toolDetailFields = [
+  { key: "id", label: "工具ID" },
+  { key: "name", label: "工具名称" },
+  { key: "category", label: "分类", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "config", label: "当前配置" },
+];
+
+const stepDetailFields = [
+  { key: "id", label: "步骤ID" },
+  { key: "name", label: "步骤名称" },
+  { key: "tool", label: "使用工具", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "duration", label: "耗时" },
+  { key: "output", label: "输出" },
 ];
 
 export default function SandboxPreprocess() {
+  const [tools, setTools] = useState(initialTools);
+  const [pipelineSteps, setPipelineSteps] = useState(initialPipelineSteps);
   const [search, setSearch] = useState("");
-  const [toolOpen, setToolOpen] = useState(false);
-  const [editTool, setEditTool] = useState<any>(null);
-  const [toolName, setToolName] = useState("");
-  const [toolCategory, setToolCategory] = useState("");
-  const [toolStatus, setToolStatus] = useState("");
-  const [toolConfig, setToolConfig] = useState("");
-  const [pipelineOpen, setPipelineOpen] = useState(false);
-  const [editStep, setEditStep] = useState<any>(null);
-  const [stepName, setStepName] = useState("");
-  const [stepTool, setStepTool] = useState("");
+
+  const [toolDialogOpen, setToolDialogOpen] = useState(false);
+  const [toolDialogMode, setToolDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedTool, setSelectedTool] = useState<any>(null);
+  const [toolDrawerOpen, setToolDrawerOpen] = useState(false);
+
+  const [stepDialogOpen, setStepDialogOpen] = useState(false);
+  const [stepDialogMode, setStepDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedStep, setSelectedStep] = useState<any>(null);
+  const [stepDrawerOpen, setStepDrawerOpen] = useState(false);
 
   const filteredTools = tools.filter(t => t.name.includes(search) || t.id.includes(search));
 
+  const getStepToolOptions = () => {
+    return tools
+      .filter(t => t.status === "enabled")
+      .map(t => ({ label: `${t.name} (${t.id})`, value: t.id }));
+  };
+
   const handleAddTool = () => {
-    setEditTool(null);
-    setToolName(""); setToolCategory("清洗"); setToolStatus("enabled"); setToolConfig("");
-    setToolOpen(true);
+    setSelectedTool(null);
+    setToolDialogMode("create");
+    setToolDialogOpen(true);
   };
 
   const handleEditTool = (tool: any) => {
-    setEditTool(tool);
-    setToolName(tool.name); setToolCategory(tool.category); setToolStatus(tool.status); setToolConfig(tool.config);
-    setToolOpen(true);
+    setSelectedTool(tool);
+    setToolDialogMode("edit");
+    setToolDialogOpen(true);
   };
 
-  const handleSaveTool = () => {
-    if (editTool) {
-      editTool.name = toolName;
-      editTool.category = toolCategory;
-      editTool.status = toolStatus;
-      editTool.config = toolConfig;
+  const handleViewTool = (tool: any) => {
+    setSelectedTool(tool);
+    setToolDrawerOpen(true);
+  };
+
+  const handleDeleteToolPrompt = (tool: any) => {
+    setSelectedTool(tool);
+    setToolDialogMode("delete");
+    setToolDialogOpen(true);
+  };
+
+  const handleSaveTool = (data: Record<string, any>) => {
+    if (toolDialogMode === "edit" && selectedTool) {
+      setTools(prev => prev.map(t => t.id === selectedTool.id ? { ...t, ...data } : t));
     } else {
-      tools.push({ id: `T-${String(tools.length + 1).padStart(3, '0')}`, name: toolName, category: toolCategory, status: toolStatus, config: toolConfig });
+      const newId = `T-${String(tools.length + 1).padStart(3, '0')}`;
+      setTools(prev => [...prev, { id: newId, ...data } as any]);
     }
-    setToolOpen(false);
+  };
+
+  const handleConfirmDeleteTool = () => {
+    if (selectedTool) {
+      setTools(prev => prev.filter(t => t.id !== selectedTool.id));
+    }
   };
 
   const handleToggleTool = (id: string) => {
-    const t = tools.find(x => x.id === id);
-    if (t) t.status = t.status === "enabled" ? "disabled" : "enabled";
-  };
-
-  const handleDeleteTool = (id: string) => {
-    const idx = tools.findIndex(t => t.id === id);
-    if (idx >= 0) tools.splice(idx, 1);
+    setTools(prev => prev.map(t => t.id === id ? { ...t, status: t.status === "enabled" ? "disabled" : "enabled" } : t));
   };
 
   const handleAddStep = () => {
-    setEditStep(null);
-    setStepName(""); setStepTool("");
-    setPipelineOpen(true);
+    setSelectedStep(null);
+    setStepDialogMode("create");
+    setStepDialogOpen(true);
   };
 
   const handleEditStep = (step: any) => {
-    setEditStep(step);
-    setStepName(step.name); setStepTool(step.tool);
-    setPipelineOpen(true);
+    setSelectedStep(step);
+    setStepDialogMode("edit");
+    setStepDialogOpen(true);
   };
 
-  const handleSaveStep = () => {
-    if (editStep) {
-      editStep.name = stepName;
-      editStep.tool = stepTool;
+  const handleViewStep = (step: any) => {
+    setSelectedStep(step);
+    setStepDrawerOpen(true);
+  };
+
+  const handleDeleteStepPrompt = (step: any) => {
+    setSelectedStep(step);
+    setStepDialogMode("delete");
+    setStepDialogOpen(true);
+  };
+
+  const handleSaveStep = (data: Record<string, any>) => {
+    if (stepDialogMode === "edit" && selectedStep) {
+      setPipelineSteps(prev => prev.map(s => s.id === selectedStep.id ? { ...s, ...data } : s));
     } else {
-      pipelineSteps.push({ id: `S-${String(pipelineSteps.length + 1).padStart(3, '0')}`, name: stepName, tool: stepTool, status: "pending", duration: "-", output: "-" });
+      const newId = `S-${String(pipelineSteps.length + 1).padStart(3, '0')}`;
+      setPipelineSteps(prev => [...prev, { id: newId, status: "pending", duration: "-", output: "-", ...data } as any]);
     }
-    setPipelineOpen(false);
   };
 
-  const handleDeleteStep = (id: string) => {
-    const idx = pipelineSteps.findIndex(s => s.id === id);
-    if (idx >= 0) pipelineSteps.splice(idx, 1);
+  const handleConfirmDeleteStep = () => {
+    if (selectedStep) {
+      setPipelineSteps(prev => prev.filter(s => s.id !== selectedStep.id));
+    }
   };
 
   const handleMoveStep = (id: string, dir: "up" | "down") => {
-    const idx = pipelineSteps.findIndex(s => s.id === id);
-    if (idx < 0) return;
-    if (dir === "up" && idx > 0) {
-      [pipelineSteps[idx], pipelineSteps[idx - 1]] = [pipelineSteps[idx - 1], pipelineSteps[idx]];
-    } else if (dir === "down" && idx < pipelineSteps.length - 1) {
-      [pipelineSteps[idx], pipelineSteps[idx + 1]] = [pipelineSteps[idx + 1], pipelineSteps[idx]];
-    }
+    setPipelineSteps(prev => {
+      const idx = prev.findIndex(s => s.id === id);
+      if (idx < 0) return prev;
+      const next = [...prev];
+      if (dir === "up" && idx > 0) {
+        [next[idx], next[idx - 1]] = [next[idx - 1], next[idx]];
+      } else if (dir === "down" && idx < next.length - 1) {
+        [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      }
+      return next;
+    });
   };
 
   const handleRunPipeline = () => {
-    pipelineSteps.forEach(s => { if (s.status === "pending") s.status = "running"; });
+    setPipelineSteps(prev => prev.map(s => s.status === "pending" ? { ...s, status: "running" } : s));
   };
 
   const handlePausePipeline = () => {
-    pipelineSteps.forEach(s => { if (s.status === "running") s.status = "paused"; });
+    setPipelineSteps(prev => prev.map(s => s.status === "running" ? { ...s, status: "paused" } : s));
   };
 
   const handleResetPipeline = () => {
-    pipelineSteps.forEach(s => { s.status = "pending"; s.duration = "-"; s.output = "-"; });
+    setPipelineSteps(prev => prev.map(s => ({ ...s, status: "pending", duration: "-", output: "-" })));
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">数据加工</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">数据加工</h1>
           <p className="text-sm text-gray-500 mt-1">数据清洗、转换、特征工程</p>
         </div>
       </div>
@@ -177,11 +269,12 @@ export default function SandboxPreprocess() {
                       <TableCell className="text-xs">{t.config}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTool(t)}><Settings className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewTool(t)}><Eye className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditTool(t)}><Edit3 className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleTool(t.id)}>
                             {t.status === "enabled" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteTool(t.id)}><Trash2 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteToolPrompt(t)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -224,10 +317,11 @@ export default function SandboxPreprocess() {
                       <TableCell>{s.output}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewStep(s)}><Eye className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveStep(s.id, "up")}><ArrowUp className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMoveStep(s.id, "down")}><ArrowDown className="w-4 h-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditStep(s)}><Edit3 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteStep(s.id)}><Trash2 className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDeleteStepPrompt(s)}><Trash2 className="w-4 h-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -248,68 +342,47 @@ export default function SandboxPreprocess() {
         </TabsContent>
       </Tabs>
 
-      {/* Tool Config Dialog */}
-      <Dialog open={toolOpen} onOpenChange={setToolOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{editTool ? "配置工具" : "添加工具"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">工具名称</label>
-              <Input value={toolName} onChange={e => setToolName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">分类</label>
-              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={toolCategory} onChange={e => setToolCategory(e.target.value)}>
-                <option value="清洗">清洗</option><option value="转换">转换</option><option value="特征">特征</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">状态</label>
-              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={toolStatus} onChange={e => setToolStatus(e.target.value)}>
-                <option value="enabled">已启用</option><option value="disabled">已禁用</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">配置</label>
-              <Input value={toolConfig} onChange={e => setToolConfig(e.target.value)} placeholder="如：均值填充、Z-Score等" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setToolOpen(false)}>取消</Button>
-            <Button onClick={handleSaveTool} disabled={!toolName}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={toolDialogOpen}
+        onOpenChange={setToolDialogOpen}
+        title={selectedTool?.name || "工具"}
+        fields={toolFields}
+        data={selectedTool || {}}
+        mode={toolDialogMode}
+        onSubmit={handleSaveTool}
+        onDelete={handleConfirmDeleteTool}
+      />
 
-      {/* Pipeline Step Dialog */}
-      <Dialog open={pipelineOpen} onOpenChange={setPipelineOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{editStep ? "编辑步骤" : "添加步骤"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">步骤名称</label>
-              <Input value={stepName} onChange={e => setStepName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">选择工具</label>
-              <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={stepTool} onChange={e => setStepTool(e.target.value)}>
-                <option value="">请选择</option>
-                {tools.filter(t => t.status === "enabled").map(t => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.id})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPipelineOpen(false)}>取消</Button>
-            <Button onClick={handleSaveStep} disabled={!stepName || !stepTool}>保存</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CrudDialog
+        open={stepDialogOpen}
+        onOpenChange={setStepDialogOpen}
+        title={selectedStep?.name || "步骤"}
+        fields={stepFields.map(f => f.key === "tool" ? { ...f, options: getStepToolOptions() } : f)}
+        data={selectedStep || {}}
+        mode={stepDialogMode}
+        onSubmit={handleSaveStep}
+        onDelete={handleConfirmDeleteStep}
+      />
+
+      <DetailDrawer
+        open={toolDrawerOpen}
+        onOpenChange={setToolDrawerOpen}
+        title="工具详情"
+        data={selectedTool || {}}
+        fields={toolDetailFields}
+        onEdit={() => { setToolDrawerOpen(false); handleEditTool(selectedTool); }}
+        onDelete={() => { setToolDrawerOpen(false); handleDeleteToolPrompt(selectedTool); }}
+      />
+
+      <DetailDrawer
+        open={stepDrawerOpen}
+        onOpenChange={setStepDrawerOpen}
+        title="步骤详情"
+        data={selectedStep || {}}
+        fields={stepDetailFields}
+        onEdit={() => { setStepDrawerOpen(false); handleEditStep(selectedStep); }}
+        onDelete={() => { setStepDrawerOpen(false); handleDeleteStepPrompt(selectedStep); }}
+      />
     </div>
   );
 }

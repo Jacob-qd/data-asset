@@ -6,17 +6,51 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import {
-  ChevronRight, Plus, Search, FlaskConical, Package, Trash2, Clock, CheckCircle, AlertTriangle, Eye, Thermometer, CalendarDays,
+  ChevronRight, Plus, Search, FlaskConical, Package, Trash2, Clock, CheckCircle, AlertTriangle, Eye, Thermometer, CalendarDays, Pencil, Trash, XCircle, StickyNote,
 } from "lucide-react";
 
-const samples = [
+interface Sample {
+  id: string;
+  name: string;
+  source: string;
+  batchNo: string;
+  samplingMethod: string;
+  samplingDate: string;
+  storageLocation: string;
+  storageTemp: string;
+  status: string;
+  retentionDays: number;
+  inspector: string;
+  expireDate: string;
+  observeRecords: number;
+}
+
+interface ObserveRecord {
+  id: number;
+  sampleId: string;
+  date: string;
+  item: string;
+  result: string;
+  note: string;
+}
+
+const initialSamples: Sample[] = [
   { id: "SP-001", name: "用户画像数据样本A", source: "ods_user_info", batchNo: "B20260424001", samplingMethod: "随机抽样", samplingDate: "2026-04-24", storageLocation: "冷库-01", storageTemp: "4°C", status: "留样中", retentionDays: 90, inspector: "张三", expireDate: "2026-07-23", observeRecords: 3 },
   { id: "SP-002", name: "订单明细样本B", source: "dwd_order_detail", batchNo: "B20260424002", samplingMethod: "分层抽样", samplingDate: "2026-04-24", storageLocation: "常温库-03", storageTemp: "25°C", status: "留样中", retentionDays: 30, inspector: "李四", expireDate: "2026-05-24", observeRecords: 1 },
   { id: "SP-003", name: "设备ID验证样本C", source: "device_info", batchNo: "B20260423001", samplingMethod: "系统抽样", samplingDate: "2026-04-23", storageLocation: "冷库-02", storageTemp: "4°C", status: "待观察", retentionDays: 60, inspector: "王五", expireDate: "2026-06-22", observeRecords: 0 },
   { id: "SP-004", name: "特征工程输出样本D", source: "credit_features", batchNo: "B20260422001", samplingMethod: "随机抽样", samplingDate: "2026-04-22", storageLocation: "常温库-01", storageTemp: "25°C", status: "已销毁", retentionDays: 0, inspector: "赵六", expireDate: "2026-04-25", observeRecords: 5 },
-  { id: "SP-005", name: "模型预测样本E", source: "model_prediction", batchNo: "B20260421001", samplingMethod: "整群抽样", samplingDate: "2026-04-21", storageLocation: "冷库-01", storageTemp: "4°C", status: "观察完成", retentionDays: 90, inspector: "钱七", expireDate: "2026-07-20", observeRecords: 4 },
+  { id: "SP-005", name: "模型预测样本E", source: "model_prediction", batchNo: "B20260421001", samplingMethod: "聚类抽样", samplingDate: "2026-04-21", storageLocation: "冷库-01", storageTemp: "4°C", status: "观察完成", retentionDays: 90, inspector: "钱七", expireDate: "2026-07-20", observeRecords: 4 },
+];
+
+const initialObserveRecords: ObserveRecord[] = [
+  { id: 1, sampleId: "SP-001", date: "2026-04-24", item: "外观", result: "正常", note: "样本完整性良好" },
+  { id: 2, sampleId: "SP-001", date: "2026-04-25", item: "数据一致性", result: "正常", note: "与源数据一致" },
+  { id: 3, sampleId: "SP-001", date: "2026-04-26", item: "字段完整性", result: "正常", note: "字段无缺失" },
 ];
 
 const statusColor: Record<string, string> = {
@@ -26,19 +60,207 @@ const statusColor: Record<string, string> = {
   "已销毁": "bg-gray-100 text-gray-500 border-gray-200",
 };
 
-const observeRecords = [
-  { id: 1, sampleId: "SP-001", date: "2026-04-24", item: "外观", result: "正常", note: "样本完整性良好" },
-  { id: 2, sampleId: "SP-001", date: "2026-04-25", item: "数据一致性", result: "正常", note: "与源数据一致" },
-  { id: 3, sampleId: "SP-001", date: "2026-04-26", item: "字段完整性", result: "正常", note: "字段无缺失" },
+const sampleFields: FieldConfig[] = [
+  { key: "name", label: "样品名称", type: "text", required: true },
+  { key: "source", label: "数据源", type: "text", required: true },
+  { key: "batchNo", label: "批次号", type: "text", required: true },
+  { key: "samplingMethod", label: "取样方式", type: "select", required: true, options: [
+    { label: "随机抽样", value: "随机抽样" },
+    { label: "分层抽样", value: "分层抽样" },
+    { label: "系统抽样", value: "系统抽样" },
+    { label: "聚类抽样", value: "聚类抽样" },
+    { label: "多阶段抽样", value: "多阶段抽样" },
+  ]},
+  { key: "storageLocation", label: "存放位置", type: "text", required: true },
+  { key: "storageTemp", label: "存储温度", type: "text", required: true },
+  { key: "retentionDays", label: "留样天数", type: "number", required: true },
 ];
 
+const detailFields = [
+  { key: "id", label: "样品ID" },
+  { key: "name", label: "样品名称" },
+  { key: "source", label: "数据源" },
+  { key: "batchNo", label: "批次号" },
+  { key: "samplingMethod", label: "取样方式" },
+  { key: "samplingDate", label: "取样日期", type: "date" as const },
+  { key: "storageLocation", label: "存放位置" },
+  { key: "storageTemp", label: "存储温度" },
+  { key: "retentionDays", label: "留样天数" },
+  { key: "expireDate", label: "到期日", type: "date" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "inspector", label: "取样人" },
+  { key: "observeRecords", label: "观察记录数" },
+];
+
+function generateId(samples: Sample[]): string {
+  const maxNum = samples.reduce((max, s) => {
+    const num = parseInt(s.id.replace("SP-", ""), 10);
+    return Math.max(max, isNaN(num) ? 0 : num);
+  }, 0);
+  return `SP-${String(maxNum + 1).padStart(3, "0")}`;
+}
+
+function addDays(dateStr: string, days: number): string {
+  const date = new Date(dateStr);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split("T")[0];
+}
+
+function todayStr(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 export default function SampleManagement() {
+  const [samples, setSamples] = useState<Sample[]>(initialSamples);
+  const [observeRecords, setObserveRecords] = useState<ObserveRecord[]>(initialObserveRecords);
   const [search, setSearch] = useState("");
-  const [detailSample, setDetailSample] = useState<typeof samples[0] | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const [newSample, setNewSample] = useState({ name: "", source: "", batchNo: "", samplingMethod: "随机抽样", storageLocation: "", storageTemp: "", retentionDays: 30 });
+
+  // CrudDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any> | undefined>(undefined);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // DetailDrawer state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailSample, setDetailSample] = useState<Sample | null>(null);
+
+  // Observe dialog state
+  const [observeDialogOpen, setObserveDialogOpen] = useState(false);
+  const [observeSampleId, setObserveSampleId] = useState<string | null>(null);
+  const [observeForm, setObserveForm] = useState({ item: "", result: "正常", note: "" });
 
   const filtered = samples.filter((s) => s.name.includes(search) || s.id.includes(search) || s.batchNo.includes(search));
+
+  const handleCreate = () => {
+    setDialogMode("create");
+    setDialogData({
+      name: "",
+      source: "",
+      batchNo: "",
+      samplingMethod: "随机抽样",
+      storageLocation: "",
+      storageTemp: "",
+      retentionDays: 30,
+    });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (sample: Sample) => {
+    setDialogMode("edit");
+    setDialogData({
+      name: sample.name,
+      source: sample.source,
+      batchNo: sample.batchNo,
+      samplingMethod: sample.samplingMethod,
+      storageLocation: sample.storageLocation,
+      storageTemp: sample.storageTemp,
+      retentionDays: sample.retentionDays,
+    });
+    setEditingId(sample.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (sample: Sample) => {
+    setDialogMode("delete");
+    setEditingId(sample.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const id = generateId(samples);
+      const samplingDate = todayStr();
+      const newSample: Sample = {
+        id,
+        name: data.name,
+        source: data.source,
+        batchNo: data.batchNo,
+        samplingMethod: data.samplingMethod,
+        samplingDate,
+        storageLocation: data.storageLocation,
+        storageTemp: data.storageTemp,
+        status: "留样中",
+        retentionDays: Number(data.retentionDays),
+        inspector: "管理员",
+        expireDate: addDays(samplingDate, Number(data.retentionDays)),
+        observeRecords: 0,
+      };
+      setSamples((prev) => [...prev, newSample]);
+    } else if (dialogMode === "edit" && editingId) {
+      setSamples((prev) =>
+        prev.map((s) =>
+          s.id === editingId
+            ? {
+                ...s,
+                name: data.name,
+                source: data.source,
+                batchNo: data.batchNo,
+                samplingMethod: data.samplingMethod,
+                storageLocation: data.storageLocation,
+                storageTemp: data.storageTemp,
+                retentionDays: Number(data.retentionDays),
+                expireDate: addDays(s.samplingDate, Number(data.retentionDays)),
+              }
+            : s
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editingId) {
+      setSamples((prev) => prev.filter((s) => s.id !== editingId));
+      setObserveRecords((prev) => prev.filter((r) => r.sampleId !== editingId));
+    }
+    setDialogOpen(false);
+  };
+
+  const handleDestroy = (sample: Sample) => {
+    if (window.confirm(`确定要销毁样品 ${sample.id}（${sample.name}）吗？`)) {
+      setSamples((prev) =>
+        prev.map((s) => (s.id === sample.id ? { ...s, status: "已销毁", retentionDays: 0 } : s))
+      );
+      if (detailSample?.id === sample.id) {
+        setDetailSample((prev) => (prev ? { ...prev, status: "已销毁", retentionDays: 0 } : prev));
+      }
+    }
+  };
+
+  const openObserveDialog = (sampleId: string) => {
+    setObserveSampleId(sampleId);
+    setObserveForm({ item: "", result: "正常", note: "" });
+    setObserveDialogOpen(true);
+  };
+
+  const handleAddObserve = () => {
+    if (!observeSampleId || !observeForm.item.trim()) return;
+    const newRecord: ObserveRecord = {
+      id: Date.now(),
+      sampleId: observeSampleId,
+      date: todayStr(),
+      item: observeForm.item,
+      result: observeForm.result,
+      note: observeForm.note,
+    };
+    setObserveRecords((prev) => [...prev, newRecord]);
+    setSamples((prev) =>
+      prev.map((s) =>
+        s.id === observeSampleId
+          ? { ...s, observeRecords: s.observeRecords + 1, status: s.status === "待观察" ? "观察完成" : s.status }
+          : s
+      )
+    );
+    setObserveDialogOpen(false);
+  };
+
+  const sampleObserveRecords = observeSampleId
+    ? observeRecords.filter((r) => r.sampleId === observeSampleId)
+    : [];
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -57,7 +279,7 @@ export default function SampleManagement() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">样品管理</h1>
           <p className="text-sm text-gray-500 mt-1.5">取样/留样/样品销毁管理，支持定期/不定期观察检验</p>
         </div>
-        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={() => setAddOpen(true)}>
+        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />登记样品
         </Button>
       </div>
@@ -108,7 +330,17 @@ export default function SampleManagement() {
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span>
                     </TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <Button size="sm" variant="ghost" onClick={() => setDetailSample(s)}><Eye className="w-4 h-4" /></Button>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
+                        {s.status !== "已销毁" && (
+                          <>
+                            <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
+                            <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDestroy(s)}><XCircle className="w-4 h-4" /></Button>
+                          </>
+                        )}
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -137,7 +369,13 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.expireDate}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <Button size="sm" variant="ghost" onClick={() => setDetailSample(s)}><Eye className="w-4 h-4" /></Button>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDestroy(s)}><XCircle className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -167,7 +405,12 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.expireDate}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <Button size="sm" variant="ghost" onClick={() => setDetailSample(s)}><Eye className="w-4 h-4" /></Button>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -181,7 +424,7 @@ export default function SampleManagement() {
             <Table className="unified-table">
               <TableHeader>
                 <TableRow className="bg-gray-50/80 border-b border-gray-100">
-                  {["样品ID", "样品名称", "批次号", "销毁日期", "销毁人", "状态"].map((h) => (
+                  {["样品ID", "样品名称", "批次号", "销毁日期", "销毁人", "状态", "操作"].map((h) => (
                     <TableHead key={h} className="text-xs font-semibold text-gray-600 uppercase tracking-wider py-3.5 px-4">{h}</TableHead>
                   ))}
                 </TableRow>
@@ -195,6 +438,12 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.expireDate}</TableCell>
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.inspector}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
+                    <TableCell className="py-3.5 px-4">
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
+                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -203,106 +452,80 @@ export default function SampleManagement() {
         </TabsContent>
       </Tabs>
 
-      {/* Detail Dialog */}
-      <Dialog open={!!detailSample} onOpenChange={() => setDetailSample(null)}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>样品详情 - {detailSample?.id}</DialogTitle></DialogHeader>
-          {detailSample && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: "样品名称", value: detailSample.name },
-                  { label: "数据源", value: detailSample.source },
-                  { label: "批次号", value: detailSample.batchNo },
-                  { label: "取样方式", value: detailSample.samplingMethod },
-                  { label: "取样日期", value: detailSample.samplingDate },
-                  { label: "存放位置", value: detailSample.storageLocation },
-                  { label: "存储温度", value: detailSample.storageTemp },
-                  { label: "留样天数", value: detailSample.retentionDays },
-                  { label: "到期日", value: detailSample.expireDate },
-                  { label: "状态", value: detailSample.status },
-                  { label: "取样人", value: detailSample.inspector },
-                  { label: "观察记录", value: detailSample.observeRecords + "条" },
-                ].map(item => (
-                  <div key={item.label} className="rounded-lg border border-gray-200 p-3">
-                    <div className="text-xs text-gray-500">{item.label}</div>
-                    <div className="text-sm font-medium text-gray-900 mt-1">{item.value}</div>
+      {/* DetailDrawer */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={`样品详情 - ${detailSample?.id}`}
+        data={detailSample || {}}
+        fields={detailFields}
+        onEdit={detailSample ? () => handleEdit(detailSample) : undefined}
+        onDelete={detailSample ? () => handleDelete(detailSample) : undefined}
+      />
+
+      {/* CrudDialog: create/edit/delete */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogMode === "delete" ? `${detailSample?.name || "样品"}` : "样品"}
+        fields={sampleFields}
+        data={dialogData}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
+
+      {/* Observe Records Dialog */}
+      <Dialog open={observeDialogOpen} onOpenChange={setObserveDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <StickyNote className="w-5 h-5 text-indigo-600" />
+              观察记录 - {observeSampleId}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {sampleObserveRecords.length > 0 ? (
+              <div className="space-y-2">
+                {sampleObserveRecords.map((rec) => (
+                  <div key={rec.id} className="flex items-center justify-between rounded-md bg-gray-50 p-2">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">{rec.date}</span>
+                      <Badge variant="outline">{rec.item}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={rec.result === "正常" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}>{rec.result}</Badge>
+                      <span className="text-xs text-gray-500">{rec.note}</span>
+                    </div>
                   </div>
                 ))}
               </div>
-              {detailSample.observeRecords > 0 && (
-                <div className="rounded-lg border border-gray-200 p-4">
-                  <div className="text-sm font-medium mb-2">观察检验记录</div>
-                  <div className="space-y-2">
-                    {observeRecords.filter((r) => r.sampleId === detailSample.id).map((rec) => (
-                      <div key={rec.id} className="flex items-center justify-between rounded-md bg-gray-50 p-2">
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">{rec.date}</span>
-                          <Badge variant="outline">{rec.item}</Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge className="bg-emerald-50 text-emerald-700">{rec.result}</Badge>
-                          <span className="text-xs text-gray-500">{rec.note}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => setDetailSample(null)}>关闭</Button>
-                {detailSample.status !== "已销毁" && (
-                  <>
-                    <Button variant="outline" className="gap-1"><CalendarDays className="w-4 h-4" />添加观察</Button>
-                    <Button className="bg-red-600 hover:bg-red-700 text-white gap-1"><Trash2 className="w-4 h-4" />销毁样品</Button>
-                  </>
-                )}
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Sample Dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>登记样品</DialogTitle></DialogHeader>
-          <div className="space-y-3 py-2">
-            {[
-              { label: "样品名称", key: "name", placeholder: "如：用户画像数据样本A" },
-              { label: "数据源", key: "source", placeholder: "如：ods_user_info" },
-              { label: "批次号", key: "batchNo", placeholder: "如：B20260424001" },
-            ].map((field) => (
-              <div key={field.key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{field.label}</label>
-                <Input value={newSample[field.key as keyof typeof newSample] as string} onChange={(e) => setNewSample({ ...newSample, [field.key]: e.target.value })} placeholder={field.placeholder} className="h-9" />
-              </div>
-            ))}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">取样方式</label>
-              <select value={newSample.samplingMethod} onChange={(e) => setNewSample({ ...newSample, samplingMethod: e.target.value })} className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm">
-                <option>随机抽样</option><option>分层抽样</option><option>系统抽样</option><option>整群抽样</option>
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-4">暂无观察记录</p>
+            )}
+            <div className="border-t pt-4 space-y-3">
+              <p className="text-sm font-medium text-gray-700">新增观察</p>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">存放位置</label>
-                <Input value={newSample.storageLocation} onChange={(e) => setNewSample({ ...newSample, storageLocation: e.target.value })} placeholder="如：冷库-01" className="h-9" />
+                <Label className="text-xs">检查项目</Label>
+                <Input value={observeForm.item} onChange={(e) => setObserveForm({ ...observeForm, item: e.target.value })} placeholder="如：外观" className="h-9 mt-1" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">存储温度</label>
-                <Input value={newSample.storageTemp} onChange={(e) => setNewSample({ ...newSample, storageTemp: e.target.value })} placeholder="如：4°C" className="h-9" />
+                <Label className="text-xs">检查结果</Label>
+                <select value={observeForm.result} onChange={(e) => setObserveForm({ ...observeForm, result: e.target.value })} className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm mt-1">
+                  <option>正常</option>
+                  <option>异常</option>
+                </select>
               </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">留样天数</label>
-              <Input type="number" value={newSample.retentionDays} onChange={(e) => setNewSample({ ...newSample, retentionDays: parseInt(e.target.value) })} placeholder="如：30" className="h-9" />
+              <div>
+                <Label className="text-xs">备注</Label>
+                <Input value={observeForm.note} onChange={(e) => setObserveForm({ ...observeForm, note: e.target.value })} placeholder="可选" className="h-9 mt-1" />
+              </div>
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAddOpen(false)}>取消</Button>
-            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={() => setAddOpen(false)}>保存登记</Button>
+            <Button variant="outline" onClick={() => setObserveDialogOpen(false)}>关闭</Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={handleAddObserve} disabled={!observeForm.item.trim()}>保存观察</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

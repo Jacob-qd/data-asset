@@ -338,6 +338,7 @@ export default function PrivacyComputing() {
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterTab, setClusterTab] = useState<"nodes" | "config" | "network">("nodes");
   const [taskStatusFilter, setTaskStatusFilter] = useState<string>("全部");
+  const [tasks, setTasks] = useState<TaskItem[]>(TASKS);
 
   /* Topology nodes */
   const topoNodes: Node[] = useMemo(() => {
@@ -397,11 +398,11 @@ export default function PrivacyComputing() {
 
   /* Filtered tasks */
   const filteredTasks = useMemo(() => {
-    let t = TASKS;
+    let t = tasks;
     if (taskFilter) t = t.filter((x) => x.name.includes(taskFilter) || x.id.includes(taskFilter));
     if (taskStatusFilter !== "全部") t = t.filter((x) => x.status === taskStatusFilter);
     return t;
-  }, [taskFilter, taskStatusFilter]);
+  }, [tasks, taskFilter, taskStatusFilter]);
 
   /* Stats */
   const totalNodes = CLUSTER_NODES.length;
@@ -434,10 +435,10 @@ export default function PrivacyComputing() {
         <div>
           <h1 className="text-h2 text-slate-800 dark:text-slate-100 font-bold">隐私计算平台</h1>
           <p className="text-sm text-slate-500 mt-1">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-              {onlineNodes}个节点在线，{TASKS.filter((t) => t.status === "运行中").length}个任务正在运行
-            </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
+                {onlineNodes}个节点在线，{tasks.filter((t) => t.status === "运行中").length}个任务正在运行
+              </span>
           </p>
         </div>
         <div className="flex gap-2">
@@ -487,16 +488,16 @@ export default function PrivacyComputing() {
             <div>
               <div className="text-xs text-slate-400 dark:text-[#94A3B8]">运行中任务</div>
               <div className="text-[28px] font-mono font-bold text-slate-800 dark:text-[#F1F5F9] leading-tight mt-0.5">
-                {TASKS.filter((t) => t.status === "运行中").length}
+                {tasks.filter((t) => t.status === "运行中").length}
               </div>
             </div>
           </div>
           <div className="mt-3 flex gap-2 text-[10px]">
-            <span className="text-[#F59E0B]">待执行 {TASKS.filter((t) => t.status === "待执行").length}</span>
+            <span className="text-[#F59E0B]">待执行 {tasks.filter((t) => t.status === "待执行").length}</span>
             <span className="text-slate-500 dark:text-[#64748B]">|</span>
-            <span className="text-[#10B981]">已完成 {TASKS.filter((t) => t.status === "已完成").length}</span>
+            <span className="text-[#10B981]">已完成 {tasks.filter((t) => t.status === "已完成").length}</span>
             <span className="text-slate-500 dark:text-[#64748B]">|</span>
-            <span className="text-[#EF4444]">失败 {TASKS.filter((t) => t.status === "失败").length}</span>
+            <span className="text-[#EF4444]">失败 {tasks.filter((t) => t.status === "失败").length}</span>
           </div>
         </div>
 
@@ -1148,7 +1149,22 @@ export default function PrivacyComputing() {
                   if (wizardStep < 3) {
                     setWizardStep(wizardStep + 1);
                   } else {
+                    const newTask: TaskItem = {
+                      id: `PC-${Date.now()}`,
+                      name: taskName || "未命名任务",
+                      algorithm: ALGORITHMS.find((a) => a.id === selectedAlgorithm)?.name || "联邦学习" as any,
+                      participants: selectedParticipants.length,
+                      status: "待执行",
+                      progress: 0,
+                      startTime: "-",
+                      execTime: "-",
+                    };
+                    setTasks((prev) => [newTask, ...prev]);
                     setShowTaskWizard(false);
+                    setWizardStep(1);
+                    setSelectedAlgorithm(null);
+                    setSelectedParticipants(["p1"]);
+                    setTaskName("");
                   }
                 }}
                 disabled={wizardStep === 1 && !selectedAlgorithm}

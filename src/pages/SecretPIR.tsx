@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Search, Plus, Eye, Trash2, Play, Pause, Download, ChevronRight, KeyRound, BookOpen, FileSearch, Settings, CheckCircle2, XCircle, RotateCcw, Copy } from "lucide-react";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+import { Search, Plus, Eye, Trash2, Play, Pause, Download, ChevronRight, KeyRound, BookOpen, FileSearch, Settings, CheckCircle2, XCircle, RotateCcw, Copy, Pencil } from "lucide-react";
 
 interface PIRTask {
   id: string;
@@ -23,11 +24,17 @@ interface PIRTask {
   duration: string;
 }
 
-const pirTasks: PIRTask[] = [
+const initialTasks: PIRTask[] = [
   { id: "PIR-2026-001", name: "用户画像查询", queryMode: "单条查询", obfuscation: 100, status: "已完成", querier: "银行A", targetTable: "user_profiles", queryCount: 1, resultCount: 8, latency: "120ms", createdAt: "2026-04-24 10:00", duration: "120ms" },
   { id: "PIR-2026-002", name: "交易记录检索", queryMode: "批量查询", obfuscation: 500, status: "执行中", querier: "银行B", targetTable: "transactions", queryCount: 50, resultCount: 0, latency: "-", createdAt: "2026-04-24 11:00", duration: "-" },
   { id: "PIR-2026-003", name: "设备归属查询", queryMode: "单条查询", obfuscation: 50, status: "待执行", querier: "运营商A", targetTable: "device_registry", queryCount: 1, resultCount: 0, latency: "-", createdAt: "2026-04-24 14:00", duration: "-" },
   { id: "PIR-2026-004", name: "信用评级查询", queryMode: "单条查询", obfuscation: 200, status: "已完成", querier: "银行C", targetTable: "credit_scores", queryCount: 1, resultCount: 5, latency: "95ms", createdAt: "2026-04-23 16:00", duration: "95ms" },
+  { id: "PIR-2026-005", name: "医疗记录检索", queryMode: "范围查询", obfuscation: 300, status: "已完成", querier: "医院A", targetTable: "medical_records", queryCount: 1, resultCount: 12, latency: "180ms", createdAt: "2026-04-23 10:00", duration: "180ms" },
+  { id: "PIR-2026-006", name: "保险理赔查询", queryMode: "批量查询", obfuscation: 800, status: "已暂停", querier: "保险A", targetTable: "claims", queryCount: 100, resultCount: 0, latency: "-", createdAt: "2026-04-22 09:00", duration: "-" },
+  { id: "PIR-2026-007", name: "商品库存查询", queryMode: "单条查询", obfuscation: 150, status: "待执行", querier: "电商A", targetTable: "inventory", queryCount: 1, resultCount: 0, latency: "-", createdAt: "2026-04-22 14:00", duration: "-" },
+  { id: "PIR-2026-008", name: "物流轨迹检索", queryMode: "范围查询", obfuscation: 400, status: "已完成", querier: "物流A", targetTable: "tracking", queryCount: 1, resultCount: 20, latency: "210ms", createdAt: "2026-04-21 11:00", duration: "210ms" },
+  { id: "PIR-2026-009", name: "用户行为查询", queryMode: "聚合查询", obfuscation: 600, status: "执行中", querier: "平台A", targetTable: "user_behavior", queryCount: 1, resultCount: 0, latency: "-", createdAt: "2026-04-21 08:00", duration: "-" },
+  { id: "PIR-2026-010", name: "黑名单检索", queryMode: "批量查询", obfuscation: 1000, status: "已完成", querier: "金融B", targetTable: "blacklist", queryCount: 200, resultCount: 15, latency: "350ms", createdAt: "2026-04-20 15:00", duration: "350ms" },
 ];
 
 const statusColor: Record<string, string> = {
@@ -35,71 +42,148 @@ const statusColor: Record<string, string> = {
   "已完成": "bg-emerald-50 text-emerald-700 border-emerald-100",
   "待执行": "bg-slate-50 text-slate-600 border-slate-200",
   "已暂停": "bg-amber-50 text-amber-700 border-amber-200",
+  "已失败": "bg-red-50 text-red-700 border-red-200",
+  "已取消": "bg-gray-50 text-gray-500 border-gray-200",
 };
 
+const crudFields: FieldConfig[] = [
+  { key: "name", label: "任务名称", type: "text", required: true },
+  { key: "queryMode", label: "查询模式", type: "select", options: [
+    { label: "单条查询", value: "单条查询" },
+    { label: "批量查询", value: "批量查询" },
+    { label: "范围查询", value: "范围查询" },
+    { label: "聚合查询", value: "聚合查询" },
+    { label: "模糊查询", value: "模糊查询" },
+    { label: "前缀查询", value: "前缀查询" },
+  ]},
+  { key: "obfuscation", label: "混淆值大小", type: "number" },
+  { key: "targetTable", label: "目标数据表", type: "text", required: true },
+  { key: "querier", label: "查询方", type: "select", options: [
+    { label: "银行A", value: "银行A" },
+    { label: "银行B", value: "银行B" },
+    { label: "银行C", value: "银行C" },
+    { label: "保险A", value: "保险A" },
+    { label: "医院A", value: "医院A" },
+    { label: "电商A", value: "电商A" },
+    { label: "物流A", value: "物流A" },
+    { label: "平台A", value: "平台A" },
+  ]},
+  { key: "status", label: "状态", type: "select", options: [
+    { label: "待执行", value: "待执行" },
+    { label: "执行中", value: "执行中" },
+    { label: "已暂停", value: "已暂停" },
+    { label: "已完成", value: "已完成" },
+    { label: "已失败", value: "已失败" },
+    { label: "已取消", value: "已取消" },
+  ]},
+];
+
+const detailFields = [
+  { key: "id", label: "任务ID", type: "text" as const },
+  { key: "name", label: "任务名称", type: "text" as const },
+  { key: "queryMode", label: "查询模式", type: "badge" as const },
+  { key: "obfuscation", label: "混淆值", type: "text" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "querier", label: "查询方", type: "text" as const },
+  { key: "targetTable", label: "目标表", type: "text" as const },
+  { key: "queryCount", label: "查询数", type: "text" as const },
+  { key: "resultCount", label: "结果数", type: "text" as const },
+  { key: "latency", label: "延迟", type: "text" as const },
+  { key: "createdAt", label: "创建时间", type: "date" as const },
+  { key: "duration", label: "持续时间", type: "text" as const },
+];
+
 export default function SecretPIR() {
+  const [pirTasks, setPirTasks] = useState<PIRTask[]>(initialTasks);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState("tasks");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [selectedItem, setSelectedItem] = useState<PIRTask | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState("csv");
 
-  const [formName, setFormName] = useState("");
   const [formMode, setFormMode] = useState("single");
   const [formObfuscation, setFormObfuscation] = useState(100);
   const [formTable, setFormTable] = useState("");
-  const [formQuerier, setFormQuerier] = useState("");
-  const [selectedItem, setSelectedItem] = useState<PIRTask | null>(null);
 
   const filtered = pirTasks.filter(d => d.name.includes(search) || d.id.includes(search));
 
   const handleCreate = () => {
-    setFormName(""); setFormMode("single"); setFormObfuscation(100); setFormTable(""); setFormQuerier("");
-    setCreateOpen(true);
+    setSelectedItem(null);
+    setDialogMode("create");
+    setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formName || !formTable) return;
-    const newTask: PIRTask = {
-      id: `PIR-2026-${String(pirTasks.length + 1).padStart(3, '0')}`,
-      name: formName,
-      queryMode: formMode === "single" ? "单条查询" : "批量查询",
-      obfuscation: formObfuscation,
-      status: "待执行",
-      querier: formQuerier || "当前用户",
-      targetTable: formTable,
-      queryCount: formMode === "single" ? 1 : 0,
-      resultCount: 0,
-      latency: "-",
-      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      duration: "-",
-    };
-    pirTasks.unshift(newTask);
-    setCreateOpen(false);
+  const handleEdit = (item: PIRTask) => {
+    setSelectedItem(item);
+    setDialogMode("edit");
+    setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => { setDeleteId(id); setDeleteOpen(true); };
-  const confirmDelete = () => {
-    const idx = pirTasks.findIndex(t => t.id === deleteId);
-    if (idx >= 0) pirTasks.splice(idx, 1);
-    setDeleteOpen(false);
-    if (selectedItem?.id === deleteId) setDetailOpen(false);
+  const handleView = (item: PIRTask) => {
+    setSelectedItem(item);
+    setDrawerOpen(true);
+  };
+
+  const handleDelete = (item: PIRTask) => {
+    setSelectedItem(item);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newTask: PIRTask = {
+        id: `PIR-${Date.now().toString(36).toUpperCase()}`,
+        name: data.name || "",
+        queryMode: data.queryMode || "单条查询",
+        obfuscation: Number(data.obfuscation) || 100,
+        status: data.status || "待执行",
+        querier: data.querier || "当前用户",
+        targetTable: data.targetTable || "",
+        queryCount: data.queryMode === "批量查询" ? 0 : 1,
+        resultCount: 0,
+        latency: "-",
+        createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        duration: "-",
+      };
+      setPirTasks(prev => [newTask, ...prev]);
+    } else if (dialogMode === "edit" && selectedItem) {
+      setPirTasks(prev => prev.map(t => t.id === selectedItem.id ? { ...t, ...data, obfuscation: Number(data.obfuscation) || t.obfuscation } : t));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedItem) {
+      setPirTasks(prev => prev.filter(t => t.id !== selectedItem.id));
+      if (drawerOpen) setDrawerOpen(false);
+    }
   };
 
   const handleToggleStatus = (id: string) => {
-    const t = pirTasks.find(x => x.id === id);
-    if (!t) return;
-    if (t.status === "待执行") t.status = "执行中";
-    else if (t.status === "执行中") t.status = "已暂停";
-    else if (t.status === "已暂停") t.status = "执行中";
-    else if (t.status === "已完成") t.status = "待执行";
+    setPirTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      if (t.status === "待执行") return { ...t, status: "执行中" };
+      else if (t.status === "执行中") return { ...t, status: "已暂停" };
+      else if (t.status === "已暂停") return { ...t, status: "执行中" };
+      else if (t.status === "已完成") return { ...t, status: "待执行" };
+      return t;
+    }));
   };
 
   const handleCopy = (task: PIRTask) => {
-    pirTasks.unshift({ ...task, id: `PIR-2026-${String(pirTasks.length + 1).padStart(3, '0')}`, name: `${task.name} (复制)`, status: "待执行", resultCount: 0, latency: "-", duration: "-" });
+    const newTask: PIRTask = {
+      ...task,
+      id: `PIR-${Date.now().toString(36).toUpperCase()}`,
+      name: `${task.name} (复制)`,
+      status: "待执行",
+      resultCount: 0,
+      latency: "-",
+      duration: "-",
+    };
+    setPirTasks(prev => [newTask, ...prev]);
   };
 
   return (
@@ -154,11 +238,12 @@ export default function SecretPIR() {
                     <TableCell className="py-3.5 px-4 text-xs">{d.latency}</TableCell>
                     <TableCell className="py-3.5 px-4">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(d); setDetailOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(d)}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(d)}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(d)} title="复制"><Copy className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(d.id)}>{d.status === "执行中" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}</Button>
                         {d.status === "已完成" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(d); setExportOpen(true); }}><Download className="h-4 w-4" /></Button>}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(d.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -233,7 +318,7 @@ export default function SecretPIR() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{t.createdAt}</TableCell>
                     <TableCell className="py-3.5 px-4">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(t); setDetailOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(t)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(t); setExportOpen(true); }}><Download className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
@@ -245,76 +330,38 @@ export default function SecretPIR() {
         </TabsContent>
       </Tabs>
 
-      {/* Create Dialog */}
-      {createOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setCreateOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-1">新建PIR查询任务</h2>
-            <p className="text-sm text-gray-500 mb-4">配置查询模式、混淆值和目标表</p>
-            <div className="space-y-4">
-              <div className="space-y-2"><label className="text-sm font-medium">任务名称 <span className="text-red-500">*</span></label><Input placeholder="输入任务名称" value={formName} onChange={e => setFormName(e.target.value)} /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">查询模式</label>
-                <div className="flex gap-3">
-                  <div className={`flex-1 p-3 rounded-lg border cursor-pointer ${formMode === "single" ? "border-indigo-300 bg-indigo-50" : "border-gray-200"}`} onClick={() => setFormMode("single")}>
-                    <p className="text-sm font-medium">单条查询</p><p className="text-xs text-gray-500">查询单个Key对应Value</p>
-                  </div>
-                  <div className={`flex-1 p-3 rounded-lg border cursor-pointer ${formMode === "batch" ? "border-indigo-300 bg-indigo-50" : "border-gray-200"}`} onClick={() => setFormMode("batch")}>
-                    <p className="text-sm font-medium">批量查询</p><p className="text-xs text-gray-500">一次查询多条记录</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2"><label className="text-sm font-medium">混淆值大小</label><Input type="number" value={formObfuscation} onChange={e => setFormObfuscation(Number(e.target.value))} /><p className="text-xs text-gray-500">建议：单条查询100-200，批量查询500+</p></div>
-              <div className="space-y-2"><label className="text-sm font-medium">目标数据表 <span className="text-red-500">*</span></label><Input placeholder="如：user_profiles" value={formTable} onChange={e => setFormTable(e.target.value)} /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">查询方</label><Input placeholder="如：银行A" value={formQuerier} onChange={e => setFormQuerier(e.target.value)} /></div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-              <Button onClick={handleSave} disabled={!formName || !formTable}>创建任务</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="PIR任务"
+        fields={crudFields}
+        data={selectedItem || undefined}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
 
-      {/* Detail Sheet */}
-      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader><SheetTitle>任务详情</SheetTitle><SheetDescription>查看PIR查询任务完整信息</SheetDescription></SheetHeader>
-          {selectedItem && (
-            <div className="space-y-5 mt-6">
-              <div className="space-y-3">
-                <div className="flex justify-between"><span className="text-sm text-gray-500">任务ID</span><span className="text-sm font-mono">{selectedItem.id}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">任务名称</span><span className="text-sm font-medium">{selectedItem.name}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">查询模式</span><Badge variant="outline">{selectedItem.queryMode}</Badge></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">混淆值</span><span className="text-sm">{selectedItem.obfuscation}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">目标表</span><span className="text-sm font-mono">{selectedItem.targetTable}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">查询方</span><span className="text-sm">{selectedItem.querier}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">查询数</span><span className="text-sm">{selectedItem.queryCount}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">结果数</span><span className="text-sm font-semibold text-emerald-600">{selectedItem.resultCount}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">延迟</span><span className="text-sm">{selectedItem.latency}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">创建时间</span><span className="text-sm">{selectedItem.createdAt}</span></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
-                <Button variant="outline" className="gap-2" onClick={() => handleToggleStatus(selectedItem.id)}>{selectedItem.status === "执行中" ? <><Pause className="w-4 h-4" />暂停</> : <><Play className="w-4 h-4" />启动</>}</Button>
-                <Button variant="outline" className="gap-2" onClick={() => handleCopy(selectedItem)}><Copy className="w-4 h-4" />复制</Button>
-                {selectedItem.status === "已完成" && <Button className="gap-2 col-span-2" variant="outline" onClick={() => setExportOpen(true)}><Download className="w-4 h-4" />导出结果</Button>}
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Delete Confirm */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-2">确认删除</h2>
-            <p className="text-sm text-gray-500 mb-4">删除任务 {deleteId} 后不可恢复，确认继续？</p>
-            <div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleteOpen(false)}>取消</Button><Button variant="destructive" onClick={confirmDelete}>确认删除</Button></div>
-          </div>
-        </div>
-      )}
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="PIR任务详情"
+        data={selectedItem || {}}
+        fields={detailFields}
+        onEdit={() => {
+          setDrawerOpen(false);
+          if (selectedItem) {
+            setDialogMode("edit");
+            setDialogOpen(true);
+          }
+        }}
+        onDelete={() => {
+          setDrawerOpen(false);
+          if (selectedItem) {
+            setDialogMode("delete");
+            setDialogOpen(true);
+          }
+        }}
+      />
 
       {/* Export Dialog */}
       {exportOpen && (

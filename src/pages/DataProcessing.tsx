@@ -8,13 +8,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
-import {
   Search, Play, Pause, Plus, Trash2, Edit3, Eye, Wand2,
   Settings, Clock, CheckCircle2, AlertTriangle, XCircle,
   RotateCcw, Copy, Download, Filter, Layers, FileText, History,
 } from "lucide-react";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
 interface ProcessTask {
   id: string;
@@ -37,14 +36,20 @@ interface ProcessTemplate {
   records: number;
 }
 
-const processTasks: ProcessTask[] = [
+const initialProcessTasks: ProcessTask[] = [
   { id: "PP-2024-001", name: "客户数据脱敏", source: "mysql.user_profiles", method: "数据脱敏", status: "completed", progress: 100, records: 2400000, createdAt: "2024-04-15 09:00", duration: "3分20秒", config: "手机号掩码、姓名哈希、地址截断" },
   { id: "PP-2024-002", name: "交易数据标准化", source: "csv.transactions", method: "标准化", status: "running", progress: 67, records: 12000000, createdAt: "2024-04-15 10:30", duration: "-", config: "金额归一化、时间戳统一编码" },
   { id: "PP-2024-003", name: "用户标签编码", source: "mysql.user_tags", method: "编码转换", status: "pending", progress: 0, records: 850000, createdAt: "2024-04-15 14:00", duration: "-", config: "One-Hot编码、标签映射表" },
   { id: "PP-2024-004", name: "缺失值填充", source: "csv.risk_data", method: "缺失值处理", status: "failed", progress: 12, records: 120000, createdAt: "2024-04-14 16:00", duration: "45秒", config: "均值填充、异常值标记" },
+  { id: "PP-2024-005", name: "特征工程-用户画像", source: "mysql.features", method: "特征工程", status: "completed", progress: 100, records: 5600000, createdAt: "2024-04-13 09:00", duration: "8分15秒", config: "衍生特征、交叉特征、时间特征" },
+  { id: "PP-2024-006", name: "数据合并-多源融合", source: "mysql.multi_source", method: "数据合并", status: "running", progress: 45, records: 8900000, createdAt: "2024-04-16 10:00", duration: "-", config: "主键关联、冲突处理、去重" },
+  { id: "PP-2024-007", name: "日志数据清洗", source: "elasticsearch.logs", method: "数据脱敏", status: "pending", progress: 0, records: 45000000, createdAt: "2024-04-17 08:00", duration: "-", config: "IP脱敏、UA解析、时间格式化" },
+  { id: "PP-2024-008", name: "评分卡数据标准化", source: "csv.scorecards", method: "标准化", status: "completed", progress: 100, records: 320000, createdAt: "2024-04-12 14:00", duration: "2分10秒", config: "WOE编码、IV计算、分箱" },
+  { id: "PP-2024-009", name: "商品分类编码", source: "mysql.products", method: "编码转换", status: "已暂停", progress: 78, records: 1200000, createdAt: "2024-04-18 09:30", duration: "4分30秒", config: "层级编码、属性提取、向量化" },
+  { id: "PP-2024-010", name: "风控特征工程", source: "mysql.risk_features", method: "特征工程", status: "completed", progress: 100, records: 7800000, createdAt: "2024-04-11 11:00", duration: "12分45秒", config: "滑动窗口统计、比率特征、趋势特征" },
 ];
 
-const templates: ProcessTemplate[] = [
+const initialTemplates: ProcessTemplate[] = [
   { id: "TP-001", name: "PII脱敏模板", method: "数据脱敏", description: "手机号/身份证/姓名等PII字段自动脱敏", records: 0 },
   { id: "TP-002", name: "数值标准化模板", method: "标准化", description: "Z-Score归一化、Min-Max缩放", records: 0 },
   { id: "TP-003", name: "分类编码模板", method: "编码转换", description: "LabelEncoder + One-Hot自动选择", records: 0 },
@@ -59,66 +64,135 @@ const statusMap: Record<string, { label: string; color: string; icon: any }> = {
   paused: { label: "已暂停", color: "bg-gray-50 text-gray-600 border-gray-200", icon: <AlertTriangle className="w-3.5 h-3.5" /> },
 };
 
-export default function DataProcessing() {
-  const [search, setSearch] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState("");
-  const [selectedItem, setSelectedItem] = useState<ProcessTask | null>(null);
+const methodOptions = [
+  { label: "数据脱敏", value: "数据脱敏" },
+  { label: "标准化", value: "标准化" },
+  { label: "编码转换", value: "编码转换" },
+  { label: "缺失值处理", value: "缺失值处理" },
+  { label: "特征工程", value: "特征工程" },
+  { label: "数据合并", value: "数据合并" },
+];
 
-  const [formName, setFormName] = useState("");
-  const [formSource, setFormSource] = useState("");
-  const [formMethod, setFormMethod] = useState("数据脱敏");
-  const [formConfig, setFormConfig] = useState("");
+const crudFields: FieldConfig[] = [
+  { key: "name", label: "任务名称", type: "text", required: true, placeholder: "如：客户数据脱敏" },
+  { key: "source", label: "数据源", type: "text", required: true, placeholder: "如：mysql.user_profiles" },
+  { key: "method", label: "处理方式", type: "select", options: methodOptions, required: true },
+  { key: "config", label: "处理配置", type: "textarea", placeholder: "描述具体的处理步骤和参数..." },
+];
+
+const detailFields = [
+  { key: "id", label: "任务ID", type: "text" as const },
+  { key: "name", label: "任务名称", type: "text" as const },
+  { key: "source", label: "数据源", type: "text" as const },
+  { key: "method", label: "处理方式", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "records", label: "记录数", type: "text" as const },
+  { key: "createdAt", label: "创建时间", type: "date" as const },
+  { key: "duration", label: "耗时", type: "text" as const },
+  { key: "config", label: "处理配置", type: "text" as const },
+];
+
+export default function DataProcessing() {
+  const [processTasks, setProcessTasks] = useState<ProcessTask[]>(initialProcessTasks);
+  const [templates] = useState<ProcessTemplate[]>(initialTemplates);
+  const [search, setSearch] = useState("");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<ProcessTask | null>(null);
 
   const filtered = processTasks.filter(d => d.name.includes(search) || d.id.includes(search));
 
   const handleCreate = () => {
-    setFormName(""); setFormSource(""); setFormMethod("数据脱敏"); setFormConfig("");
-    setCreateOpen(true);
+    setSelectedItem(null);
+    setDialogMode("create");
+    setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (!formName || !formSource) return;
-    processTasks.unshift({
-      id: `PP-2024-${String(processTasks.length + 1).padStart(3, '0')}`,
-      name: formName, source: formSource, method: formMethod,
-      status: "pending", progress: 0, records: 0,
-      createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
-      duration: "-", config: formConfig || "未配置",
-    });
-    setCreateOpen(false);
+  const handleEdit = (task: ProcessTask) => {
+    setSelectedItem(task);
+    setDialogMode("edit");
+    setDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => { setDeleteId(id); setDeleteOpen(true); };
-  const confirmDelete = () => {
-    const idx = processTasks.findIndex(t => t.id === deleteId);
-    if (idx >= 0) processTasks.splice(idx, 1);
-    setDeleteOpen(false);
-    if (selectedItem?.id === deleteId) setDetailOpen(false);
+  const handleDelete = (task: ProcessTask) => {
+    setSelectedItem(task);
+    setDialogMode("delete");
+    setDialogOpen(true);
+  };
+
+  const handleView = (task: ProcessTask) => {
+    setSelectedItem(task);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialogMode === "create") {
+      const newTask: ProcessTask = {
+        id: `PP-${Date.now().toString(36).toUpperCase()}`,
+        name: data.name,
+        source: data.source,
+        method: data.method,
+        status: "pending",
+        progress: 0,
+        records: 0,
+        createdAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        duration: "-",
+        config: data.config || "未配置",
+      };
+      setProcessTasks(prev => [newTask, ...prev]);
+    } else if (dialogMode === "edit" && selectedItem) {
+      setProcessTasks(prev => prev.map(t => t.id === selectedItem.id ? { ...t, ...data } : t));
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedItem) {
+      setProcessTasks(prev => prev.filter(t => t.id !== selectedItem.id));
+      setDrawerOpen(false);
+    }
   };
 
   const handleToggleStatus = (id: string) => {
-    const t = processTasks.find(x => x.id === id);
-    if (!t) return;
-    if (t.status === "pending") t.status = "running";
-    else if (t.status === "running") t.status = "paused";
-    else if (t.status === "paused") t.status = "running";
-    else if (t.status === "failed") t.status = "pending";
-    else if (t.status === "completed") t.status = "pending";
+    setProcessTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      let nextStatus = t.status;
+      if (t.status === "pending") nextStatus = "running";
+      else if (t.status === "running") nextStatus = "paused";
+      else if (t.status === "paused") nextStatus = "running";
+      else if (t.status === "failed") nextStatus = "pending";
+      else if (t.status === "completed") nextStatus = "pending";
+      return { ...t, status: nextStatus };
+    }));
   };
 
   const handleCopy = (task: ProcessTask) => {
-    processTasks.unshift({ ...task, id: `PP-2024-${String(processTasks.length + 1).padStart(3, '0')}`, name: `${task.name} (复制)`, status: "pending", progress: 0, duration: "-" });
+    const newTask: ProcessTask = {
+      ...task,
+      id: `PP-${Date.now().toString(36).toUpperCase()}`,
+      name: `${task.name} (复制)`,
+      status: "pending",
+      progress: 0,
+      duration: "-",
+    };
+    setProcessTasks(prev => [newTask, ...prev]);
   };
 
   const handleUseTemplate = (tp: ProcessTemplate) => {
-    setFormName(tp.name);
-    setFormMethod(tp.method);
-    setFormConfig(tp.description);
-    setFormSource("");
-    setCreateOpen(true);
+    setSelectedItem({
+      id: "",
+      name: tp.name,
+      source: "",
+      method: tp.method,
+      status: "pending",
+      progress: 0,
+      records: 0,
+      createdAt: "",
+      duration: "-",
+      config: tp.description,
+    });
+    setDialogMode("create");
+    setDialogOpen(true);
   };
 
   return (
@@ -173,12 +247,13 @@ export default function DataProcessing() {
                       <TableCell className="py-3.5 px-4 text-xs text-gray-500">{d.duration}</TableCell>
                       <TableCell className="py-3.5 px-4">
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(d); setDetailOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(d)}><Eye className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(d)}><Edit3 className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleCopy(d)}><Copy className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(d.id)}>{d.status === "running" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}</Button>
                           {d.status === "failed" && <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleToggleStatus(d.id)}><RotateCcw className="h-4 w-4" /></Button>}
                           {d.status === "completed" && <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-4 w-4" /></Button>}
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(d.id)}><Trash2 className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(d)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -231,7 +306,7 @@ export default function DataProcessing() {
                     <TableCell className="py-3.5 px-4 text-sm">{d.records.toLocaleString()}</TableCell>
                     <TableCell className="py-3.5 px-4">
                       <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedItem(d); setDetailOpen(true); }}><Eye className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(d)}><Eye className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
@@ -243,69 +318,26 @@ export default function DataProcessing() {
         </TabsContent>
       </Tabs>
 
-      {/* Create Dialog */}
-      {createOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setCreateOpen(false)} />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-semibold mb-1">新建处理任务</h2>
-            <p className="text-sm text-gray-500 mb-4">配置数据源、处理方式和处理参数</p>
-            <div className="space-y-4">
-              <div className="space-y-2"><label className="text-sm font-medium">任务名称 <span className="text-red-500">*</span></label><Input placeholder="如：客户数据脱敏" value={formName} onChange={e => setFormName(e.target.value)} /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">数据源 <span className="text-red-500">*</span></label><Input placeholder="如：mysql.user_profiles" value={formSource} onChange={e => setFormSource(e.target.value)} /></div>
-              <div className="space-y-2"><label className="text-sm font-medium">处理方式</label>
-                <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={formMethod} onChange={e => setFormMethod(e.target.value)}>
-                  <option value="数据脱敏">数据脱敏</option><option value="标准化">标准化</option><option value="编码转换">编码转换</option><option value="缺失值处理">缺失值处理</option><option value="特征工程">特征工程</option><option value="数据合并">数据合并</option>
-                </select>
-              </div>
-              <div className="space-y-2"><label className="text-sm font-medium">处理配置</label>
-                <textarea className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm" value={formConfig} onChange={e => setFormConfig(e.target.value)} placeholder="描述具体的处理步骤和参数..." />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>取消</Button>
-              <Button onClick={handleSave} disabled={!formName || !formSource}>创建任务</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="预处理任务"
+        fields={crudFields}
+        data={selectedItem || undefined}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
 
-      {/* Detail Sheet */}
-      <Sheet open={detailOpen} onOpenChange={setDetailOpen}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader><SheetTitle>任务详情</SheetTitle><SheetDescription>查看处理任务完整信息</SheetDescription></SheetHeader>
-          {selectedItem && (
-            <div className="space-y-5 mt-6">
-              <div className="space-y-3">
-                <div className="flex justify-between"><span className="text-sm text-gray-500">任务ID</span><span className="text-sm font-mono">{selectedItem.id}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">任务名称</span><span className="text-sm font-medium">{selectedItem.name}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">数据源</span><span className="text-sm font-mono">{selectedItem.source}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">处理方式</span><Badge variant="outline">{selectedItem.method}</Badge></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">记录数</span><span className="text-sm">{selectedItem.records.toLocaleString()}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">创建时间</span><span className="text-sm">{selectedItem.createdAt}</span></div>
-                <div className="flex justify-between"><span className="text-sm text-gray-500">耗时</span><span className="text-sm">{selectedItem.duration}</span></div>
-                <div className="pt-2"><span className="text-sm text-gray-500">处理配置</span><p className="text-sm mt-1 p-3 bg-gray-50 rounded-md">{selectedItem.config}</p></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 pt-4 border-t">
-                <Button variant="outline" className="gap-2" onClick={() => handleToggleStatus(selectedItem.id)}>{selectedItem.status === "running" ? <><Pause className="w-4 h-4" />暂停</> : <><Play className="w-4 h-4" />启动</>}</Button>
-                <Button variant="outline" className="gap-2" onClick={() => handleCopy(selectedItem)}><Copy className="w-4 h-4" />复制</Button>
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Delete Confirm */}
-      {deleteOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setDeleteOpen(false)} />
-          <div className="relative bg-white rounded-lg shadow-lg w-full max-w-sm mx-4 p-6">
-            <h2 className="text-lg font-semibold mb-2">确认删除</h2>
-            <p className="text-sm text-gray-500 mb-4">删除任务 {deleteId} 后不可恢复，确认继续？</p>
-            <div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setDeleteOpen(false)}>取消</Button><Button variant="destructive" onClick={confirmDelete}>确认删除</Button></div>
-          </div>
-        </div>
-      )}
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title="预处理任务详情"
+        data={selectedItem || {}}
+        fields={detailFields}
+        onEdit={() => { if (selectedItem) handleEdit(selectedItem); }}
+        onDelete={() => { if (selectedItem) handleDelete(selectedItem); }}
+      />
     </div>
   );
 }

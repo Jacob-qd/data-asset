@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   HardDrive,
   Bell,
@@ -27,8 +28,134 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Network,
+  Eye,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
+
+/* ─── Types ─── */
+type AlertRule = {
+  id: string;
+  name: string;
+  metric: string;
+  condition: string;
+  level: "notice" | "info" | "warning" | "critical" | "emergency" | "fatal";
+  status: "active" | "paused" | "disabled" | "testing";
+  notify: string;
+};
+
+type BackupTask = {
+  id: string;
+  name: string;
+  type: string;
+  target: string;
+  schedule: string;
+  status: "success" | "failed" | "running" | "pending" | "cancelled" | "paused";
+  lastRun: string;
+  size: string;
+};
+
+type DialogState = {
+  open: boolean;
+  mode: "create" | "edit" | "view" | "delete";
+  data?: Record<string, any>;
+};
+
+/* ─── Alert Rule Fields ─── */
+const alertRuleFields: FieldConfig[] = [
+  { key: "id", label: "规则ID", type: "text", required: true, placeholder: "如 AR-001" },
+  { key: "name", label: "规则名称", type: "text", required: true },
+  { key: "metric", label: "监控指标", type: "text", required: true },
+  { key: "condition", label: "触发条件", type: "text", required: true, placeholder: "如 > 80%" },
+  {
+    key: "level",
+    label: "告警级别",
+    type: "select",
+    required: true,
+    options: [
+      { label: "提示", value: "notice" },
+      { label: "信息", value: "info" },
+      { label: "警告", value: "warning" },
+      { label: "严重", value: "critical" },
+      { label: "紧急", value: "emergency" },
+      { label: "致命", value: "fatal" },
+    ],
+  },
+  {
+    key: "status",
+    label: "状态",
+    type: "select",
+    required: true,
+    options: [
+      { label: "启用", value: "active" },
+      { label: "暂停", value: "paused" },
+      { label: "禁用", value: "disabled" },
+      { label: "测试中", value: "testing" },
+    ],
+  },
+  { key: "notify", label: "通知方式", type: "text", required: true, placeholder: "邮件+短信" },
+];
+
+const alertRuleDetailFields = [
+  { key: "id", label: "规则ID", type: "text" as const },
+  { key: "name", label: "规则名称", type: "text" as const },
+  { key: "metric", label: "监控指标", type: "text" as const },
+  { key: "condition", label: "触发条件", type: "text" as const },
+  { key: "level", label: "告警级别", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "notify", label: "通知方式", type: "text" as const },
+];
+
+/* ─── Backup Task Fields ─── */
+const backupTaskFields: FieldConfig[] = [
+  { key: "id", label: "任务ID", type: "text", required: true, placeholder: "如 BK-001" },
+  { key: "name", label: "任务名称", type: "text", required: true },
+  {
+    key: "type",
+    label: "备份类型",
+    type: "select",
+    required: true,
+    options: [
+      { label: "自动", value: "自动" },
+      { label: "手动", value: "手动" },
+      { label: "增量", value: "增量" },
+      { label: "全量", value: "全量" },
+      { label: "差异", value: "差异" },
+      { label: "快照", value: "快照" },
+    ],
+  },
+  { key: "target", label: "备份目标", type: "text", required: true, placeholder: "如 /data/backup" },
+  { key: "schedule", label: "调度计划", type: "text", required: true, placeholder: "如 每天 02:00" },
+  {
+    key: "status",
+    label: "状态",
+    type: "select",
+    required: true,
+    options: [
+      { label: "成功", value: "success" },
+      { label: "失败", value: "failed" },
+      { label: "运行中", value: "running" },
+      { label: "已取消", value: "cancelled" },
+      { label: "已暂停", value: "paused" },
+      { label: "等待中", value: "pending" },
+    ],
+  },
+  { key: "lastRun", label: "上次运行", type: "text", required: true, placeholder: "如 2025-04-22 02:00:00" },
+  { key: "size", label: "备份大小", type: "text", required: true, placeholder: "如 2.1 GB" },
+];
+
+const backupTaskDetailFields = [
+  { key: "id", label: "任务ID", type: "text" as const },
+  { key: "name", label: "任务名称", type: "text" as const },
+  { key: "type", label: "备份类型", type: "badge" as const },
+  { key: "target", label: "备份目标", type: "text" as const },
+  { key: "schedule", label: "调度计划", type: "text" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "lastRun", label: "上次运行", type: "date" as const },
+  { key: "size", label: "备份大小", type: "text" as const },
+];
 
 /* ─── Log Config ─── */
 function LogConfig() {
@@ -75,23 +202,68 @@ function LogConfig() {
 
 /* ─── Alert Rules ─── */
 function AlertRules() {
-  const [rules, setRules] = useState([
+  const [rules, setRules] = useState<AlertRule[]>([
     { id: "AR-001", name: "节点CPU使用率告警", metric: "节点CPU使用率", condition: "> 80%", level: "warning", status: "active", notify: "邮件+短信" },
     { id: "AR-002", name: "节点内存使用率告警", metric: "节点内存使用率", condition: "> 85%", level: "warning", status: "active", notify: "邮件" },
     { id: "AR-003", name: "节点离线告警", metric: "节点状态", condition: "= 离线", level: "critical", status: "active", notify: "邮件+短信+电话" },
     { id: "AR-004", name: "区块高度停滞告警", metric: "区块高度增长", condition: "5分钟无增长", level: "critical", status: "active", notify: "邮件+短信" },
     { id: "AR-005", name: "交易池拥堵告警", metric: "待处理交易数", condition: "> 1000", level: "warning", status: "paused", notify: "邮件" },
     { id: "AR-006", name: "磁盘空间告警", metric: "磁盘使用率", condition: "> 90%", level: "critical", status: "active", notify: "邮件+短信" },
+    { id: "AR-007", name: "网络延迟告警", metric: "网络延迟", condition: "> 100ms", level: "info", status: "active", notify: "邮件" },
+    { id: "AR-008", name: "共识超时告警", metric: "共识耗时", condition: "> 10s", level: "critical", status: "testing", notify: "邮件+短信" },
+    { id: "AR-009", name: "证书即将过期告警", metric: "证书有效期", condition: "< 30天", level: "warning", status: "active", notify: "邮件+短信" },
+    { id: "AR-010", name: "API错误率告警", metric: "API错误率", condition: "> 5%", level: "emergency", status: "active", notify: "邮件+短信+电话" },
+    { id: "AR-011", name: "存储写入延迟告警", metric: "存储延迟", condition: "> 500ms", level: "notice", status: "disabled", notify: "邮件" },
+    { id: "AR-012", name: "P2P连接数告警", metric: "P2P连接数", condition: "< 3", level: "fatal", status: "active", notify: "邮件+短信" },
   ]);
+
+  const [search, setSearch] = useState("");
+  const [dialog, setDialog] = useState<DialogState>({ open: false, mode: "create" });
+  const [drawer, setDrawer] = useState<{ open: boolean; data?: AlertRule }>({ open: false });
+
+  const filteredRules = rules.filter(
+    (r) =>
+      r.name.includes(search) ||
+      r.metric.includes(search) ||
+      r.id.includes(search)
+  );
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialog.mode === "create") {
+      setRules((prev) => [...prev, data as AlertRule]);
+    } else if (dialog.mode === "edit") {
+      setRules((prev) => prev.map((r) => (r.id === data.id ? (data as AlertRule) : r)));
+    }
+  };
+
+  const handleDelete = () => {
+    if (dialog.data?.id) {
+      setRules((prev) => prev.filter((r) => r.id !== dialog.data!.id));
+    }
+  };
+
+  const openCreate = () => setDialog({ open: true, mode: "create" });
+  const openEdit = (rule: AlertRule) => setDialog({ open: true, mode: "edit", data: rule });
+  const openView = (rule: AlertRule) => setDrawer({ open: true, data: rule });
+  const openDelete = (rule: AlertRule) => setDialog({ open: true, mode: "delete", data: rule });
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
         <div className="relative w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="搜索告警规则..." className={cn("w-full pl-9 pr-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")} />
+          <input
+            type="text"
+            placeholder="搜索告警规则..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={cn("w-full pl-9 pr-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
+          />
         </div>
-        <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+        <button
+          onClick={openCreate}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+        >
           <Plus className="w-3.5 h-3.5" />
           新建规则
         </button>
@@ -111,7 +283,7 @@ function AlertRules() {
             </tr>
           </thead>
           <tbody>
-            {rules.map((r) => (
+            {filteredRules.map((r) => (
               <tr key={r.id} className="border-b border-slate-100 dark:border-[#334155] last:border-0 hover:bg-slate-50 dark:hover:bg-[#273548]">
                 <td className="py-3 px-3 font-mono text-xs text-slate-500">{r.id}</td>
                 <td className="py-3 px-3 text-slate-700 dark:text-slate-300">{r.name}</td>
@@ -125,14 +297,42 @@ function AlertRules() {
                   {r.status === "active" ? <CheckCircle2 className="w-4 h-4 text-emerald-500 inline" /> : <Pause className="w-4 h-4 text-amber-500 inline" />}
                 </td>
                 <td className="py-3 px-3 text-center">
-                  <button className="text-xs text-primary-600 mr-2">编辑</button>
-                  <button className="text-xs text-red-600">删除</button>
+                  <button onClick={() => openView(r)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
+                    <Eye className="w-3 h-3" /> 查看
+                  </button>
+                  <button onClick={() => openEdit(r)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
+                    <Pencil className="w-3 h-3" /> 编辑
+                  </button>
+                  <button onClick={() => openDelete(r)} className="text-xs text-red-600 inline-flex items-center gap-0.5">
+                    <Trash2 className="w-3 h-3" /> 删除
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <CrudDialog
+        open={dialog.open}
+        onOpenChange={(open) => setDialog((prev) => ({ ...prev, open }))}
+        title="告警规则"
+        fields={alertRuleFields}
+        data={dialog.data}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        mode={dialog.mode}
+      />
+
+      <DetailDrawer
+        open={drawer.open}
+        onOpenChange={(open) => setDrawer({ open })}
+        title={`告警规则详情 - ${drawer.data?.name ?? ""}`}
+        data={drawer.data || {}}
+        fields={alertRuleDetailFields}
+        onEdit={() => { if (drawer.data) { setDrawer({ open: false }); openEdit(drawer.data); } }}
+        onDelete={() => { if (drawer.data) { setDrawer({ open: false }); openDelete(drawer.data); } }}
+      />
     </div>
   );
 }
@@ -207,17 +407,49 @@ function AuditPolicy() {
 
 /* ─── Backup & Recovery ─── */
 function BackupRecovery() {
-  const [backups, setBackups] = useState([
-    { id: "BK-001", name: "每日自动备份", type: "自动", scope: "全量", schedule: "每天 02:00", retention: 30, lastRun: "2025-04-22 02:00:00", status: "success" },
-    { id: "BK-002", name: "每周完整备份", type: "自动", scope: "全量", schedule: "每周日 03:00", retention: 12, lastRun: "2025-04-20 03:00:00", status: "success" },
-    { id: "BK-003", name: "手动备份-20250421", type: "手动", scope: "增量", schedule: "-", retention: 90, lastRun: "2025-04-21 15:30:00", status: "success" },
+  const [backups, setBackups] = useState<BackupTask[]>([
+    { id: "BK-001", name: "每日自动备份", type: "自动", target: "/data/backup/daily", schedule: "每天 02:00", status: "success", lastRun: "2025-04-22 02:00:00", size: "2.1 GB" },
+    { id: "BK-002", name: "每周完整备份", type: "全量", target: "/data/backup/weekly", schedule: "每周日 03:00", status: "success", lastRun: "2025-04-20 03:00:00", size: "8.5 GB" },
+    { id: "BK-003", name: "手动备份-20250421", type: "手动", target: "/data/backup/manual", schedule: "-", status: "success", lastRun: "2025-04-21 15:30:00", size: "2.0 GB" },
+    { id: "BK-004", name: "增量备份-交易", type: "增量", target: "/data/backup/tx", schedule: "每小时", status: "running", lastRun: "2025-04-22 14:00:00", size: "150 MB" },
+    { id: "BK-005", name: "快照备份-状态", type: "快照", target: "/data/backup/snap", schedule: "每4小时", status: "success", lastRun: "2025-04-22 12:00:00", size: "1.2 GB" },
+    { id: "BK-006", name: "差异备份-日志", type: "差异", target: "/data/backup/log", schedule: "每天 06:00", status: "pending", lastRun: "-", size: "-" },
+    { id: "BK-007", name: "紧急备份-20250420", type: "手动", target: "/data/backup/emergency", schedule: "-", status: "success", lastRun: "2025-04-20 18:00:00", size: "3.5 GB" },
+    { id: "BK-008", name: "归档备份-2025Q1", type: "全量", target: "/data/backup/archive", schedule: "每季度", status: "cancelled", lastRun: "2025-03-31 00:00:00", size: "25 GB" },
+    { id: "BK-009", name: "测试备份", type: "手动", target: "/data/backup/test", schedule: "-", status: "failed", lastRun: "2025-04-22 10:00:00", size: "-" },
+    { id: "BK-010", name: "每日增量", type: "增量", target: "/data/backup/daily-inc", schedule: "每天 04:00", status: "paused", lastRun: "2025-04-21 04:00:00", size: "120 MB" },
   ]);
+
+  const [dialog, setDialog] = useState<DialogState>({ open: false, mode: "create" });
+  const [drawer, setDrawer] = useState<{ open: boolean; data?: BackupTask }>({ open: false });
+
+  const handleSubmit = (data: Record<string, any>) => {
+    if (dialog.mode === "create") {
+      setBackups((prev) => [...prev, data as BackupTask]);
+    } else if (dialog.mode === "edit") {
+      setBackups((prev) => prev.map((b) => (b.id === data.id ? (data as BackupTask) : b)));
+    }
+  };
+
+  const handleDelete = () => {
+    if (dialog.data?.id) {
+      setBackups((prev) => prev.filter((b) => b.id !== dialog.data!.id));
+    }
+  };
+
+  const openCreate = () => setDialog({ open: true, mode: "create" });
+  const openEdit = (bk: BackupTask) => setDialog({ open: true, mode: "edit", data: bk });
+  const openView = (bk: BackupTask) => setDrawer({ open: true, data: bk });
+  const openDelete = (bk: BackupTask) => setDialog({ open: true, mode: "delete", data: bk });
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
         <div className="flex gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+          >
             <Plus className="w-3.5 h-3.5" />
             新建策略
           </button>
@@ -241,16 +473,20 @@ function BackupRecovery() {
                   <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{bk.name}</div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#334155] text-slate-500">{bk.type}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-[#334155] text-slate-500">{bk.scope}</span>
-                    <span className="text-[10px] text-slate-400">保留 {bk.retention} 天</span>
+                    <span className="text-[10px] text-slate-400">目标: {bk.target}</span>
+                    <span className="text-[10px] text-slate-400">大小: {bk.size}</span>
                   </div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-slate-500">{bk.schedule}</span>
                 <span className="text-xs text-slate-500">上次: {bk.lastRun}</span>
-                {bk.status === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <AlertTriangle className="w-4 h-4 text-red-500" />}
-                <button className="px-2.5 py-0.5 rounded-full text-xs font-medium border border-slate-200 dark:border-[#334155] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#273548]">恢复</button>
+                {bk.status === "success" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : bk.status === "failed" ? <AlertTriangle className="w-4 h-4 text-red-500" /> : <Clock className="w-4 h-4 text-blue-500" />}
+                <div className="flex gap-1">
+                  <button onClick={() => openView(bk)} className="text-xs text-primary-600 px-2 py-0.5 rounded hover:bg-slate-50 dark:hover:bg-[#273548]">查看</button>
+                  <button onClick={() => openEdit(bk)} className="text-xs text-primary-600 px-2 py-0.5 rounded hover:bg-slate-50 dark:hover:bg-[#273548]">编辑</button>
+                  <button onClick={() => openDelete(bk)} className="text-xs text-red-600 px-2 py-0.5 rounded hover:bg-slate-50 dark:hover:bg-[#273548]">删除</button>
+                </div>
               </div>
             </div>
           </div>
@@ -295,6 +531,27 @@ function BackupRecovery() {
           </table>
         </div>
       </div>
+
+      <CrudDialog
+        open={dialog.open}
+        onOpenChange={(open) => setDialog((prev) => ({ ...prev, open }))}
+        title="备份任务"
+        fields={backupTaskFields}
+        data={dialog.data}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        mode={dialog.mode}
+      />
+
+      <DetailDrawer
+        open={drawer.open}
+        onOpenChange={(open) => setDrawer({ open })}
+        title={`备份任务详情 - ${drawer.data?.name ?? ""}`}
+        data={drawer.data || {}}
+        fields={backupTaskDetailFields}
+        onEdit={() => { if (drawer.data) { setDrawer({ open: false }); openEdit(drawer.data); } }}
+        onDelete={() => { if (drawer.data) { setDrawer({ open: false }); openDelete(drawer.data); } }}
+      />
     </div>
   );
 }

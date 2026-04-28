@@ -5,15 +5,60 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ChevronRight, Search, FileCode, Rocket, Beaker, ShoppingCart, GitBranch, Eye, CheckCircle2, XCircle,
   Clock, ArrowRight, RotateCw, Download, Tag, GitCommit, Users, Code, Terminal, Globe,
+  Plus, Pencil, Trash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
-/* ─── 合约全生命周期数据 ─── */
-const contracts = [
+/* ─── Types ─── */
+interface ContractStage {
+  stage: string;
+  name: string;
+  status: string;
+  time: string;
+  actor: string;
+  detail: string;
+}
+
+interface ContractVersion {
+  version: string;
+  status: string;
+  deployTime: string;
+  changes: string;
+  audit: string;
+}
+
+interface ContractDeploy {
+  id: string;
+  network: string;
+  channel: string;
+  status: string;
+  time: string;
+}
+
+interface ContractTest {
+  id: string;
+  name: string;
+  status: string;
+  time: string;
+}
+
+interface Contract {
+  id: string;
+  name: string;
+  currentStage: string;
+  stages: ContractStage[];
+  versions: ContractVersion[];
+  deploys: ContractDeploy[];
+  tests: ContractTest[];
+}
+
+/* ─── Initial Data ─── */
+const initialContracts: Contract[] = [
   {
     id: "SC-001",
     name: "数据资产存证合约",
@@ -83,6 +128,165 @@ const contracts = [
       { id: "TC-007", name: "超时回退", status: "running", time: "-" },
     ],
   },
+  {
+    id: "SC-004",
+    name: "供应链金融合约",
+    currentStage: "audit",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2025-01-10", actor: "合约开发组", detail: "支持应收账款融资与兑付" },
+      { stage: "test", name: "合约测试", status: "completed", time: "2025-01-25", actor: "QA团队", detail: "10个测试用例，覆盖率95%" },
+      { stage: "deploy", name: "安装部署", status: "completed", time: "2025-02-05", actor: "运维组", detail: "部署到供应链金融链，状态正常" },
+      { stage: "audit", name: "安全审计", status: "current", time: "2025-02-20", actor: "安全审计组", detail: "第三方安全审计进行中" },
+      { stage: "market", name: "市场发布", status: "pending", time: "-", actor: "产品组", detail: "等待审计通过后上架" },
+    ],
+    versions: [
+      { version: "v1.0.0", status: "current", deployTime: "2025-02-05", changes: "初始版本，支持应收账款", audit: "审计中" },
+    ],
+    deploys: [
+      { id: "DP-004", network: "供应链金融链", channel: "供应链交易通道", status: "success", time: "2025-02-05" },
+    ],
+    tests: [
+      { id: "TC-008", name: "融资申请", status: "passed", time: "0.45s" },
+      { id: "TC-009", name: "兑付流程", status: "passed", time: "0.38s" },
+      { id: "TC-010", name: "逾期处理", status: "passed", time: "0.52s" },
+    ],
+  },
+  {
+    id: "SC-005",
+    name: "医疗数据共享合约",
+    currentStage: "dev",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "current", time: "2025-04-01", actor: "合约开发组", detail: "支持患者数据授权与脱敏共享" },
+      { stage: "test", name: "合约测试", status: "pending", time: "-", actor: "QA团队", detail: "待开发完成后测试" },
+      { stage: "deploy", name: "安装部署", status: "pending", time: "-", actor: "运维组", detail: "等待测试通过后部署" },
+      { stage: "audit", name: "安全审计", status: "pending", time: "-", actor: "安全审计组", detail: "待部署完成后审计" },
+      { stage: "market", name: "市场发布", status: "pending", time: "-", actor: "产品组", detail: "等待全部通过后上架" },
+    ],
+    versions: [
+      { version: "v0.1.0", status: "current", deployTime: "2025-04-01", changes: "原型版本", audit: "未审计" },
+    ],
+    deploys: [],
+    tests: [
+      { id: "TC-011", name: "数据授权", status: "running", time: "-" },
+      { id: "TC-012", name: "脱敏验证", status: "pending", time: "-" },
+    ],
+  },
+  {
+    id: "SC-006",
+    name: "政务审批合约",
+    currentStage: "market",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2024-10-01", actor: "合约开发组", detail: "支持多级审批与留痕" },
+      { stage: "test", name: "合约测试", status: "completed", time: "2024-10-15", actor: "QA团队", detail: "12个测试用例，覆盖率90%" },
+      { stage: "deploy", name: "安装部署", status: "completed", time: "2024-11-01", actor: "运维组", detail: "部署到政务数据链，状态正常" },
+      { stage: "audit", name: "安全审计", status: "completed", time: "2024-11-15", actor: "安全审计组", detail: "通过安全审计" },
+      { stage: "market", name: "市场发布", status: "current", time: "2024-12-01", actor: "产品组", detail: "已上架智能合约市场" },
+    ],
+    versions: [
+      { version: "v2.1.0", status: "current", deployTime: "2025-01-10", changes: "优化审批流程", audit: "已通过" },
+      { version: "v2.0.0", status: "deprecated", deployTime: "2024-11-01", changes: "支持多级审批", audit: "已通过" },
+      { version: "v1.0.0", status: "deprecated", deployTime: "2024-06-01", changes: "初始版本", audit: "已通过" },
+    ],
+    deploys: [
+      { id: "DP-005", network: "政务数据链", channel: "政务审批通道", status: "success", time: "2025-01-10" },
+      { id: "DP-006", network: "政务数据链", channel: "政务数据共享通道", status: "success", time: "2024-11-01" },
+    ],
+    tests: [
+      { id: "TC-013", name: "正常审批", status: "passed", time: "0.28s" },
+      { id: "TC-014", name: "驳回流程", status: "passed", time: "0.22s" },
+      { id: "TC-015", name: "多级审批", status: "passed", time: "0.55s" },
+    ],
+  },
+  {
+    id: "SC-007",
+    name: "版权登记合约",
+    currentStage: "deploy",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2025-02-15", actor: "合约开发组", detail: "支持版权登记与转让" },
+      { stage: "test", name: "合约测试", status: "completed", time: "2025-02-28", actor: "QA团队", detail: "7个测试用例，覆盖率93%" },
+      { stage: "deploy", name: "安装部署", status: "current", time: "2025-03-10", actor: "运维组", detail: "部署到存证公证链，等待确认" },
+      { stage: "audit", name: "安全审计", status: "pending", time: "-", actor: "安全审计组", detail: "待安排审计时间" },
+      { stage: "market", name: "市场发布", status: "pending", time: "-", actor: "产品组", detail: "等待审计通过后上架" },
+    ],
+    versions: [
+      { version: "v1.0.0", status: "current", deployTime: "2025-03-10", changes: "初始版本，支持版权登记", audit: "已通过" },
+    ],
+    deploys: [
+      { id: "DP-007", network: "存证公证链", channel: "版权登记通道", status: "success", time: "2025-03-10" },
+    ],
+    tests: [
+      { id: "TC-016", name: "版权登记", status: "passed", time: "0.33s" },
+      { id: "TC-017", name: "版权转让", status: "passed", time: "0.41s" },
+    ],
+  },
+  {
+    id: "SC-008",
+    name: "碳排放核算合约",
+    currentStage: "test",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2025-03-05", actor: "合约开发组", detail: "支持碳排放数据上链与核算" },
+      { stage: "test", name: "合约测试", status: "current", time: "2025-04-10", actor: "QA团队", detail: "集成测试中，核算逻辑验证中" },
+      { stage: "deploy", name: "安装部署", status: "pending", time: "-", actor: "运维组", detail: "等待测试通过后部署" },
+      { stage: "audit", name: "安全审计", status: "pending", time: "-", actor: "安全审计组", detail: "待部署完成后审计" },
+      { stage: "market", name: "市场发布", status: "pending", time: "-", actor: "产品组", detail: "等待全部通过后上架" },
+    ],
+    versions: [
+      { version: "v0.9.0", status: "current", deployTime: "2025-04-10", changes: "测试版本", audit: "未审计" },
+    ],
+    deploys: [],
+    tests: [
+      { id: "TC-018", name: "数据上链", status: "passed", time: "0.29s" },
+      { id: "TC-019", name: "核算验证", status: "running", time: "-" },
+      { id: "TC-020", name: "异常数据", status: "pending", time: "-" },
+    ],
+  },
+  {
+    id: "SC-009",
+    name: "物流追踪合约",
+    currentStage: "audit",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2024-12-01", actor: "合约开发组", detail: "支持物流节点上链与溯源" },
+      { stage: "test", name: "合约测试", status: "completed", time: "2024-12-15", actor: "QA团队", detail: "9个测试用例，覆盖率91%" },
+      { stage: "deploy", name: "安装部署", status: "completed", time: "2025-01-05", actor: "运维组", detail: "部署到物流追溯链，状态正常" },
+      { stage: "audit", name: "安全审计", status: "current", time: "2025-01-20", actor: "安全审计组", detail: "第三方安全审计进行中" },
+      { stage: "market", name: "市场发布", status: "pending", time: "-", actor: "产品组", detail: "等待审计通过后上架" },
+    ],
+    versions: [
+      { version: "v1.0.0", status: "current", deployTime: "2025-01-05", changes: "初始版本，支持物流溯源", audit: "审计中" },
+    ],
+    deploys: [
+      { id: "DP-008", network: "物流追溯链", channel: "物流追踪通道", status: "success", time: "2025-01-05" },
+    ],
+    tests: [
+      { id: "TC-021", name: "节点上链", status: "passed", time: "0.35s" },
+      { id: "TC-022", name: "溯源查询", status: "passed", time: "0.28s" },
+    ],
+  },
+  {
+    id: "SC-010",
+    name: "公益捐赠合约",
+    currentStage: "market",
+    stages: [
+      { stage: "dev", name: "合约开发", status: "completed", time: "2024-08-01", actor: "合约开发组", detail: "支持捐赠记录透明化与追溯" },
+      { stage: "test", name: "合约测试", status: "completed", time: "2024-08-15", actor: "QA团队", detail: "5个测试用例，覆盖率89%" },
+      { stage: "deploy", name: "安装部署", status: "completed", time: "2024-09-01", actor: "运维组", detail: "部署到公益捐赠链，状态正常" },
+      { stage: "audit", name: "安全审计", status: "completed", time: "2024-09-15", actor: "安全审计组", detail: "通过安全审计" },
+      { stage: "market", name: "市场发布", status: "current", time: "2024-10-01", actor: "产品组", detail: "已上架智能合约市场" },
+    ],
+    versions: [
+      { version: "v1.2.0", status: "current", deployTime: "2025-02-01", changes: "增加捐赠报告生成", audit: "已通过" },
+      { version: "v1.1.0", status: "deprecated", deployTime: "2024-10-01", changes: "优化查询性能", audit: "已通过" },
+      { version: "v1.0.0", status: "deprecated", deployTime: "2024-09-01", changes: "初始版本", audit: "已通过" },
+    ],
+    deploys: [
+      { id: "DP-009", network: "公益捐赠链", channel: "捐赠记录通道", status: "success", time: "2025-02-01" },
+      { id: "DP-010", network: "公益捐赠链", channel: "捐赠查询通道", status: "success", time: "2024-10-01" },
+    ],
+    tests: [
+      { id: "TC-023", name: "捐赠记录", status: "passed", time: "0.19s" },
+      { id: "TC-024", name: "资金追溯", status: "passed", time: "0.25s" },
+    ],
+  },
 ];
 
 const stageConfig: Record<string, { label: string; icon: typeof FileCode; color: string }> = {
@@ -93,11 +297,155 @@ const stageConfig: Record<string, { label: string; icon: typeof FileCode; color:
   market: { label: "市场", icon: ShoppingCart, color: "bg-emerald-500" },
 };
 
+/* ─── Fields ─── */
+const contractFields: FieldConfig[] = [
+  { key: "id", label: "合约编号", type: "text", required: true },
+  { key: "name", label: "合约名称", type: "text", required: true },
+  { key: "currentStage", label: "当前阶段", type: "select", required: true, options: [
+    { label: "开发", value: "dev" },
+    { label: "测试", value: "test" },
+    { label: "部署", value: "deploy" },
+    { label: "审计", value: "audit" },
+    { label: "市场", value: "market" },
+  ]},
+  { key: "stages", label: "阶段列表 (JSON)", type: "textarea", required: true, placeholder: '[{"stage":"dev","name":"合约开发","status":"completed","time":"2025-01-15","actor":"合约开发组","detail":"..."}]' },
+  { key: "versions", label: "版本列表 (JSON)", type: "textarea", required: true, placeholder: '[{"version":"v1.0.0","status":"current","deployTime":"2025-01-01","changes":"...","audit":"已通过"}]' },
+  { key: "deploys", label: "部署记录 (JSON)", type: "textarea", required: false, placeholder: '[{"id":"DP-001","network":"金融联盟链","channel":"金融交易通道","status":"success","time":"2025-04-15"}]' },
+  { key: "tests", label: "测试记录 (JSON)", type: "textarea", required: false, placeholder: '[{"id":"TC-001","name":"正常存证","status":"passed","time":"0.23s"}]' },
+];
+
+const detailFields = [
+  { key: "id", label: "合约编号", type: "text" as const },
+  { key: "name", label: "合约名称", type: "text" as const },
+  { key: "currentStage", label: "当前阶段", type: "badge" as const },
+  { key: "stageCount", label: "阶段数量", type: "text" as const },
+  { key: "versionCount", label: "版本数量", type: "text" as const },
+  { key: "deployCount", label: "部署数量", type: "text" as const },
+  { key: "testCount", label: "测试数量", type: "text" as const },
+];
+
 export default function ContractLifecycle() {
+  const [contracts, setContracts] = useState<Contract[]>(initialContracts);
   const [search, setSearch] = useState("");
-  const [detailContract, setDetailContract] = useState<typeof contracts[0] | null>(null);
+
+  // CrudDialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "delete">("create");
+  const [dialogData, setDialogData] = useState<Record<string, any> | undefined>(undefined);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  // DetailDrawer state
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailContract, setDetailContract] = useState<Contract | null>(null);
 
   const filtered = contracts.filter((c) => c.name.includes(search) || c.id.includes(search));
+
+  const handleCreate = () => {
+    setDialogMode("create");
+    setDialogData({
+      id: "",
+      name: "",
+      currentStage: "dev",
+      stages: JSON.stringify([
+        { stage: "dev", name: "合约开发", status: "current", time: "-", actor: "", detail: "" },
+      ], null, 2),
+      versions: "[]",
+      deploys: "[]",
+      tests: "[]",
+    });
+    setEditingId(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (contract: Contract) => {
+    setDialogMode("edit");
+    setDialogData({
+      id: contract.id,
+      name: contract.name,
+      currentStage: contract.currentStage,
+      stages: JSON.stringify(contract.stages, null, 2),
+      versions: JSON.stringify(contract.versions, null, 2),
+      deploys: JSON.stringify(contract.deploys, null, 2),
+      tests: JSON.stringify(contract.tests, null, 2),
+    });
+    setEditingId(contract.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (contract: Contract) => {
+    setDialogMode("delete");
+    setEditingId(contract.id);
+    setDetailOpen(false);
+    setDialogOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    let parsedStages: ContractStage[] = [];
+    let parsedVersions: ContractVersion[] = [];
+    let parsedDeploys: ContractDeploy[] = [];
+    let parsedTests: ContractTest[] = [];
+
+    try { parsedStages = JSON.parse(data.stages || "[]"); } catch { parsedStages = []; }
+    try { parsedVersions = JSON.parse(data.versions || "[]"); } catch { parsedVersions = []; }
+    try { parsedDeploys = JSON.parse(data.deploys || "[]"); } catch { parsedDeploys = []; }
+    try { parsedTests = JSON.parse(data.tests || "[]"); } catch { parsedTests = []; }
+
+    if (dialogMode === "create") {
+      const newContract: Contract = {
+        id: data.id,
+        name: data.name,
+        currentStage: data.currentStage,
+        stages: parsedStages,
+        versions: parsedVersions,
+        deploys: parsedDeploys,
+        tests: parsedTests,
+      };
+      setContracts(prev => [...prev, newContract]);
+    } else if (dialogMode === "edit" && editingId) {
+      setContracts(prev =>
+        prev.map(c =>
+          c.id === editingId
+            ? {
+                ...c,
+                id: data.id,
+                name: data.name,
+                currentStage: data.currentStage,
+                stages: parsedStages,
+                versions: parsedVersions,
+                deploys: parsedDeploys,
+                tests: parsedTests,
+              }
+            : c
+        )
+      );
+    }
+    setDialogOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (editingId) {
+      setContracts(prev => prev.filter(c => c.id !== editingId));
+    }
+    setDialogOpen(false);
+  };
+
+  const openDetail = (contract: Contract) => {
+    setDetailContract(contract);
+    setDetailOpen(true);
+  };
+
+  const detailData = detailContract
+    ? {
+        id: detailContract.id,
+        name: detailContract.name,
+        currentStage: stageConfig[detailContract.currentStage]?.label || detailContract.currentStage,
+        stageCount: detailContract.stages.length,
+        versionCount: detailContract.versions.length,
+        deployCount: detailContract.deploys.length,
+        testCount: detailContract.tests.length,
+      }
+    : {};
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
@@ -116,6 +464,9 @@ export default function ContractLifecycle() {
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">合约全生命周期视图</h1>
           <p className="text-sm text-gray-500 mt-1.5">追踪智能合约从开发→测试→部署→审计→市场的完整生命周期状态</p>
         </div>
+        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
+          <Plus className="w-4 h-4" /> 新建合约
+        </Button>
       </div>
 
       <div className="grid grid-cols-5 gap-4">
@@ -126,9 +477,11 @@ export default function ContractLifecycle() {
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><ShoppingCart className="h-5 w-5 text-emerald-600" /><div><p className="text-sm text-gray-500">已上架</p><p className="text-2xl font-bold">{contracts.filter(c => c.currentStage === "market").length}</p></div></CardContent></Card>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input placeholder="搜索合约名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input placeholder="搜索合约名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -143,7 +496,11 @@ export default function ContractLifecycle() {
                 </div>
                 <Badge variant="outline">{stageConfig[contract.currentStage].label}</Badge>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setDetailContract(contract)}><Eye className="w-4 h-4 mr-1" />详情</Button>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" onClick={() => openDetail(contract)}><Eye className="w-4 h-4" /></Button>
+                <Button size="sm" variant="ghost" onClick={() => handleEdit(contract)}><Pencil className="w-4 h-4" /></Button>
+                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(contract)}><Trash className="w-4 h-4" /></Button>
+              </div>
             </CardHeader>
             <CardContent className="p-5">
               {/* Lifecycle Pipeline */}
@@ -185,74 +542,28 @@ export default function ContractLifecycle() {
         ))}
       </div>
 
-      {/* Detail Dialog */}
-      <Dialog open={!!detailContract} onOpenChange={() => setDetailContract(null)}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><FileCode className="w-5 h-5 text-indigo-500" />{detailContract?.name}</DialogTitle>
-          </DialogHeader>
-          {detailContract && (
-            <Tabs defaultValue="versions" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="versions"><GitBranch className="w-4 h-4 mr-1" />版本历史</TabsTrigger>
-                <TabsTrigger value="deploys"><Rocket className="w-4 h-4 mr-1" />部署记录</TabsTrigger>
-                <TabsTrigger value="tests"><Beaker className="w-4 h-4 mr-1" />测试报告</TabsTrigger>
-              </TabsList>
+      {/* Detail Drawer with Tabs */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title={`合约详情 - ${detailContract?.name || ""}`}
+        data={detailContract || {}}
+        fields={detailFields}
+        onEdit={() => { if (detailContract) handleEdit(detailContract); }}
+        onDelete={() => { if (detailContract) handleDelete(detailContract); }}
+      />
 
-              <TabsContent value="versions" className="mt-4 space-y-2">
-                {detailContract.versions.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-2">
-                      <Tag className="w-4 h-4 text-indigo-500" />
-                      <span className="font-medium text-sm">{v.version}</span>
-                      <Badge className={v.status === "current" ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}>{v.status === "current" ? "当前" : "已废弃"}</Badge>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-gray-500">
-                      <span>{v.deployTime}</span>
-                      <span>{v.changes}</span>
-                      <Badge variant="secondary">{v.audit}</Badge>
-                    </div>
-                  </div>
-                ))}
-              </TabsContent>
-
-              <TabsContent value="deploys" className="mt-4 space-y-2">
-                {detailContract.deploys.length > 0 ? detailContract.deploys.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-2">
-                      <Rocket className="w-4 h-4 text-indigo-500" />
-                      <span className="font-mono text-xs">{d.id}</span>
-                      <span className="text-sm">{d.network}</span>
-                      <Badge variant="outline">{d.channel}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
-                      <Badge className="bg-emerald-50 text-emerald-700">{d.status === "success" ? "成功" : "失败"}</Badge>
-                      <span>{d.time}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-sm text-gray-500 text-center py-8">暂无部署记录</p>
-                )}
-              </TabsContent>
-
-              <TabsContent value="tests" className="mt-4 space-y-2">
-                {detailContract.tests.map((t, i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
-                    <div className="flex items-center gap-2">
-                      {t.status === "passed" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : t.status === "failed" ? <XCircle className="w-4 h-4 text-red-500" /> : <Clock className="w-4 h-4 text-blue-500" />}
-                      <span className="text-sm">{t.name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge className={t.status === "passed" ? "bg-emerald-50 text-emerald-700" : t.status === "failed" ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}>{t.status === "passed" ? "通过" : t.status === "failed" ? "失败" : "进行中"}</Badge>
-                      <span className="text-xs text-gray-500">{t.time}</span>
-                    </div>
-                  </div>
-                ))}
-              </TabsContent>
-            </Tabs>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* CrudDialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={dialogMode === "delete" ? `${contracts.find((c) => c.id === editingId)?.name || "合约"}` : "合约"}
+        fields={contractFields}
+        data={dialogData}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleConfirmDelete}
+      />
     </div>
   );
 }

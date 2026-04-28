@@ -24,33 +24,227 @@ import {
   Play,
   Eye,
   FileText,
+  Pencil,
+  Trash2,
 } from "lucide-react";
-
-const qualityRules = [
-  { id: "QR-001", name: "完整性检查-客户手机号", dimension: "完整性", severity: "高", coverage: "100%", passRate: "99.2%", lastRun: "2024-04-15 06:00" },
-  { id: "QR-002", name: "一致性检查-身份证号格式", dimension: "一致性", severity: "高", coverage: "100%", passRate: "98.7%", lastRun: "2024-04-15 06:00" },
-  { id: "QR-003", name: "准确性检查-金额范围", dimension: "准确性", severity: "中", coverage: "95%", passRate: "96.5%", lastRun: "2024-04-14 06:00" },
-  { id: "QR-004", name: "时效性检查-数据更新延迟", dimension: "时效性", severity: "中", coverage: "100%", passRate: "94.3%", lastRun: "2024-04-15 06:00" },
-  { id: "QR-005", name: "唯一性检查-用户ID", dimension: "唯一性", severity: "高", coverage: "100%", passRate: "99.9%", lastRun: "2024-04-15 06:00" },
-];
-
-const qualityTasks = [
-  { id: "QT-001", name: "每日全量质量检查", status: "completed", ruleCount: 45, issueCount: 12, runTime: "2024-04-15 06:00", duration: "15分钟" },
-  { id: "QT-002", name: "金融数据专项质检", status: "running", ruleCount: 18, issueCount: 0, runTime: "2024-04-15 10:30", duration: "-" },
-  { id: "QT-003", name: "医疗数据隐私合规检查", status: "pending", ruleCount: 25, issueCount: 0, runTime: "-", duration: "-" },
-  { id: "QT-004", name: "电商数据一致性校验", status: "completed", ruleCount: 30, issueCount: 3, runTime: "2024-04-14 06:00", duration: "22分钟" },
-];
-
-const lineageData = [
-  { id: "LN-001", source: "ods_user_info", target: "dwd_user_detail", relation: "清洗转换", impact: "12个下游表", depth: 3, lastUpdate: "2024-04-15 08:00" },
-  { id: "LN-002", source: "dwd_user_detail", target: "dws_user_tags", relation: "聚合标签", impact: "8个下游表", depth: 2, lastUpdate: "2024-04-15 08:00" },
-  { id: "LN-003", source: "ods_trade_log", target: "dwd_trade_detail", relation: "解析拆分", impact: "6个下游表", depth: 2, lastUpdate: "2024-04-14 06:00" },
-  { id: "LN-004", source: "dwd_trade_detail", target: "dws_trade_summary", relation: "汇总统计", impact: "4个下游表", depth: 1, lastUpdate: "2024-04-14 06:00" },
-  { id: "LN-005", source: "dws_user_tags", target: "ads_user_portrait", relation: "画像建模", impact: "2个下游应用", depth: 1, lastUpdate: "2024-04-13 12:00" },
-];
+import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
 export default function SecretDataGovernance() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("rules");
+
+  const [qualityRules, setQualityRules] = useState([
+    { id: "QR-001", name: "完整性检查-客户手机号", dimension: "完整性", severity: "高", coverage: "100%", passRate: "99.2%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-002", name: "一致性检查-身份证号格式", dimension: "一致性", severity: "高", coverage: "100%", passRate: "98.7%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-003", name: "准确性检查-金额范围", dimension: "准确性", severity: "中", coverage: "95%", passRate: "96.5%", lastRun: "2024-04-14 06:00" },
+    { id: "QR-004", name: "时效性检查-数据更新延迟", dimension: "时效性", severity: "中", coverage: "100%", passRate: "94.3%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-005", name: "唯一性检查-用户ID", dimension: "唯一性", severity: "高", coverage: "100%", passRate: "99.9%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-006", name: "合规性检查-敏感数据加密", dimension: "合规性", severity: "紧急", coverage: "100%", passRate: "100%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-007", name: "完整性检查-订单必填字段", dimension: "完整性", severity: "中", coverage: "98%", passRate: "97.5%", lastRun: "2024-04-14 06:00" },
+    { id: "QR-008", name: "准确性检查-邮箱格式", dimension: "准确性", severity: "低", coverage: "90%", passRate: "95.2%", lastRun: "2024-04-13 06:00" },
+    { id: "QR-009", name: "一致性检查-地址标准化", dimension: "一致性", severity: "中", coverage: "85%", passRate: "92.8%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-010", name: "时效性检查-日志归档延迟", dimension: "时效性", severity: "低", coverage: "100%", passRate: "99.1%", lastRun: "2024-04-15 06:00" },
+    { id: "QR-011", name: "唯一性检查-设备指纹", dimension: "唯一性", severity: "高", coverage: "100%", passRate: "98.9%", lastRun: "2024-04-14 06:00" },
+    { id: "QR-012", name: "合规性检查-隐私授权记录", dimension: "合规性", severity: "紧急", coverage: "100%", passRate: "99.5%", lastRun: "2024-04-15 06:00" },
+  ]);
+
+  const [qualityTasks, setQualityTasks] = useState([
+    { id: "QT-001", name: "每日全量质量检查", status: "completed", ruleCount: 45, issueCount: 12, runTime: "2024-04-15 06:00", duration: "15分钟" },
+    { id: "QT-002", name: "金融数据专项质检", status: "running", ruleCount: 18, issueCount: 0, runTime: "2024-04-15 10:30", duration: "-" },
+    { id: "QT-003", name: "医疗数据隐私合规检查", status: "pending", ruleCount: 25, issueCount: 0, runTime: "-", duration: "-" },
+    { id: "QT-004", name: "电商数据一致性校验", status: "completed", ruleCount: 30, issueCount: 3, runTime: "2024-04-14 06:00", duration: "22分钟" },
+    { id: "QT-005", name: "政务数据完整性扫描", status: "completed", ruleCount: 22, issueCount: 1, runTime: "2024-04-13 06:00", duration: "18分钟" },
+    { id: "QT-006", name: "交通数据准确性评估", status: "failed", ruleCount: 15, issueCount: 8, runTime: "2024-04-12 06:00", duration: "10分钟" },
+    { id: "QT-007", name: "用户画像标签质检", status: "paused", ruleCount: 35, issueCount: 5, runTime: "2024-04-11 10:00", duration: "-" },
+    { id: "QT-008", name: "供应链数据一致性检查", status: "completed", ruleCount: 20, issueCount: 0, runTime: "2024-04-10 06:00", duration: "12分钟" },
+    { id: "QT-009", name: "风控模型输入数据质检", status: "running", ruleCount: 28, issueCount: 2, runTime: "2024-04-15 14:00", duration: "-" },
+    { id: "QT-010", name: "跨机构数据对齐检查", status: "cancelled", ruleCount: 12, issueCount: 0, runTime: "-", duration: "-" },
+  ]);
+
+  const [lineageData, setLineageData] = useState([
+    { id: "LN-001", source: "ods_user_info", target: "dwd_user_detail", relation: "清洗转换", impact: "12个下游表", depth: 3, lastUpdate: "2024-04-15 08:00" },
+    { id: "LN-002", source: "dwd_user_detail", target: "dws_user_tags", relation: "聚合标签", impact: "8个下游表", depth: 2, lastUpdate: "2024-04-15 08:00" },
+    { id: "LN-003", source: "ods_trade_log", target: "dwd_trade_detail", relation: "解析拆分", impact: "6个下游表", depth: 2, lastUpdate: "2024-04-14 06:00" },
+    { id: "LN-004", source: "dwd_trade_detail", target: "dws_trade_summary", relation: "汇总统计", impact: "4个下游表", depth: 1, lastUpdate: "2024-04-14 06:00" },
+    { id: "LN-005", source: "dws_user_tags", target: "ads_user_portrait", relation: "画像建模", impact: "2个下游应用", depth: 1, lastUpdate: "2024-04-13 12:00" },
+    { id: "LN-006", source: "ods_device_info", target: "dwd_device_detail", relation: "清洗转换", impact: "10个下游表", depth: 3, lastUpdate: "2024-04-15 10:00" },
+    { id: "LN-007", source: "dwd_device_detail", target: "dws_device_risk", relation: "关联分析", impact: "5个下游表", depth: 2, lastUpdate: "2024-04-14 08:00" },
+    { id: "LN-008", source: "ods_medical_record", target: "dwd_medical_clean", relation: "清洗转换", impact: "7个下游表", depth: 2, lastUpdate: "2024-04-13 06:00" },
+    { id: "LN-009", source: "dwd_medical_clean", target: "dws_medical_summary", relation: "汇总统计", impact: "3个下游表", depth: 1, lastUpdate: "2024-04-12 12:00" },
+    { id: "LN-010", source: "ods_gov_data", target: "dwd_gov_standard", relation: "清洗转换", impact: "15个下游表", depth: 4, lastUpdate: "2024-04-15 14:00" },
+    { id: "LN-011", source: "dws_trade_summary", target: "ads_risk_report", relation: "关联分析", impact: "6个下游应用", depth: 1, lastUpdate: "2024-04-11 08:00" },
+    { id: "LN-012", source: "ods_log_data", target: "dwd_log_parsed", relation: "解析拆分", impact: "9个下游表", depth: 2, lastUpdate: "2024-04-10 06:00" },
+  ]);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const getCreateButtonText = () => {
+    if (activeTab === "rules") return "新建规则";
+    if (activeTab === "tasks") return "新建任务";
+    return "新建关系";
+  };
+
+  const getDialogTitle = () => {
+    if (activeTab === "rules") return dialogMode === "create" ? "新建质量规则" : "编辑质量规则";
+    if (activeTab === "tasks") return dialogMode === "create" ? "新建检查任务" : "编辑检查任务";
+    return dialogMode === "create" ? "新建血缘关系" : "编辑血缘关系";
+  };
+
+  const getDrawerTitle = () => {
+    if (activeTab === "rules") return "质量规则详情";
+    if (activeTab === "tasks") return "检查任务详情";
+    return "血缘关系详情";
+  };
+
+  const getCrudFields = (): FieldConfig[] => {
+    if (activeTab === "rules") {
+      return [
+        { key: "name", label: "规则名称", type: "text", required: true },
+        { key: "dimension", label: "维度", type: "select", required: true, options: [
+          { label: "完整性", value: "完整性" },
+          { label: "一致性", value: "一致性" },
+          { label: "准确性", value: "准确性" },
+          { label: "时效性", value: "时效性" },
+          { label: "唯一性", value: "唯一性" },
+          { label: "合规性", value: "合规性" },
+        ]},
+        { key: "severity", label: "严重等级", type: "select", options: [
+          { label: "紧急", value: "紧急" },
+          { label: "高", value: "高" },
+          { label: "中", value: "中" },
+          { label: "低", value: "低" },
+        ], required: true },
+        { key: "coverage", label: "覆盖率", type: "text", required: true },
+        { key: "passRate", label: "通过率", type: "text", required: true },
+        { key: "lastRun", label: "上次执行", type: "text", required: true },
+      ];
+    }
+    if (activeTab === "tasks") {
+      return [
+        { key: "name", label: "任务名称", type: "text", required: true },
+        { key: "status", label: "状态", type: "select", options: [
+          { label: "已完成", value: "completed" },
+          { label: "执行中", value: "running" },
+          { label: "待执行", value: "pending" },
+          { label: "失败", value: "failed" },
+          { label: "已取消", value: "cancelled" },
+          { label: "已暂停", value: "paused" },
+        ], required: true },
+        { key: "ruleCount", label: "规则数", type: "number", required: true },
+        { key: "issueCount", label: "发现问题", type: "number", required: true },
+        { key: "runTime", label: "执行时间", type: "text", required: true },
+        { key: "duration", label: "耗时", type: "text", required: true },
+      ];
+    }
+    return [
+      { key: "source", label: "源表", type: "text", required: true },
+      { key: "target", label: "目标表", type: "text", required: true },
+      { key: "relation", label: "转换类型", type: "select", required: true, options: [
+        { label: "清洗转换", value: "清洗转换" },
+        { label: "聚合标签", value: "聚合标签" },
+        { label: "解析拆分", value: "解析拆分" },
+        { label: "汇总统计", value: "汇总统计" },
+        { label: "画像建模", value: "画像建模" },
+        { label: "关联分析", value: "关联分析" },
+      ]},
+      { key: "impact", label: "影响范围", type: "text", required: true },
+      { key: "depth", label: "血缘深度", type: "number", required: true },
+      { key: "lastUpdate", label: "更新时间", type: "text", required: true },
+    ];
+  };
+
+  const getDetailFields = () => {
+    if (activeTab === "rules") {
+      return [
+        { key: "id", label: "规则ID" },
+        { key: "name", label: "规则名称" },
+        { key: "dimension", label: "维度", type: "badge" as const },
+        { key: "severity", label: "严重等级", type: "badge" as const },
+        { key: "coverage", label: "覆盖率" },
+        { key: "passRate", label: "通过率" },
+        { key: "lastRun", label: "上次执行" },
+      ];
+    }
+    if (activeTab === "tasks") {
+      return [
+        { key: "id", label: "任务ID" },
+        { key: "name", label: "任务名称" },
+        { key: "status", label: "状态", type: "badge" as const },
+        { key: "ruleCount", label: "规则数" },
+        { key: "issueCount", label: "发现问题" },
+        { key: "runTime", label: "执行时间" },
+        { key: "duration", label: "耗时" },
+      ];
+    }
+    return [
+      { key: "id", label: "关系ID" },
+      { key: "source", label: "源表" },
+      { key: "target", label: "目标表" },
+        { key: "relation", label: "转换类型", type: "badge" as const },
+      { key: "impact", label: "影响范围" },
+      { key: "depth", label: "血缘深度" },
+      { key: "lastUpdate", label: "更新时间" },
+    ];
+  };
+
+  const handleCreate = () => {
+    setDialogMode("create");
+    setSelectedItem(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (item: any) => {
+    setDialogMode("edit");
+    setSelectedItem(item);
+    setDialogOpen(true);
+  };
+
+  const handleDelete = (item?: any) => {
+    const targetItem = item || selectedItem;
+    if (!targetItem) return;
+    if (activeTab === "rules") {
+      setQualityRules((prev) => prev.filter((r) => r.id !== targetItem.id));
+    } else if (activeTab === "tasks") {
+      setQualityTasks((prev) => prev.filter((t) => t.id !== targetItem.id));
+    } else if (activeTab === "lineage") {
+      setLineageData((prev) => prev.filter((l) => l.id !== targetItem.id));
+    }
+    setDialogOpen(false);
+    setDrawerOpen(false);
+    setSelectedItem(null);
+  };
+
+  const handleSubmit = (data: any) => {
+    if (dialogMode === "create") {
+      const newItem = { ...data, id: Date.now().toString(36).toUpperCase() };
+      if (activeTab === "rules") {
+        setQualityRules((prev) => [...prev, newItem]);
+      } else if (activeTab === "tasks") {
+        setQualityTasks((prev) => [...prev, newItem]);
+      } else if (activeTab === "lineage") {
+        setLineageData((prev) => [...prev, newItem]);
+      }
+    } else {
+      if (activeTab === "rules") {
+        setQualityRules((prev) => prev.map((r) => (r.id === data.id ? data : r)));
+      } else if (activeTab === "tasks") {
+        setQualityTasks((prev) => prev.map((t) => (t.id === data.id ? data : t)));
+      } else if (activeTab === "lineage") {
+        setLineageData((prev) => prev.map((l) => (l.id === data.id ? data : l)));
+      }
+    }
+    setDialogOpen(false);
+    setSelectedItem(null);
+  };
+
+  const handleView = (item: any) => {
+    setSelectedItem(item);
+    setDrawerOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -59,9 +253,9 @@ export default function SecretDataGovernance() {
           <h1 className="text-2xl font-bold text-gray-900">数据治理</h1>
           <p className="text-sm text-gray-500 mt-1">数据质量管理与数据血缘分析</p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={handleCreate}>
           <Plus className="w-4 h-4" />
-          新建规则
+          {getCreateButtonText()}
         </Button>
       </div>
 
@@ -73,7 +267,7 @@ export default function SecretDataGovernance() {
               <Shield className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">86</div>
+              <div className="text-2xl font-bold text-gray-900">{qualityRules.length}</div>
               <div className="text-xs text-gray-500">质量规则</div>
             </div>
           </CardContent>
@@ -95,7 +289,7 @@ export default function SecretDataGovernance() {
               <GitBranch className="w-5 h-5 text-purple-600" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-900">324</div>
+              <div className="text-2xl font-bold text-gray-900">{lineageData.length}</div>
               <div className="text-xs text-gray-500">血缘关系</div>
             </div>
           </CardContent>
@@ -118,7 +312,7 @@ export default function SecretDataGovernance() {
         <Input placeholder="搜索规则、任务或血缘..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
       </div>
 
-      <Tabs defaultValue="rules" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="rules" className="gap-2"><Shield className="w-4 h-4" />规则库</TabsTrigger>
           <TabsTrigger value="tasks" className="gap-2"><Play className="w-4 h-4" />检查任务</TabsTrigger>
@@ -139,10 +333,11 @@ export default function SecretDataGovernance() {
                     <TableHead>覆盖率</TableHead>
                     <TableHead>通过率</TableHead>
                     <TableHead>上次执行</TableHead>
+                    <TableHead>操作</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {qualityRules.filter(r => r.name.includes(searchQuery) || r.id.includes(searchQuery)).map((rule) => (
+                  {qualityRules.filter((r) => r.name.includes(searchQuery) || r.id.includes(searchQuery)).map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell className="font-mono text-xs">{rule.id}</TableCell>
                       <TableCell className="font-medium text-xs">{rule.name}</TableCell>
@@ -153,6 +348,13 @@ export default function SecretDataGovernance() {
                       <TableCell>{rule.coverage}</TableCell>
                       <TableCell className={Number(rule.passRate) > 98 ? "text-green-600" : "text-amber-600"}>{rule.passRate}</TableCell>
                       <TableCell className="text-xs text-gray-500">{rule.lastRun}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(rule)}><Eye className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(rule)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(rule)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -179,7 +381,7 @@ export default function SecretDataGovernance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {qualityTasks.filter(t => t.name.includes(searchQuery)).map((task) => (
+                  {qualityTasks.filter((t) => t.name.includes(searchQuery)).map((task) => (
                     <TableRow key={task.id}>
                       <TableCell className="font-mono text-xs">{task.id}</TableCell>
                       <TableCell className="font-medium">{task.name}</TableCell>
@@ -193,7 +395,11 @@ export default function SecretDataGovernance() {
                       <TableCell className="text-xs text-gray-500">{task.runTime}</TableCell>
                       <TableCell>{task.duration}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><FileText className="w-4 h-4" /></Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(task)}><Eye className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(task)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(task)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -221,7 +427,7 @@ export default function SecretDataGovernance() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {lineageData.filter(l => l.source.includes(searchQuery) || l.target.includes(searchQuery)).map((ln) => (
+                  {lineageData.filter((l) => l.source.includes(searchQuery) || l.target.includes(searchQuery)).map((ln) => (
                     <TableRow key={ln.id}>
                       <TableCell className="font-mono text-xs">{ln.id}</TableCell>
                       <TableCell className="font-medium text-xs">{ln.source}</TableCell>
@@ -231,7 +437,11 @@ export default function SecretDataGovernance() {
                       <TableCell>{ln.depth}层</TableCell>
                       <TableCell className="text-xs text-gray-500">{ln.lastUpdate}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(ln)}><Eye className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(ln)}><Pencil className="w-4 h-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(ln)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -241,6 +451,27 @@ export default function SecretDataGovernance() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={getDialogTitle()}
+        fields={getCrudFields()}
+        data={selectedItem}
+        mode={dialogMode}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+      />
+
+      <DetailDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={getDrawerTitle()}
+        data={selectedItem || {}}
+        fields={getDetailFields()}
+        onEdit={() => handleEdit(selectedItem)}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }

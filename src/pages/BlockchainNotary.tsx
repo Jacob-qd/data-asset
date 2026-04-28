@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   FileCheck,
@@ -11,20 +11,35 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  FileText,
   Fingerprint,
+  FileText,
   Calendar,
   User,
   ExternalLink,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { FieldConfig } from "@/components/CrudDialog";
+import { CrudDialog } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 
-/* ─── Mock Data ─── */
+/* ─── Types ─── */
+interface NotaryRecord {
+  id: string;
+  assetName: string;
+  type: string;
+  status: string;
+  txHash: string;
+  operator: string;
+  time: string;
+  blockHeight: number;
+  dataHash: string;
+}
+
+/* ─── Constants ─── */
 const notaryTypes = ["全部", "数据存证", "流转存证", "授权存证", "合约存证"];
 const notaryStatus = ["全部", "存证成功", "存证中", "存证失败"];
 
-const notaryRecords = [
+const initialRecords: NotaryRecord[] = [
   { id: "NT-20250422001", assetName: "企业信用评价数据集", type: "数据存证", status: "success", txHash: "0x8f7e2d...c4b9a1", operator: "张三", time: "2025-04-22 14:32:18", blockHeight: 4285691, dataHash: "sha256:a1b2c3d4e5f6..." },
   { id: "NT-20250422002", assetName: "交通流量数据", type: "流转存证", status: "success", txHash: "0x7a6c3e...b2d8f0", operator: "李四", time: "2025-04-22 13:15:42", blockHeight: 4285685, dataHash: "sha256:b2c3d4e5f6a7..." },
   { id: "NT-20250422003", assetName: "医疗健康档案", type: "数据存证", status: "pending", txHash: "-", operator: "王五", time: "2025-04-22 12:48:33", blockHeight: 0, dataHash: "sha256:c3d4e5f6a7b8..." },
@@ -35,6 +50,46 @@ const notaryRecords = [
   { id: "NT-20250422008", assetName: "工商注册信息", type: "数据存证", status: "success", txHash: "0x3e2e8f...d7b4a6", operator: "赵六", time: "2025-04-22 07:15:30", blockHeight: 4285642, dataHash: "sha256:b8c9d0e1f2a3..." },
   { id: "NT-20250422009", assetName: "气象观测数据", type: "授权存证", status: "success", txHash: "0x2f1d7e...c6a3b5", operator: "张三", time: "2025-04-21 22:48:56", blockHeight: 4285580, dataHash: "sha256:c9d0e1f2a3b4..." },
   { id: "NT-20250422010", assetName: "物流轨迹数据", type: "数据存证", status: "pending", txHash: "-", operator: "李四", time: "2025-04-21 20:12:33", blockHeight: 0, dataHash: "sha256:d0e1f2a3b4c5..." },
+];
+
+const dialogFields: FieldConfig[] = [
+  { key: "id", label: "存证编号", type: "text", required: true },
+  { key: "assetName", label: "资产名称", type: "text", required: true },
+  {
+    key: "type",
+    label: "存证类型",
+    type: "select",
+    required: true,
+    options: notaryTypes.filter((t) => t !== "全部").map((t) => ({ label: t, value: t })),
+  },
+  {
+    key: "status",
+    label: "状态",
+    type: "select",
+    required: true,
+    options: [
+      { label: "存证成功", value: "success" },
+      { label: "存证中", value: "pending" },
+      { label: "存证失败", value: "failed" },
+    ],
+  },
+  { key: "txHash", label: "交易哈希", type: "text", placeholder: "0x... 或 -" },
+  { key: "operator", label: "操作人", type: "text", required: true },
+  { key: "time", label: "时间", type: "text", required: true, placeholder: "YYYY-MM-DD HH:mm:ss" },
+  { key: "blockHeight", label: "区块高度", type: "number", placeholder: "0" },
+  { key: "dataHash", label: "数据哈希", type: "text", placeholder: "sha256:..." },
+];
+
+const detailFields = [
+  { key: "id", label: "存证编号" },
+  { key: "assetName", label: "资产名称" },
+  { key: "type", label: "存证类型", type: "badge" as const },
+  { key: "status", label: "状态", type: "badge" as const },
+  { key: "txHash", label: "交易哈希" },
+  { key: "operator", label: "操作人" },
+  { key: "blockHeight", label: "区块高度" },
+  { key: "dataHash", label: "数据哈希" },
+  { key: "time", label: "存证时间" },
 ];
 
 /* ─── Status Badge ─── */
@@ -52,212 +107,27 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/* ─── Detail Drawer ─── */
-function DetailDrawer({ record, onClose }: { record: typeof notaryRecords[0]; onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[480px] bg-white dark:bg-[#1E293B] border-l border-slate-200 dark:border-[#334155] overflow-y-auto animate-slideInRight">
-        <div className="p-6 border-b border-slate-200 dark:border-[#334155] flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">存证详情</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155] transition-colors">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-        <div className="p-6 space-y-5">
-          {/* Status */}
-          <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 dark:bg-[#0F172A]">
-            {record.status === "success" ? (
-              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-            ) : record.status === "pending" ? (
-              <Clock className="w-8 h-8 text-amber-500" />
-            ) : (
-              <XCircle className="w-8 h-8 text-red-500" />
-            )}
-            <div>
-              <div className="text-sm font-medium text-slate-800 dark:text-slate-100">
-                {record.status === "success" ? "存证成功" : record.status === "pending" ? "存证中" : "存证失败"}
-              </div>
-              <div className="text-xs text-slate-500">{record.time}</div>
-            </div>
-          </div>
-
-          {/* Fields */}
-          <div className="space-y-4">
-            {[
-              { label: "存证编号", value: record.id, icon: <Fingerprint className="w-4 h-4" /> },
-              { label: "资产名称", value: record.assetName, icon: <FileText className="w-4 h-4" /> },
-              { label: "存证类型", value: record.type, icon: <ShieldCheck className="w-4 h-4" /> },
-              { label: "操作人", value: record.operator, icon: <User className="w-4 h-4" /> },
-              { label: "区块高度", value: record.blockHeight ? record.blockHeight.toLocaleString() : "待确认", icon: <FileCheck className="w-4 h-4" /> },
-              { label: "交易哈希", value: record.txHash, icon: <Fingerprint className="w-4 h-4" /> },
-              { label: "数据哈希", value: record.dataHash, icon: <Fingerprint className="w-4 h-4" /> },
-              { label: "存证时间", value: record.time, icon: <Calendar className="w-4 h-4" /> },
-            ].map((field) => (
-              <div key={field.label} className="flex items-start gap-3">
-                <span className="text-slate-400 mt-0.5">{field.icon}</span>
-                <div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">{field.label}</div>
-                  <div className="text-sm text-slate-800 dark:text-slate-100 font-mono mt-0.5">{field.value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Verify Button */}
-          {record.status === "success" && (
-            <button className={cn(
-              "w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2 transition-colors",
-              "bg-primary-600 text-white hover:bg-primary-700"
-            )}>
-              <ExternalLink className="w-4 h-4" />
-              链上验证
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── New Notary Modal ─── */
-function NewNotaryModal({ onClose }: { onClose: () => void }) {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({ assetName: "", type: "数据存证", desc: "" });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-[520px] bg-white dark:bg-[#1E293B] rounded-xl border border-slate-200 dark:border-[#334155] shadow-xl overflow-hidden animate-scaleIn">
-        <div className="p-5 border-b border-slate-200 dark:border-[#334155] flex items-center justify-between">
-          <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">新建存证</h2>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-[#334155]">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div>
-        <div className="p-5">
-          {/* Step indicator */}
-          <div className="flex items-center gap-2 mb-6">
-            {["选择资产", "确认信息", "提交存证"].map((s, i) => (
-              <div key={s} className="flex items-center gap-2 flex-1">
-                <div className={cn(
-                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium",
-                  step > i + 1 ? "bg-emerald-500 text-white" :
-                  step === i + 1 ? "bg-primary-600 text-white" : "bg-slate-200 text-slate-500"
-                )}>
-                  {step > i + 1 ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                </div>
-                <span className={cn("text-xs", step === i + 1 ? "text-slate-800 dark:text-slate-100 font-medium" : "text-slate-500")}>
-                  {s}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {step === 1 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">数据资产</label>
-                <input
-                  type="text"
-                  placeholder="搜索数据资产..."
-                  value={formData.assetName}
-                  onChange={(e) => setFormData({ ...formData, assetName: e.target.value })}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg border text-sm transition-colors",
-                    "bg-white border-slate-200 text-slate-800",
-                    "dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100",
-                    "focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
-                  )}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">存证类型</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg border text-sm transition-colors",
-                    "bg-white border-slate-200 text-slate-800",
-                    "dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100"
-                  )}
-                >
-                  {notaryTypes.filter((t) => t !== "全部").map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-[#0F172A]">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">资产名称</span>
-                <span className="text-slate-800 dark:text-slate-100 font-medium">{formData.assetName || "企业信用评价数据集"}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">存证类型</span>
-                <span className="text-slate-800 dark:text-slate-100 font-medium">{formData.type}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">数据哈希</span>
-                <span className="text-slate-800 dark:text-slate-100 font-mono text-xs">sha256:8f7e2d1c...b4a593</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">预估Gas</span>
-                <span className="text-slate-800 dark:text-slate-100 font-medium">0.002 ETH</span>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-              </div>
-              <h3 className="text-base font-medium text-slate-800 dark:text-slate-100">存证提交成功</h3>
-              <p className="text-sm text-slate-500 mt-1">交易已提交至区块链网络，预计 3-5 秒确认</p>
-              <div className="mt-4 text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#0F172A] p-3 rounded-lg inline-block">
-                交易哈希: 0x9f8e3c...d5b7a2
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="p-5 border-t border-slate-200 dark:border-[#334155] flex justify-end gap-2">
-          {step < 3 ? (
-            <>
-              <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#334155] transition-colors">
-                取消
-              </button>
-              <button
-                onClick={() => setStep(step + 1)}
-                className="px-4 py-2 rounded-lg text-sm bg-primary-600 text-white hover:bg-primary-700 transition-colors"
-              >
-                {step === 2 ? "提交存证" : "下一步"}
-              </button>
-            </>
-          ) : (
-            <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm bg-primary-600 text-white hover:bg-primary-700 transition-colors">
-              完成
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main ─── */
 export default function BlockchainNotary() {
+  const [records, setRecords] = useState<NotaryRecord[]>(initialRecords);
   const [selectedType, setSelectedType] = useState("全部");
   const [selectedStatus, setSelectedStatus] = useState("全部");
   const [search, setSearch] = useState("");
-  const [detailRecord, setDetailRecord] = useState<typeof notaryRecords[0] | null>(null);
-  const [showNewModal, setShowNewModal] = useState(false);
   const [page, setPage] = useState(1);
+  const pageSize = 10;
 
-  const filtered = notaryRecords.filter((r) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"create" | "edit" | "view" | "delete">("create");
+  const [dialogData, setDialogData] = useState<NotaryRecord | null>(null);
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerRecord, setDrawerRecord] = useState<NotaryRecord | null>(null);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, selectedType, selectedStatus]);
+
+  const filtered = records.filter((r) => {
     if (selectedType !== "全部" && r.type !== selectedType) return false;
     if (selectedStatus !== "全部") {
       const s = selectedStatus === "存证成功" ? "success" : selectedStatus === "存证中" ? "pending" : "failed";
@@ -266,6 +136,52 @@ export default function BlockchainNotary() {
     if (search && !r.assetName.includes(search) && !r.id.includes(search)) return false;
     return true;
   });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const openCreate = () => {
+    setDialogMode("create");
+    setDialogData(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (record: NotaryRecord) => {
+    setDialogMode("edit");
+    setDialogData(record);
+    setDialogOpen(true);
+  };
+
+  const openDelete = (record: NotaryRecord) => {
+    setDialogMode("delete");
+    setDialogData(record);
+    setDialogOpen(true);
+  };
+
+  const openView = (record: NotaryRecord) => {
+    setDrawerRecord(record);
+    setDrawerOpen(true);
+  };
+
+  const handleSubmit = (data: Record<string, any>) => {
+    const processed: NotaryRecord = {
+      ...(data as NotaryRecord),
+      blockHeight: Number(data.blockHeight) || 0,
+    };
+    if (dialogMode === "create") {
+      setRecords([processed, ...records]);
+    } else if (dialogMode === "edit" && dialogData) {
+      setRecords(records.map((r) => (r.id === dialogData.id ? { ...processed, id: dialogData.id } : r)));
+    }
+    setDialogOpen(false);
+  };
+
+  const handleDelete = () => {
+    if (dialogData) {
+      setRecords(records.filter((r) => r.id !== dialogData.id));
+    }
+    setDialogOpen(false);
+  };
 
   return (
     <div className="space-y-4">
@@ -276,7 +192,7 @@ export default function BlockchainNotary() {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">数据资产上链存证、验证与查询</p>
         </div>
         <button
-          onClick={() => setShowNewModal(true)}
+          onClick={openCreate}
           className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -367,11 +283,11 @@ export default function BlockchainNotary() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((record) => (
+              {paginated.map((record) => (
                 <tr
                   key={record.id}
                   className="border-b border-slate-100 dark:border-[#334155] last:border-0 hover:bg-slate-50 dark:hover:bg-[#273548] transition-colors cursor-pointer"
-                  onClick={() => setDetailRecord(record)}
+                  onClick={() => openView(record)}
                 >
                   <td className="py-3 px-4 font-mono text-xs text-slate-600 dark:text-slate-400">{record.id}</td>
                   <td className="py-3 px-4 text-slate-700 dark:text-slate-300">{record.assetName}</td>
@@ -385,12 +301,26 @@ export default function BlockchainNotary() {
                   <td className="py-3 px-4 text-slate-600 dark:text-slate-400">{record.operator}</td>
                   <td className="py-3 px-4 text-right text-xs text-slate-500">{record.time}</td>
                   <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDetailRecord(record); }}
-                      className="text-xs text-primary-600 hover:text-primary-700"
-                    >
-                      查看
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openView(record); }}
+                        className="text-xs text-primary-600 hover:text-primary-700"
+                      >
+                        查看
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openEdit(record); }}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openDelete(record); }}
+                        className="text-xs text-red-600 hover:text-red-700"
+                      >
+                        删除
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -412,11 +342,12 @@ export default function BlockchainNotary() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <span className="px-3 py-1 text-xs text-slate-600 dark:text-slate-400">
-              第 {page} 页
+              第 {page} / {totalPages} 页
             </span>
             <button
-              onClick={() => setPage(page + 1)}
-              className="p-1.5 rounded-lg border border-slate-200 dark:border-[#334155]"
+              onClick={() => setPage(Math.min(totalPages, page + 1))}
+              disabled={page >= totalPages}
+              className="p-1.5 rounded-lg border border-slate-200 disabled:opacity-30 dark:border-[#334155]"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -424,11 +355,36 @@ export default function BlockchainNotary() {
         </div>
       </div>
 
-      {/* Detail Drawer */}
-      {detailRecord && <DetailDrawer record={detailRecord} onClose={() => setDetailRecord(null)} />}
+      {/* CRUD Dialog */}
+      <CrudDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title="存证"
+        fields={dialogFields}
+        data={dialogData || undefined}
+        onSubmit={handleSubmit}
+        onDelete={handleDelete}
+        mode={dialogMode}
+      />
 
-      {/* New Notary Modal */}
-      {showNewModal && <NewNotaryModal onClose={() => setShowNewModal(false)} />}
+      {/* Detail Drawer */}
+      {drawerRecord && (
+        <DetailDrawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          title="存证详情"
+          data={drawerRecord}
+          fields={detailFields}
+          onEdit={() => {
+            setDrawerOpen(false);
+            openEdit(drawerRecord);
+          }}
+          onDelete={() => {
+            setDrawerOpen(false);
+            openDelete(drawerRecord);
+          }}
+        />
+      )}
     </div>
   );
 }

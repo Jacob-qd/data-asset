@@ -20,6 +20,13 @@ const auditLogs = [
   { id: "AUD-003", action: "数据导出", target: "零售客户数据", user: "张三", result: "成功", time: "2024-04-15 08:15:33", ip: "192.168.1.100", detail: "导出样本数据至沙箱环境，用于模型训练" },
   { id: "AUD-004", action: "审查驳回", target: "异常检测模型", user: "审核员A", result: "失败", time: "2024-04-14 16:20:18", ip: "192.168.1.105", detail: "驳回原因：误报率15.2%超过阈值10%" },
   { id: "AUD-005", action: "环境变更", target: "Python 3.10环境", user: "系统", result: "成功", time: "2024-04-14 14:00:00", ip: "-", detail: "自动更新TensorFlow至2.15版本" },
+  { id: "AUD-006", action: "模型发布", target: "信用评分模型_v2.1", user: "审核员A", result: "成功", time: "2024-04-14 11:30:22", ip: "192.168.1.105", detail: "模型已通过审查，正式发布至生产环境" },
+  { id: "AUD-007", action: "数据导入", target: "供应链数据", user: "赵六", result: "成功", time: "2024-04-14 10:15:00", ip: "192.168.1.102", detail: "导入供应商数据至沙箱，用于预测模型训练" },
+  { id: "AUD-008", action: "权限变更", target: "沙箱-企业工商分析", user: "系统管理员", result: "成功", time: "2024-04-13 16:45:10", ip: "192.168.1.200", detail: "授予王五读写权限，用于画像分析项目" },
+  { id: "AUD-009", action: "模型训练", target: "推荐系统实验", user: "李四", result: "成功", time: "2024-04-13 14:20:05", ip: "192.168.1.100", detail: "训练完成，准确率达到92.3%" },
+  { id: "AUD-010", action: "审查申请", target: "数据清洗算法包", user: "王五", result: "成功", time: "2024-04-13 09:00:00", ip: "192.168.1.103", detail: "提交算法包审查申请，等待审核员B审批" },
+  { id: "AUD-011", action: "环境创建", target: "Julia 1.9环境", user: "系统", result: "成功", time: "2024-04-12 18:00:00", ip: "-", detail: "自动创建Julia 1.9运行环境" },
+  { id: "AUD-012", action: "数据删除", target: "测试数据集", user: "张三", result: "成功", time: "2024-04-12 15:30:00", ip: "192.168.1.100", detail: "清理过期测试数据，释放存储空间50GB" },
 ];
 
 export default function SandboxAudit() {
