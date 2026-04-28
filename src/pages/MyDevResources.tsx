@@ -11,7 +11,17 @@ import {
   Eye,
   Trash2,
   CheckCircle,
+  Database,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { mockSandboxEnvs, type SandboxEnv } from "@/data/mock/sandbox-envs";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -19,6 +29,10 @@ import { toast } from "sonner";
 export default function MyDevResources() {
   const [envs, setEnvs] = useState<SandboxEnv[]>(mockSandboxEnvs);
   const [searchTerm, setSearchTerm] = useState("");
+  const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
+  const [selectedEnv, setSelectedEnv] = useState<SandboxEnv | null>(null);
+  const [sampleMethod, setSampleMethod] = useState("random");
+  const [sampleCount, setSampleCount] = useState("1000");
 
   const filteredEnvs = envs.filter((e) =>
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -32,6 +46,19 @@ export default function MyDevResources() {
   const handleRelease = (id: string) => {
     setEnvs(envs.map((e) => e.id === id ? { ...e, runStatus: "已关闭" } : e));
     toast.success("空间已释放");
+  };
+
+  const handleOpenSampleDialog = (env: SandboxEnv) => {
+    setSelectedEnv(env);
+    setSampleDialogOpen(true);
+  };
+
+  const handleExtractSample = () => {
+    if (selectedEnv) {
+      toast.success(`已从 ${selectedEnv.name} 抽取 ${sampleCount} 条样本数据（${sampleMethod === "random" ? "随机抽样" : sampleMethod === "stratified" ? "分层抽样" : "系统抽样"}）`);
+      setSampleDialogOpen(false);
+      setSelectedEnv(null);
+    }
   };
 
   const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -100,6 +127,10 @@ export default function MyDevResources() {
             <Settings className="w-4 h-4" />
             变更
           </Button>
+          <Button variant="ghost" size="sm" onClick={() => handleOpenSampleDialog(row)}>
+            <Database className="w-4 h-4" />
+            抽取样本
+          </Button>
           <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleRelease(row.id)}>
             <Trash2 className="w-4 h-4" />
             释放
@@ -134,6 +165,55 @@ export default function MyDevResources() {
         columns={columns}
         rowKey={(row) => row.id}
       />
+
+      {/* 抽取样本数据对话框 */}
+      <Dialog open={sampleDialogOpen} onOpenChange={setSampleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>抽取样本数据</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>开发空间</Label>
+              <div className="text-sm font-medium">{selectedEnv?.name}</div>
+            </div>
+            <div className="space-y-2">
+              <Label>抽样方式</Label>
+              <Select value={sampleMethod} onValueChange={setSampleMethod}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择抽样方式" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="random">随机抽样</SelectItem>
+                  <SelectItem value="stratified">分层抽样</SelectItem>
+                  <SelectItem value="system">系统抽样</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>抽样数量</Label>
+              <Input
+                type="number"
+                value={sampleCount}
+                onChange={(e) => setSampleCount(e.target.value)}
+                placeholder="请输入抽样数量"
+              />
+            </div>
+            <div className="bg-blue-50 p-3 rounded text-sm text-blue-700">
+              提示：抽样结果将存储在当前开发空间的样本库中，可用于后续模型训练。
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSampleDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleExtractSample}>
+              <Database className="w-4 h-4 mr-2" />
+              开始抽取
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

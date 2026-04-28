@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import * as echarts from "echarts";
 
 interface BlockchainLog {
   id: string;
@@ -86,6 +87,84 @@ export default function BlockchainAuditLogs() {
   const [typeFilter, setTypeFilter] = useState<string[]>([]);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [jsonMode, setJsonMode] = useState<Set<string>>(new Set());
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  // 生成近7天的日志趋势数据
+  const generateTrendData = () => {
+    const dates = [];
+    const counts = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      dates.push(`${date.getMonth() + 1}-${date.getDate()}`);
+      counts.push(Math.floor(Math.random() * 15) + 5);
+    }
+    return { dates, counts };
+  };
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+      const { dates, counts } = generateTrendData();
+      
+      const option = {
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+        },
+        grid: {
+          left: "3%",
+          right: "4%",
+          bottom: "3%",
+          top: "10%",
+          containLabel: true,
+        },
+        xAxis: {
+          type: "category",
+          data: dates,
+          axisLine: { lineStyle: { color: "#e5e7eb" } },
+          axisLabel: { color: "#6b7280" },
+          axisTick: { show: false },
+        },
+        yAxis: {
+          type: "value",
+          axisLine: { show: false },
+          axisTick: { show: false },
+          splitLine: { lineStyle: { color: "#f3f4f6" } },
+          axisLabel: { color: "#6b7280" },
+        },
+        series: [
+          {
+            name: "日志数量",
+            type: "bar",
+            data: counts,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: "#6366f1" },
+                { offset: 1, color: "#818cf8" },
+              ]),
+              borderRadius: [4, 4, 0, 0],
+            },
+            barWidth: "40%",
+          },
+        ],
+      };
+
+      chartInstance.current.setOption(option);
+
+      const handleResize = () => {
+        chartInstance.current?.resize();
+      };
+      window.addEventListener("resize", handleResize);
+
+      return () => {
+        window.removeEventListener("resize", handleResize);
+        chartInstance.current?.dispose();
+      };
+    }
+  }, []);
 
   const filteredLogs = logs.filter((log) => {
     const matchSearch = log.rawLog.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -253,26 +332,10 @@ export default function BlockchainAuditLogs() {
         </div>
       </div>
 
-      {/* Trend Chart Placeholder */}
+      {/* Trend Chart */}
       <div className="bg-white p-4 rounded-lg border">
-        <h3 className="text-sm font-medium mb-4">日志发展趋势</h3>
-        <div className="h-40 flex items-end gap-8 px-8">
-          {[
-            { date: "04-25", count: 1 },
-            { date: "04-26", count: 2 },
-            { date: "04-27", count: 4 },
-            { date: "04-28", count: 6 },
-          ].map((item) => (
-            <div key={item.date} className="flex-1 flex flex-col items-center gap-2">
-              <div
-                className="w-full bg-indigo-500 rounded-t-md transition-all"
-                style={{ height: `${item.count * 40}px` }}
-              />
-              <span className="text-xs text-gray-500">{item.date}</span>
-              <span className="text-xs text-gray-400">{item.count}条</span>
-            </div>
-          ))}
-        </div>
+        <h3 className="text-sm font-medium mb-4">日志发展趋势（近7天）</h3>
+        <div ref={chartRef} className="h-64" />
       </div>
 
       {/* Data Table */}
