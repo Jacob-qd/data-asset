@@ -10,7 +10,7 @@ import {
   Tag, Eye, Search, Bell, UserCheck, Terminal, Wand2,
   Combine, Merge, BrainCircuit, Home, Building2, Key,
   MessageSquare, PieChart, AreaChart, Ruler, PenTool,
-  Gauge, FolderOpen, Zap, Users,
+  Gauge, FolderOpen, Zap, Users, Plus,
   Landmark, TrendingUp, CircuitBoard, Fingerprint, Radio,
 } from "lucide-react";
 
@@ -22,9 +22,16 @@ const menuStructure = [
       { label: "工作台首页", icon: <Home className="w-4 h-4" />, path: "/" },
       { label: "项目管理", icon: <FolderOpen className="w-4 h-4" />, path: "/workbench/projects" },
       { label: "规则管理", icon: <Ruler className="w-4 h-4" />, path: "/workbench/rules" },
-      { label: "场景配置", icon: <Zap className="w-4 h-4" />, path: "/workbench/scenes" },
       { label: "资产登记", icon: <PenTool className="w-4 h-4" />, path: "/workbench/registration" },
       { label: "消息通知", icon: <Bell className="w-4 h-4" />, path: "/workbench/notifications" },
+    ],
+  },
+  {
+    label: "应用场景中心",
+    icon: <Zap className="w-5 h-5" />,
+    children: [
+      { label: "场景列表", icon: <ClipboardList className="w-4 h-4" />, path: "/scenes" },
+      { label: "创建场景", icon: <Plus className="w-4 h-4" />, path: "/scenes/create" },
     ],
   },
   {
@@ -57,24 +64,29 @@ const menuStructure = [
     icon: <Cpu className="w-5 h-5" />,
     children: [
       { label: "沙箱项目", icon: <FolderOpen className="w-4 h-4" />, path: "/sandbox/projects" },
+      { label: "我的开发资源", icon: <Server className="w-4 h-4" />, path: "/sandbox/resources" },
+      { label: "产品验证", icon: <ShieldCheck className="w-4 h-4" />, path: "/sandbox/verify" },
       { label: "数据探查", icon: <Search className="w-4 h-4" />, path: "/sandbox/preview" },
       { label: "数据加工", icon: <Wand2 className="w-4 h-4" />, path: "/sandbox/preprocess" },
       { label: "模型开发", icon: <BrainCircuit className="w-4 h-4" />, path: "/sandbox/train" },
       { label: "结果审查", icon: <ShieldCheck className="w-4 h-4" />, path: "/sandbox/review" },
       { label: "沙箱审计", icon: <ClipboardList className="w-4 h-4" />, path: "/sandbox/audit" },
-      { label: "数据源管理", icon: <Server className="w-4 h-4" />, path: "/sampling/datasources" },
+      { label: "数据源管理", icon: <Database className="w-4 h-4" />, path: "/sampling/datasources" },
     ],
   },
-  // ====== 隐私计算：5项扁平列表（原4个子模块三级嵌套 → 扁平化） ======
+  // ====== 隐私计算：任务分类中心 ======
   {
     label: "隐私计算",
     icon: <ShieldCheck className="w-5 h-5" />,
     children: [
-      { label: "隐私求交(PSI)", icon: <Eye className="w-4 h-4" />, path: "/secret/psi" },
-      { label: "隐匿查询(PIR)", icon: <Search className="w-4 h-4" />, path: "/secret/pir" },
-      { label: "联合统计", icon: <BarChart3 className="w-4 h-4" />, path: "/secret/joint-stats" },
-      { label: "联邦学习", icon: <BrainCircuit className="w-4 h-4" />, path: "/secret/federated" },
-      { label: "数据预处理", icon: <Wand2 className="w-4 h-4" />, path: "/privacy/data-processing" },
+      { label: "任务中心", icon: <ClipboardList className="w-4 h-4" />, path: "/privacy/tasks" },
+      { label: "隐私求交(PSI)", icon: <Eye className="w-4 h-4" />, path: "/privacy/tasks/psi" },
+      { label: "隐匿查询(PIR)", icon: <Search className="w-4 h-4" />, path: "/privacy/tasks/pir" },
+      { label: "联合统计", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/tasks/stats" },
+      { label: "联合SQL", icon: <Terminal className="w-4 h-4" />, path: "/privacy/tasks/sql" },
+      { label: "联合建模", icon: <BrainCircuit className="w-4 h-4" />, path: "/privacy/tasks/modeling" },
+      { label: "节点管理", icon: <Server className="w-4 h-4" />, path: "/privacy/nodes" },
+      { label: "模型管理", icon: <Package className="w-4 h-4" />, path: "/privacy/models" },
     ],
   },
   // ====== 抽样管理：4项（保持不变） ======
@@ -109,8 +121,16 @@ const menuStructure = [
       { label: "网络运维", icon: <HardDrive className="w-4 h-4" />, path: "/blockchain/ops" },
       { label: "链网络", icon: <Network className="w-4 h-4" />, path: "/blockchain/networks" },
       { label: "智能合约", icon: <FileCode className="w-4 h-4" />, path: "/contract-lifecycle" },
-      { label: "跨链治理", icon: <ArrowLeftRight className="w-4 h-4" />, path: "/blockchain/cross-chain-router" },
+      { label: "审计日志", icon: <ClipboardList className="w-4 h-4" />, path: "/blockchain/audit-logs" },
+      { label: "跨链管理", icon: <ArrowLeftRight className="w-4 h-4" />, path: "/blockchain/cross-chain-mgmt" },
       { label: "系统管理", icon: <Lock className="w-4 h-4" />, path: "/blockchain/system" },
+    ],
+  },
+  {
+    label: "数据产品门户",
+    icon: <ShoppingCart className="w-5 h-5" />,
+    children: [
+      { label: "产品广场", icon: <Package className="w-4 h-4" />, path: "/product-portal" },
     ],
   },
   {

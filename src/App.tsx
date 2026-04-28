@@ -146,6 +146,17 @@ import QualityInspection from "./pages/QualityInspection";
 import QualityReport from "./pages/QualityReport";
 import SampleManagement from "./pages/SampleManagement";
 import ProblemStatistics from "./pages/ProblemStatistics";
+import SceneList from "./pages/SceneList";
+import SceneCreateWizard from "./pages/SceneCreateWizard";
+import PrivacyTaskCenter from "./pages/PrivacyTaskCenter";
+import MyDevResources from "./pages/MyDevResources";
+import VisualModelingIDE from "./pages/VisualModelingIDE";
+import ModelManagement from "./pages/ModelManagement";
+import BlockchainAuditLogs from "./pages/BlockchainAuditLogs";
+import PrivacyNodeManagement from "./pages/PrivacyNodeManagement";
+import CrossChainManagement from "./pages/CrossChainManagement";
+import SandboxProductVerify from "./pages/SandboxProductVerify";
+import DataProductPortal from "./pages/DataProductPortal";
 
 const wrap = (Component: React.FC) => (
   <Layout><Component /></Layout>
@@ -299,6 +310,21 @@ export default function App() {
         <Route path="/platform/roles" element={<Layout><RolePermission /></Layout>} />
         <Route path="/privacy/api-keys" element={<Layout><APIKeyManagement /></Layout>} />
         <Route path="/workbench/notifications" element={<Layout><NotificationCenter /></Layout>} />
+        {/* P0 新增路由 */}
+        <Route path="/scenes" element={<Layout><SceneList /></Layout>} />
+        <Route path="/scenes/create" element={<Layout><SceneCreateWizard /></Layout>} />
+        <Route path="/privacy/tasks" element={<Layout><PrivacyTaskCenter /></Layout>} />
+        <Route path="/privacy/tasks/:type" element={<Layout><PrivacyTaskCenter /></Layout>} />
+        <Route path="/sandbox/resources" element={<Layout><MyDevResources /></Layout>} />
+        {/* P1 新增路由 */}
+        <Route path="/privacy/tasks/modeling/visual" element={<Layout><VisualModelingIDE /></Layout>} />
+        <Route path="/privacy/models" element={<Layout><ModelManagement /></Layout>} />
+        <Route path="/blockchain/audit-logs" element={<Layout><BlockchainAuditLogs /></Layout>} />
+        <Route path="/privacy/nodes" element={<Layout><PrivacyNodeManagement /></Layout>} />
+        {/* P2 新增路由 */}
+        <Route path="/blockchain/cross-chain-mgmt" element={<Layout><CrossChainManagement /></Layout>} />
+        <Route path="/sandbox/verify" element={<Layout><SandboxProductVerify /></Layout>} />
+        <Route path="/product-portal" element={<Layout><DataProductPortal /></Layout>} />
         <Route path="/privacy/data-labels" element={<Layout><DataLabelManagement /></Layout>} />
         <Route path="/privacy/auth-records" element={<Layout><ResourceAuthRecords /></Layout>} />
         <Route path="/sandbox/masking-rules" element={<Layout><DataMaskingRules /></Layout>} />
