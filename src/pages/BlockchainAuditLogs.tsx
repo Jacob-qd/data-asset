@@ -26,7 +26,7 @@ const mockLogs: BlockchainLog[] = [
     id: "LOG-001",
     time: "2026-04-28 09:34:26",
     logType: "数据开发业务(已上链)",
-    rawLog: '{"connectorName":"苏州睿影信息科技有限公司互联网区连接器","identityId":"","operation":"连接器注册","param":"..."}',
+    rawLog: '{"connectorName":"某信息技术公司互联网区连接器","identityId":"","operation":"连接器注册","param":"..."}',
     blockNumber: "131501",
     chainStatus: "chained",
   },
@@ -193,8 +193,28 @@ export default function BlockchainAuditLogs() {
     setJsonMode(newSet);
   };
 
+  const [verifyingLogs, setVerifyingLogs] = useState<Set<string>>(new Set());
+  const [verifiedLogs, setVerifiedLogs] = useState<Set<string>>(new Set());
+
   const handleVerify = (id: string) => {
-    toast.success("日志校验通过，链上数据完整");
+    setVerifyingLogs(new Set(verifyingLogs).add(id));
+    
+    // 模拟校验过程
+    setTimeout(() => {
+      setVerifyingLogs((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+      
+      const log = logs.find((l) => l.id === id);
+      if (log?.chainStatus === "chained") {
+        setVerifiedLogs(new Set(verifiedLogs).add(id));
+        toast.success(`日志校验通过\n区块哈希: 0x${Math.random().toString(16).slice(2, 10)}...\n校验时间: ${new Date().toLocaleTimeString()}\n链上数据完整无误`);
+      } else {
+        toast.error("日志校验失败：该日志尚未上链");
+      }
+    }, 1500);
   };
 
   const columns = [
@@ -275,9 +295,21 @@ export default function BlockchainAuditLogs() {
           variant="ghost"
           size="sm"
           onClick={() => handleVerify(row.id)}
+          disabled={verifyingLogs.has(row.id)}
         >
-          <CheckCircle className="w-4 h-4 mr-1" />
-          校验
+          {verifyingLogs.has(row.id) ? (
+            "校验中..."
+          ) : verifiedLogs.has(row.id) ? (
+            <>
+              <CheckCircle className="w-4 h-4 mr-1 text-green-600" />
+              <span className="text-green-600">已校验</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4 mr-1" />
+              校验
+            </>
+          )}
         </Button>
       ),
     },

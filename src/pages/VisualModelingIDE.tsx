@@ -56,7 +56,7 @@ const templates = [
 ];
 
 const defaultNodes: FlowNode[] = [
-  { id: "node-1", type: "reader", name: "数据读取", x: 300, y: 100, icon: <Database className="w-4 h-4" />, config: { role: "发起者", platform: "济南大数据集团" } },
+  { id: "node-1", type: "reader", name: "数据读取", x: 300, y: 100, icon: <Database className="w-4 h-4" />, config: { role: "发起者", platform: "数据科技有限公司A" } },
   { id: "node-2", type: "transform", name: "数据转换", x: 300, y: 220, icon: <Wand2 className="w-4 h-4" />, config: {} },
   { id: "node-3", type: "intersection", name: "数据求交", x: 300, y: 340, icon: <GitMerge className="w-4 h-4" />, config: {} },
   { id: "node-4", type: "hetero_lr", name: "纵向逻辑回归", x: 300, y: 460, icon: <BrainCircuit className="w-4 h-4" />, config: { epochs: 100, lr: 0.01 } },
@@ -319,16 +319,16 @@ export default function VisualModelingIDE() {
             <div className="space-y-2">
               <Label>平台</Label>
               <select className="w-full px-3 py-2 border rounded-md text-sm">
-                <option>济南大数据集团有限公司</option>
+                <option>数据科技有限公司A有限公司</option>
                 <option>中电云计算技术有限公司</option>
-                <option>神思电子技术股份有限公司</option>
+                <option>智能科技公司技术股份有限公司</option>
               </select>
             </div>
 
             <div className="space-y-2">
               <Label>数据表</Label>
               <select className="w-full px-3 py-2 border rounded-md text-sm">
-                <option>乳腺癌诊疗标定图片</option>
+                <option>医疗影像诊疗标定图片</option>
                 <option>车辆监管数据</option>
               </select>
             </div>

@@ -29,8 +29,8 @@ export default function TaskExecutionDetail() {
   const [instances] = useState<ExecutionInstance[]>([
     {
       id: "INST-001",
-      name: "乳腺癌筛查-执行实例-001",
-      fromTask: "乳腺癌筛查模型训练",
+      name: "医疗影像筛查-执行实例-001",
+      fromTask: "医疗影像筛查模型训练",
       businessTag: "医疗健康",
       startTime: "2026-04-28 09:15:32",
       duration: "12分34秒",
@@ -48,8 +48,8 @@ export default function TaskExecutionDetail() {
     },
     {
       id: "INST-002",
-      name: "乳腺癌筛查-执行实例-002",
-      fromTask: "乳腺癌筛查模型训练",
+      name: "医疗影像筛查-执行实例-002",
+      fromTask: "医疗影像筛查模型训练",
       businessTag: "医疗健康",
       startTime: "2026-04-27 14:22:18",
       duration: "8分12秒",
@@ -64,8 +64,8 @@ export default function TaskExecutionDetail() {
     },
     {
       id: "INST-003",
-      name: "乳腺癌筛查-执行实例-003",
-      fromTask: "乳腺癌筛查模型训练",
+      name: "医疗影像筛查-执行实例-003",
+      fromTask: "医疗影像筛查模型训练",
       businessTag: "医疗健康",
       startTime: "2026-04-26 10:33:48",
       duration: "15分22秒",
@@ -116,7 +116,7 @@ export default function TaskExecutionDetail() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">任务执行历史</h1>
-            <p className="text-sm text-gray-500">任务ID: {taskId || "TASK-001"} | 乳腺癌筛查模型训练</p>
+            <p className="text-sm text-gray-500">任务ID: {taskId || "TASK-001"} | 医疗影像筛查模型训练</p>
           </div>
         </div>
         <Button variant="outline" size="sm">

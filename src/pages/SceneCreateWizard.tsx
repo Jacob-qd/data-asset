@@ -26,11 +26,11 @@ export default function SceneCreateWizard() {
 
   // Mock data resources for selection
   const mockResources = [
-    { id: "RES-001", name: "乳腺癌诊疗图片-host", type: "库表", provider: "神思电子", level: "重要数据", brand: "山东区块链研究院隐私计..." },
-    { id: "RES-002", name: "乳腺癌诊疗标定图片-guest", type: "公共数据资源", provider: "济南大数据集团", level: "一般数据（4级）", brand: "山东区块链研究院隐私计..." },
-    { id: "RES-003", name: "济南市热力用户信息", type: "公共数据资源", provider: "济南能源集团", level: "一般数据（3级）", brand: "-" },
-    { id: "RES-004", name: "车辆监管及线索数据", type: "公共数据资源", provider: "济南市大数据局", level: "一般数据（1级）", brand: "-" },
-    { id: "RES-005", name: "企业基本信息查询接口", type: "公共数据资源", provider: "济南市大数据局", level: "一般数据（1级）", brand: "-" },
+    { id: "RES-001", name: "医疗影像诊疗图片-host", type: "库表", provider: "智能科技公司", level: "重要数据", brand: "区块链技术研究所隐私计..." },
+    { id: "RES-002", name: "医疗影像诊疗标定图片-guest", type: "公共数据资源", provider: "济南大数据集团", level: "一般数据（4级）", brand: "区块链技术研究所隐私计..." },
+    { id: "RES-003", name: "济南市热力用户信息", type: "公共数据资源", provider: "能源数据服务公司", level: "一般数据（3级）", brand: "-" },
+    { id: "RES-004", name: "车辆监管及线索数据", type: "公共数据资源", provider: "城市数据管理局", level: "一般数据（1级）", brand: "-" },
+    { id: "RES-005", name: "企业基本信息查询接口", type: "公共数据资源", provider: "城市数据管理局", level: "一般数据（1级）", brand: "-" },
   ];
 
   const handleFinish = (data: Record<string, any>) => {
@@ -294,7 +294,71 @@ export default function SceneCreateWizard() {
                 </Button>
               ))}
             </div>
+            {formData.devMethod && (
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-700 mt-2">
+                {formData.devMethod === "sandbox" && "选择数据沙箱开发方式后，系统将为您分配SQL/可视化/Jar类型的沙箱环境，支持灵活的数据开发。"}
+                {formData.devMethod === "privacy" && "选择隐私计算开发方式后，系统将为您分配隐私计算节点资源，支持多方安全联合计算。"}
+                {formData.devMethod === "secret" && "选择密态计算开发方式后，系统将为您分配密态计算节点资源，支持全密态高安全计算。"}
+                {formData.devMethod === "offline" && "选择离线下载开发方式后，系统将为您提供数据脱敏后的下载服务。"}
+              </div>
+            )}
           </div>
+
+          {formData.devMethod === "sandbox" && (
+            <div className="space-y-2">
+              <Label>沙箱类型 <span className="text-red-500">*</span></Label>
+              <div className="flex gap-2">
+                {["SQL类型", "可视化类型", "Jar包类型"].map((type) => (
+                  <Button
+                    key={type}
+                    type="button"
+                    variant={formData.sandboxType === type ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateField("sandboxType", type)}
+                  >
+                    {type}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {formData.devMethod === "privacy" && (
+            <div className="space-y-2">
+              <Label>隐私计算任务类型 <span className="text-red-500">*</span></Label>
+              <select
+                value={formData.privacyTaskType || ""}
+                onChange={(e) => updateField("privacyTaskType", e.target.value)}
+                className="w-full px-3 py-2 border rounded-md text-sm bg-white"
+              >
+                <option value="">请选择任务类型</option>
+                <option value="psi">隐私求交(PSI)</option>
+                <option value="pir">隐匿查询(PIR)</option>
+                <option value="stats">联合统计</option>
+                <option value="sql">联合SQL</option>
+                <option value="modeling">联合建模</option>
+              </select>
+            </div>
+          )}
+
+          {formData.devMethod === "secret" && (
+            <div className="space-y-2">
+              <Label>密态计算引擎 <span className="text-red-500">*</span></Label>
+              <div className="flex gap-2">
+                {["MPC引擎", "TEE环境", "同态加密"].map((engine) => (
+                  <Button
+                    key={engine}
+                    type="button"
+                    variant={formData.secretEngine === engine ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => updateField("secretEngine", engine)}
+                  >
+                    {engine}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>数据抽样需求 <span className="text-red-500">*</span></Label>
@@ -332,6 +396,22 @@ export default function SceneCreateWizard() {
         }
         if (!formData.productDesc) {
           toast.error("请输入数据产品描述");
+          return false;
+        }
+        if (!formData.devMethod) {
+          toast.error("请选择开发方式");
+          return false;
+        }
+        if (formData.devMethod === "sandbox" && !formData.sandboxType) {
+          toast.error("请选择沙箱类型");
+          return false;
+        }
+        if (formData.devMethod === "privacy" && !formData.privacyTaskType) {
+          toast.error("请选择隐私计算任务类型");
+          return false;
+        }
+        if (formData.devMethod === "secret" && !formData.secretEngine) {
+          toast.error("请选择密态计算引擎");
           return false;
         }
         if (!formData.samplingReq) {

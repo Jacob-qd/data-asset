@@ -32,20 +32,20 @@ interface DataProduct {
 const mockProducts: DataProduct[] = [
   {
     id: "PROD-001",
-    name: "乳腺癌筛查API",
-    provider: "济南大数据集团",
+    name: "医疗影像筛查API",
+    provider: "数据科技有限公司A",
     type: "API产品",
     industry: "医疗健康",
     price: "¥5000/月",
     rating: 4.8,
     downloads: 234,
-    description: "基于联邦学习的乳腺癌风险评分API，支持多方数据联合建模",
+    description: "基于联邦学习的医疗影像风险评分API，支持多方数据联合建模",
     tags: ["联邦学习", "医疗健康", "API"],
   },
   {
     id: "PROD-002",
     name: "城市治理分析报告",
-    provider: "济南大数据集团",
+    provider: "数据科技有限公司A",
     type: "数据报告",
     industry: "城市治理",
     price: "¥2000/份",
@@ -57,7 +57,7 @@ const mockProducts: DataProduct[] = [
   {
     id: "PROD-003",
     name: "气象数据服务",
-    provider: "济南大数据集团",
+    provider: "数据科技有限公司A",
     type: "数据集",
     industry: "气象服务",
     price: "¥1000/月",
@@ -69,7 +69,7 @@ const mockProducts: DataProduct[] = [
   {
     id: "PROD-004",
     name: "公积金缴存分析",
-    provider: "山东轨道集团",
+    provider: "轨道交通数据公司",
     type: "API产品",
     industry: "金融服务",
     price: "¥3000/月",
@@ -81,7 +81,7 @@ const mockProducts: DataProduct[] = [
   {
     id: "PROD-005",
     name: "车辆监管数据",
-    provider: "济南市大数据局",
+    provider: "城市数据管理局",
     type: "数据接口",
     industry: "交通运输",
     price: "免费",
@@ -93,7 +93,7 @@ const mockProducts: DataProduct[] = [
   {
     id: "PROD-006",
     name: "企业基本信息查询",
-    provider: "济南市大数据局",
+    provider: "城市数据管理局",
     type: "API产品",
     industry: "企业服务",
     price: "免费",

@@ -14,12 +14,12 @@ export interface PrivacyTask {
 export const mockPrivacyTasks: PrivacyTask[] = [
   {
     id: "TASK-PSI-001",
-    name: "乳腺癌诊疗数据求交",
-    projectName: "乳腺癌筛查模型",
+    name: "医疗影像诊疗数据求交",
+    projectName: "医疗影像筛查模型",
     taskType: "psi",
     participantStatus: "正常",
     status: "success",
-    createdBy: "济南大数据集团",
+    createdBy: "数据科技有限公司A",
     createdAt: "2026-04-24 10:00:00",
   },
   {
@@ -39,7 +39,7 @@ export const mockPrivacyTasks: PrivacyTask[] = [
     taskType: "stats",
     participantStatus: "正常",
     status: "running",
-    createdBy: "济南大数据集团",
+    createdBy: "数据科技有限公司A",
     createdAt: "2026-04-28 09:00:00",
   },
   {
@@ -49,19 +49,19 @@ export const mockPrivacyTasks: PrivacyTask[] = [
     taskType: "sql",
     participantStatus: "异常",
     status: "failed",
-    createdBy: "山东轨道集团",
+    createdBy: "轨道交通数据公司",
     createdAt: "2026-04-25 11:00:00",
   },
   {
     id: "TASK-FL-001",
-    name: "乳腺癌筛查模型V1",
-    projectName: "乳腺癌筛查模型",
+    name: "医疗影像筛查模型V1",
+    projectName: "医疗影像筛查模型",
     taskType: "modeling",
     businessTag: "医疗",
     algorithmType: "纵向逻辑回归",
     participantStatus: "正常",
     status: "success",
-    createdBy: "济南大数据集团",
+    createdBy: "数据科技有限公司A",
     createdAt: "2026-04-20 16:00:00",
   },
   {

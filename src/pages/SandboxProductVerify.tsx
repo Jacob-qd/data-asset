@@ -23,8 +23,8 @@ interface SandboxProduct {
 const mockProducts: SandboxProduct[] = [
   {
     id: "VERIFY-001",
-    name: "乳腺癌筛查模型",
-    sceneName: "乳腺癌筛查场景",
+    name: "医疗影像筛查模型",
+    sceneName: "医疗影像筛查场景",
     envType: "隐私计算",
     submitTime: "2026-04-28 10:00:00",
     status: "pending",

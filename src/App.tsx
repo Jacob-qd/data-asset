@@ -62,6 +62,7 @@ import DataSourceManage from "./pages/DataSourceManage";
 
 // 数据产品
 import DataProductPortal from "./pages/DataProductPortal";
+import DataCart from "./pages/DataCart";
 
 // 审批中心
 import ResourceApproval from "./pages/ResourceApproval";
@@ -150,6 +151,7 @@ export default function App() {
 
         {/* 数据产品 */}
         <Route path="/product-portal" element={<Layout><DataProductPortal /></Layout>} />
+        <Route path="/data-cart" element={<Layout><DataCart /></Layout>} />
 
         {/* 审批中心 */}
         <Route path="/privacy/approval/resources" element={<Layout><ResourceApproval /></Layout>} />

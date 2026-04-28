@@ -259,7 +259,7 @@ export default function ModelEvaluation() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold">模型评估详情</h1>
-            <p className="text-sm text-gray-500">模型ID: {modelId || "MODEL-001"} | 乳腺癌筛查模型V1</p>
+            <p className="text-sm text-gray-500">模型ID: {modelId || "MODEL-001"} | 医疗影像筛查模型V1</p>
           </div>
         </div>
         <Button variant="outline" size="sm">

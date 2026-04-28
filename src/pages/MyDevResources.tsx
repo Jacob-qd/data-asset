@@ -29,10 +29,12 @@ import { toast } from "sonner";
 export default function MyDevResources() {
   const [envs, setEnvs] = useState<SandboxEnv[]>(mockSandboxEnvs);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
   const [selectedEnv, setSelectedEnv] = useState<SandboxEnv | null>(null);
+  const [sampleDialogOpen, setSampleDialogOpen] = useState(false);
   const [sampleMethod, setSampleMethod] = useState("random");
   const [sampleCount, setSampleCount] = useState("1000");
+  const [changeDialogOpen, setChangeDialogOpen] = useState(false);
+  const [changeConfig, setChangeConfig] = useState({ cpu: "2", memory: "2", storage: "2" });
 
   const filteredEnvs = envs.filter((e) =>
     e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -46,6 +48,26 @@ export default function MyDevResources() {
   const handleRelease = (id: string) => {
     setEnvs(envs.map((e) => e.id === id ? { ...e, runStatus: "已关闭" } : e));
     toast.success("空间已释放");
+  };
+
+  const handleOpenChangeDialog = (env: SandboxEnv) => {
+    setSelectedEnv(env);
+    const config = env.envConfig.split(" | ");
+    setChangeConfig({
+      cpu: config[0]?.replace("C", "") || "2",
+      memory: config[1]?.replace("GB", "") || "2",
+      storage: config[2]?.replace("GB", "") || "2",
+    });
+    setChangeDialogOpen(true);
+  };
+
+  const handleChangeConfig = () => {
+    if (selectedEnv) {
+      const newConfig = `${changeConfig.cpu}C | ${changeConfig.memory}GB | ${changeConfig.storage}GB`;
+      setEnvs(envs.map((e) => e.id === selectedEnv.id ? { ...e, envConfig: newConfig } : e));
+      toast.success(`已更新 ${selectedEnv.name} 的资源配置`);
+      setChangeDialogOpen(false);
+    }
   };
 
   const handleOpenSampleDialog = (env: SandboxEnv) => {
@@ -137,7 +159,7 @@ export default function MyDevResources() {
             <Clock className="w-4 h-4" />
             延期
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => handleOpenChangeDialog(row)}>
             <Settings className="w-4 h-4" />
             变更
           </Button>
@@ -224,6 +246,72 @@ export default function MyDevResources() {
             <Button onClick={handleExtractSample}>
               <Database className="w-4 h-4 mr-2" />
               开始抽取
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 变更资源配置对话框 */}
+      <Dialog open={changeDialogOpen} onOpenChange={setChangeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>变更资源配置</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>开发空间</Label>
+              <div className="text-sm font-medium">{selectedEnv?.name}</div>
+            </div>
+            <div className="space-y-2">
+              <Label>CPU 核心数</Label>
+              <Select value={changeConfig.cpu} onValueChange={(v) => setChangeConfig({ ...changeConfig, cpu: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择CPU" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 核</SelectItem>
+                  <SelectItem value="2">2 核</SelectItem>
+                  <SelectItem value="4">4 核</SelectItem>
+                  <SelectItem value="8">8 核</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>内存大小</Label>
+              <Select value={changeConfig.memory} onValueChange={(v) => setChangeConfig({ ...changeConfig, memory: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择内存" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 GB</SelectItem>
+                  <SelectItem value="2">2 GB</SelectItem>
+                  <SelectItem value="4">4 GB</SelectItem>
+                  <SelectItem value="8">8 GB</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>存储空间</Label>
+              <Select value={changeConfig.storage} onValueChange={(v) => setChangeConfig({ ...changeConfig, storage: v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="选择存储" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 GB</SelectItem>
+                  <SelectItem value="5">5 GB</SelectItem>
+                  <SelectItem value="10">10 GB</SelectItem>
+                  <SelectItem value="20">20 GB</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setChangeDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleChangeConfig}>
+              <Settings className="w-4 h-4 mr-2" />
+              确认变更
             </Button>
           </DialogFooter>
         </DialogContent>

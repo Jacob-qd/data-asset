@@ -23,7 +23,7 @@ interface Model {
 const mockModels: Model[] = [
   {
     id: "MODEL-001",
-    name: "乳腺癌筛查模型V1",
+    name: "医疗影像筛查模型V1",
     type: "纵向逻辑回归",
     createdAt: "2026-04-26 10:33:48",
     deployStatus: "deployed",
@@ -39,7 +39,7 @@ const mockModels: Model[] = [
   },
   {
     id: "MODEL-003",
-    name: "乳腺癌筛查模型V1.1",
+    name: "医疗影像筛查模型V1.1",
     type: "纵向逻辑回归",
     createdAt: "2026-04-26 16:21:34",
     deployStatus: "undeployed",

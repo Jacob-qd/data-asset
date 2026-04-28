@@ -62,6 +62,13 @@ export default function PrivacyTaskCenter() {
     toast.success("任务已冻结");
   };
 
+  const handleSaveAsTemplate = (task: PrivacyTask) => {
+    const templateName = prompt("请输入模板名称:", `${task.name}-模板`);
+    if (templateName) {
+      toast.success(`任务"${task.name}"已另存为模板"${templateName}"`);
+    }
+  };
+
   const statusMap: Record<string, { label: string; color: string }> = {
     success: { label: "执行成功", color: "green" },
     running: { label: "执行中", color: "blue" },
@@ -113,7 +120,7 @@ export default function PrivacyTaskCenter() {
           <Button variant="ghost" size="sm" onClick={() => navigate(`/privacy/tasks/execution/${row.id}`)}>
             <History className="w-4 h-4" />
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={() => handleSaveAsTemplate(row)}>
             <Save className="w-4 h-4" />
           </Button>
           <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(row.id)}>

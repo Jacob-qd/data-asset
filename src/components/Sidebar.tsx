@@ -47,6 +47,7 @@ const menuStructure = [
     icon: <Database className="w-5 h-5" />,
     children: [
       { label: "资源目录", icon: <BookOpen className="w-4 h-4" />, path: "/resources" },
+      { label: "选数车", icon: <ShoppingCart className="w-4 h-4" />, path: "/data-cart" },
       { label: "数据产品管理", icon: <Package className="w-4 h-4" />, path: "/products" },
       { label: "资产账户", icon: <Landmark className="w-4 h-4" />, path: "/accounts" },
       { label: "资产运营", icon: <TrendingUp className="w-4 h-4" />, path: "/reports" },
