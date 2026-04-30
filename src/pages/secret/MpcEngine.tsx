@@ -2,16 +2,18 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  CircuitBoard, Play, Pause, Search, Plus,
+  CircuitBoard, Play, Pause, Plus,
   CheckCircle2, AlertTriangle, Activity, Zap,
-  Eye, Pencil, Trash2, Shield, FileCode, Layers,
+  Shield, FileCode, Layers,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -343,15 +345,14 @@ export default function MpcEngine() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">密码协议引擎</h1>
-          <p className="text-sm text-gray-500 mt-1">MPC协议配置、电路管理、秘密共享与预处理</p>
-        </div>
-        <Button variant="outline" className="gap-2" onClick={() => openDialog("protocol", "create")}>
-          <Plus className="w-4 h-4" />添加协议
-        </Button>
-      </div>
+      <PageHeader
+        title="密码协议引擎"
+        actions={
+          <Button variant="outline" className="gap-2" onClick={() => openDialog("protocol", "create")}>
+            <Plus className="w-4 h-4" />添加协议
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -381,10 +382,7 @@ export default function MpcEngine() {
         </TabsList>
 
         <TabsContent value="protocols" className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="搜索协议..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <PageSearchBar value={search} onChange={setSearch} placeholder="搜索协议..." onReset={() => setSearch("")} />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">协议实例</CardTitle></CardHeader>
             <CardContent>
@@ -407,14 +405,12 @@ export default function MpcEngine() {
                       <TableCell>{p.latency}</TableCell>
                       <TableCell>{p.throughput}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("protocol", p)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("protocol", "edit", p)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleProtocolStatus(p.id)}>
-                            {p.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("protocol", "delete", p)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("protocol", p)),
+                          createEditAction(() => openDialog("protocol", "edit", p)),
+                          { key: "toggle", icon: p.status === "active" ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />, label: p.status === "active" ? "暂停" : "启动", onClick: () => toggleProtocolStatus(p.id) },
+                          createDeleteAction(() => openDialog("protocol", "delete", p)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -425,13 +421,9 @@ export default function MpcEngine() {
         </TabsContent>
 
         <TabsContent value="circuits" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索电路..." className="pl-9" value={circuitSearch} onChange={e => setCircuitSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={circuitSearch} onChange={setCircuitSearch} placeholder="搜索电路..." onReset={() => setCircuitSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("circuit", "create")}><Plus className="w-4 h-4" />新建电路</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">电路库</CardTitle></CardHeader>
             <CardContent>
@@ -452,11 +444,11 @@ export default function MpcEngine() {
                       <TableCell>{c.protocol}</TableCell>
                       <TableCell>{c.status === "optimized" ? <Badge className="bg-green-50 text-green-700 gap-1"><CheckCircle2 className="w-3 h-3" />已优化</Badge> : c.status === "review" ? <Badge className="bg-amber-50 text-amber-700 gap-1"><AlertTriangle className="w-3 h-3" />待审</Badge> : <Badge className="bg-gray-50 text-gray-700">已废弃</Badge>}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("circuit", c)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("circuit", "edit", c)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("circuit", "delete", c)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("circuit", c)),
+                          createEditAction(() => openDialog("circuit", "edit", c)),
+                          createDeleteAction(() => openDialog("circuit", "delete", c)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -467,13 +459,9 @@ export default function MpcEngine() {
         </TabsContent>
 
         <TabsContent value="shares" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索共享..." className="pl-9" value={shareSearch} onChange={e => setShareSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={shareSearch} onChange={setShareSearch} placeholder="搜索共享..." onReset={() => setShareSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("share", "create")}><Plus className="w-4 h-4" />新建共享</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">秘密共享</CardTitle></CardHeader>
             <CardContent>
@@ -494,10 +482,10 @@ export default function MpcEngine() {
                       <TableCell>{s.status === "active" ? <Badge className="bg-green-50 text-green-700">有效</Badge> : <Badge className="bg-red-50 text-red-700">已吊销</Badge>}</TableCell>
                       <TableCell className="text-xs text-gray-500">{s.created}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("share", s)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("share", "delete", s)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("share", s)),
+                          createDeleteAction(() => openDialog("share", "delete", s)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -508,13 +496,9 @@ export default function MpcEngine() {
         </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索任务..." className="pl-9" value={taskSearch} onChange={e => setTaskSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={taskSearch} onChange={setTaskSearch} placeholder="搜索任务..." onReset={() => setTaskSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("task", "create")}><Plus className="w-4 h-4" />新建任务</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">预处理任务</CardTitle></CardHeader>
             <CardContent>
@@ -536,10 +520,10 @@ export default function MpcEngine() {
                       <TableCell>{t.progress}%</TableCell>
                       <TableCell className="text-xs text-gray-500">{t.created}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("task", t)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("task", "delete", t)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("task", t)),
+                          createDeleteAction(() => openDialog("task", "delete", t)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}

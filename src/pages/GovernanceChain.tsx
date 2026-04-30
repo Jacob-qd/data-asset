@@ -6,6 +6,9 @@ import {
   Play, Check, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction } from "@/components/ActionButtons";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -324,23 +327,23 @@ export default function GovernanceChain() {
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">治理链</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">链上治理提案管理，支持投票表决与参数升级</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => setTemplateOpen(true)}>
-            <Copy className="w-4 h-4" /> 模板库
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={() => setDelegateOpen(true)}>
-            <UserCheck className="w-4 h-4" /> 委托投票
-          </Button>
-          <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4" /> 发起提案
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="治理链"
+        actions={
+          <>
+            <Button variant="outline" className="gap-2" onClick={() => setTemplateOpen(true)}>
+              <Copy className="w-4 h-4" /> 模板库
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={() => setDelegateOpen(true)}>
+              <UserCheck className="w-4 h-4" /> 委托投票
+            </Button>
+            <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4" /> 发起提案
+            </Button>
+          </>
+        }
+      />
+      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">链上治理提案管理，支持投票表决与参数升级</p>
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
@@ -368,10 +371,12 @@ export default function GovernanceChain() {
 
         {/* Proposals Tab */}
         <TabsContent value="proposals" className="mt-4 space-y-4">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input placeholder="搜索提案/类型" value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
-          </div>
+          <PageSearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="搜索提案/类型"
+            onReset={() => setSearch("")}
+          />
 
           <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-[#1e293b]">
             <table className="w-full text-sm">
@@ -402,9 +407,7 @@ export default function GovernanceChain() {
                             <Vote className="w-4 h-4 text-blue-500" />
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => setDetailProp(prop)} title="详情">
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
+                        <ActionButtons buttons={[createViewAction(() => setDetailProp(prop))]} />
                       </div>
                     </td>
                   </tr>

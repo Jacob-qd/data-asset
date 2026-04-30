@@ -1,216 +1,173 @@
 import { useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DataTable from "@/components/DataTable";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Search,
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  Pause,
-  History,
-  Save,
-  Play,
-  Settings,
+  ArrowRight, BarChart3, BrainCircuit,
+  Eye as EyeIcon, Search as SearchIcon, Terminal, Database,
 } from "lucide-react";
-import { mockPrivacyTasks, taskTypeLabels, type PrivacyTask } from "@/data/mock/privacy-tasks";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons from "@/components/ActionButtons";
+import {
+  mockPrivacyTasks, taskTypeLabels, taskTypePaths, statusMap, type PrivacyTask,
+} from "@/data/mock/privacy-tasks";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-
-const taskTypes = [
-  { key: "psi", label: "隐私求交", icon: "🔒" },
-  { key: "pir", label: "隐匿查询", icon: "🔍" },
-  { key: "stats", label: "联合统计", icon: "📊" },
-  { key: "sql", label: "联合SQL", icon: "🗄️" },
-  { key: "modeling", label: "联合建模", icon: "🧠" },
-];
-
-const tabs = [
-  { key: "created", label: "我创建的" },
-  { key: "joined", label: "我参与的" },
-  { key: "executable", label: "可执行的" },
-  { key: "history", label: "执行历史" },
-];
 
 export default function PrivacyTaskCenter() {
   const navigate = useNavigate();
-  const { type } = useParams();
-  const [tasks, setTasks] = useState<PrivacyTask[]>(mockPrivacyTasks);
-  const [activeType, setActiveType] = useState(type || "modeling");
-  const [activeTab, setActiveTab] = useState("created");
   const [searchTerm, setSearchTerm] = useState("");
 
-  const currentType = taskTypes.find((t) => t.key === activeType) || taskTypes[4];
+  const typeStats = [
+    { type: "psi", label: "隐私求交", count: mockPrivacyTasks.filter((t) => t.taskType === "psi").length, icon: <EyeIcon className="w-5 h-5" />, color: "bg-blue-50 text-blue-700 border-blue-200" },
+    { type: "pir", label: "隐匿查询", count: mockPrivacyTasks.filter((t) => t.taskType === "pir").length, icon: <SearchIcon className="w-5 h-5" />, color: "bg-green-50 text-green-700 border-green-200" },
+    { type: "stats", label: "联合统计", count: mockPrivacyTasks.filter((t) => t.taskType === "stats").length, icon: <BarChart3 className="w-5 h-5" />, color: "bg-purple-50 text-purple-700 border-purple-200" },
+    { type: "sql", label: "联合SQL", count: mockPrivacyTasks.filter((t) => t.taskType === "sql").length, icon: <Terminal className="w-5 h-5" />, color: "bg-amber-50 text-amber-700 border-amber-200" },
+    { type: "modeling", label: "联合建模", count: mockPrivacyTasks.filter((t) => t.taskType === "modeling").length, icon: <BrainCircuit className="w-5 h-5" />, color: "bg-rose-50 text-rose-700 border-rose-200" },
+  ];
 
-  const filteredTasks = tasks.filter((t) => {
-    const matchType = t.taskType === activeType;
-    const matchSearch = t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.projectName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchType && matchSearch;
-  });
+  const totalTasks = mockPrivacyTasks.length;
+  const runningTasks = mockPrivacyTasks.filter((t) => t.status === "running").length;
+  const successTasks = mockPrivacyTasks.filter((t) => t.status === "success").length;
+  const failedTasks = mockPrivacyTasks.filter((t) => t.status === "failed").length;
 
-  const handleDelete = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
-    toast.success("任务已删除");
-  };
+  const recentTasks = [...mockPrivacyTasks]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 8);
 
-  const handleFreeze = (id: string) => {
-    toast.success("任务已冻结");
-  };
-
-  const handleSaveAsTemplate = (task: PrivacyTask) => {
-    const templateName = prompt("请输入模板名称:", `${task.name}-模板`);
-    if (templateName) {
-      toast.success(`任务"${task.name}"已另存为模板"${templateName}"`);
-    }
-  };
-
-  const statusMap: Record<string, { label: string; color: string }> = {
-    success: { label: "执行成功", color: "green" },
-    running: { label: "执行中", color: "blue" },
-    failed: { label: "执行失败", color: "red" },
-    pending: { label: "待执行", color: "yellow" },
-  };
+  const filteredRecent = recentTasks.filter((t) =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.projectName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   const columns = [
-    { key: "index", title: "序号", width: "w-20", render: (_row: PrivacyTask, index: number) => index + 1 },
+    { key: "index", title: "序号", width: "w-16", render: (_row: PrivacyTask, index: number) => index + 1 },
     {
-      key: "name",
-      title: "任务名称",
+      key: "name", title: "任务名称",
       render: (row: PrivacyTask) => (
-        <span className="text-indigo-600 cursor-pointer hover:underline">{row.name}</span>
+        <span className="text-indigo-600 font-medium">{row.name}</span>
       ),
     },
     {
-      key: "businessTag",
-      title: "业务标签",
-      render: (row: PrivacyTask) => row.businessTag ? <Badge variant="secondary">{row.businessTag}</Badge> : "--",
-    },
-    {
-      key: "algorithmType",
-      title: "算法类型",
-      render: (row: PrivacyTask) => row.algorithmType || "--",
-    },
-    {
-      key: "participantStatus",
-      title: "参与状态",
+      key: "taskType", title: "任务类型",
       render: (row: PrivacyTask) => (
-        <div className="flex items-center gap-1">
-          <div className={cn("w-2 h-2 rounded-full", row.participantStatus === "正常" ? "bg-green-500" : "bg-red-500")} />
-          <span>{row.participantStatus}</span>
-        </div>
+        <Badge variant="outline" className="text-xs">{taskTypeLabels[row.taskType] || row.taskType}</Badge>
       ),
     },
     {
-      key: "actions",
-      title: "操作",
-      width: "w-48",
+      key: "status", title: "状态",
+      render: (row: PrivacyTask) => {
+        const s = statusMap[row.status];
+        return (
+          <Badge variant={s?.color === "green" ? "default" : s?.color === "red" ? "destructive" : "secondary"}
+            className={cn(s?.color === "blue" && "bg-blue-100 text-blue-700", s?.color === "yellow" && "bg-yellow-100 text-yellow-700")}>
+            {s?.label || row.status}
+          </Badge>
+        );
+      },
+    },
+    { key: "createdBy", title: "创建人", render: (row: PrivacyTask) => <span className="text-sm">{row.createdBy}</span> },
+    { key: "createdAt", title: "创建时间", render: (row: PrivacyTask) => <span className="text-gray-500 text-sm">{row.createdAt}</span> },
+    {
+      key: "actions", title: "操作", width: "w-24",
       render: (row: PrivacyTask) => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm">
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleFreeze(row.id)}>
-            <Pause className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/privacy/tasks/execution/${row.id}`)}>
-            <History className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => handleSaveAsTemplate(row)}>
-            <Save className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm" className="text-red-600" onClick={() => handleDelete(row.id)}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
+        <ActionButtons buttons={[
+          { key: "enter", icon: <ArrowRight className="w-4 h-4" />, label: "进入", onClick: () => navigate(taskTypePaths[row.taskType]) },
+        ]} />
       ),
     },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">隐私计算任务中心</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm">
-            <Settings className="w-4 h-4 mr-1" />
-            模板管理
+    <div className="space-y-6">
+      <PageHeader
+        title="隐私计算任务中心"
+        actions={
+          <Button variant="outline" size="sm" onClick={() => navigate("/privacy/models")}>
+            <Database className="w-4 h-4 mr-2" />模型管理
           </Button>
-          <Button onClick={() => toast.info("新建任务功能开发中")}>
-            <Plus className="w-4 h-4 mr-2" />
-            新建任务
-          </Button>
-        </div>
-      </div>
-
-      {/* Task Type Selector */}
-      <div className="flex gap-2 bg-white p-2 rounded-lg border">
-        {taskTypes.map((t) => (
-          <Button
-            key={t.key}
-            variant={activeType === t.key ? "default" : "ghost"}
-            size="sm"
-            className={cn(
-              "flex-1",
-              activeType === t.key && "bg-indigo-600 hover:bg-indigo-700"
-            )}
-            onClick={() => {
-              setActiveType(t.key);
-              navigate(`/privacy/tasks/${t.key}`);
-            }}
-          >
-            <span className="mr-1">{t.icon}</span>
-            {t.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Sub Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          {tabs.map((tab) => (
-            <TabsTrigger key={tab.key} value={tab.key}>{tab.label}</TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {/* Filter Bar */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg border">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="搜索任务名称或ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline" size="sm">查询</Button>
-        <Button variant="ghost" size="sm">重置</Button>
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => toast.info("批量删除功能开发中")}>
-            批量删除
-          </Button>
-        </div>
-        <Button variant="ghost" size="sm" onClick={() => window.location.reload()}>
-          🔄
-        </Button>
-      </div>
-
-      {/* Data Table */}
-      <DataTable
-        data={filteredTasks}
-        columns={columns}
-        rowKey={(row) => row.id}
+        }
       />
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="border-l-4 border-l-indigo-500">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{totalTasks}</div>
+            <div className="text-sm text-gray-500">总任务数</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-blue-500">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{runningTasks}</div>
+            <div className="text-sm text-gray-500">执行中</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-green-500">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{successTasks}</div>
+            <div className="text-sm text-gray-500">执行成功</div>
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-red-500">
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{failedTasks}</div>
+            <div className="text-sm text-gray-500">执行失败</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Access */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">快速入口</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-5 gap-3">
+            {typeStats.map((stat) => (
+              <button
+                key={stat.type}
+                onClick={() => navigate(taskTypePaths[stat.type])}
+                className={cn(
+                  "flex flex-col items-center gap-2 p-4 rounded-lg border transition-all hover:shadow-md",
+                  stat.color
+                )}
+              >
+                {stat.icon}
+                <span className="font-medium text-sm">{stat.label}</span>
+                <span className="text-xs opacity-70">{stat.count} 个任务</span>
+                <div className="flex items-center gap-1 text-xs mt-1">
+                  <span>进入</span>
+                  <ArrowRight className="w-3 h-3" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Tasks */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">最近任务</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PageSearchBar
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="搜索任务名称..."
+            onReset={() => setSearchTerm("")}
+          />
+          <DataTable
+            data={filteredRecent}
+            columns={columns}
+            rowKey={(row) => row.id}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

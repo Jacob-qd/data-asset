@@ -9,11 +9,14 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Key, Shield, Plus, Search, Download, Upload, RefreshCw, Lock,
-  Unlock, Clock, CheckCircle2, AlertTriangle, Eye, Pencil, Trash2,
+  Key, Shield, Plus, Download, Upload, RefreshCw, Lock,
+  Unlock, Clock, CheckCircle2, AlertTriangle, Trash2,
   Ban, FileX, History, Wand2, Import, Users, RotateCcw, Archive,
   ChevronRight, ChevronLeft, FileUp, Check,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -665,23 +668,22 @@ export default function SecretKeys() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">密钥与证书</h1>
-          <p className="text-sm text-gray-500 mt-1">密钥生命周期、证书管理、吊销列表</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={openImport}>
-            <Import className="w-4 h-4" />导入密钥
-          </Button>
-          <Button variant="outline" className="gap-2" onClick={openWizard}>
-            <Wand2 className="w-4 h-4" />生成密钥
-          </Button>
-          <Button className="gap-2" onClick={() => openDialog("key", "create")}>
-            <Plus className="w-4 h-4" />新建密钥
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="密钥与证书"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={openImport}>
+              <Import className="w-4 h-4" />导入密钥
+            </Button>
+            <Button variant="outline" className="gap-2" onClick={openWizard}>
+              <Wand2 className="w-4 h-4" />生成密钥
+            </Button>
+            <Button className="gap-2" onClick={() => openDialog("key", "create")}>
+              <Plus className="w-4 h-4" />新建密钥
+            </Button>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -713,17 +715,13 @@ export default function SecretKeys() {
         </TabsList>
 
         <TabsContent value="keys" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索密钥..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-            </div>
-            {selectedKeys.size > 0 && (
+          <PageSearchBar value={searchQuery} onChange={setSearchQuery} placeholder="搜索密钥..." onReset={() => setSearchQuery("")} extraFilters={
+            selectedKeys.size > 0 && (
               <Button variant="outline" className="gap-2" onClick={batchBackup}>
                 <Archive className="w-4 h-4" />批量备份 ({selectedKeys.size})
               </Button>
-            )}
-          </div>
+            )
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">密钥列表</CardTitle></CardHeader>
             <CardContent>
@@ -762,19 +760,17 @@ export default function SecretKeys() {
                       <TableCell className="text-xs text-gray-500">{key.created}</TableCell>
                       <TableCell className="text-xs text-gray-500">{key.expires}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("key", key)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("key", "edit", key)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => backupKey(key)}><Download className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openPermissions(key.id)}><Users className="w-4 h-4" /></Button>
-                          {key.status === "active" && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => disableKey(key.id)}><Ban className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => revokeKey(key.id)}><FileX className="w-4 h-4" /></Button>
-                            </>
-                          )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("key", "delete", key)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("key", key)),
+                          createEditAction(() => openDialog("key", "edit", key)),
+                          { key: "backup", icon: <Download className="w-4 h-4" />, label: "备份", onClick: () => backupKey(key) },
+                          { key: "permissions", icon: <Users className="w-4 h-4" />, label: "权限", onClick: () => openPermissions(key.id) },
+                          ...(key.status === "active" ? [
+                            { key: "disable", icon: <Ban className="w-4 h-4" />, label: "禁用", className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50", onClick: () => disableKey(key.id) },
+                            { key: "revoke", icon: <FileX className="w-4 h-4" />, label: "吊销", className: "text-red-500 hover:text-red-600 hover:bg-red-50", onClick: () => revokeKey(key.id) },
+                          ] : []),
+                          createDeleteAction(() => openDialog("key", "delete", key)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -785,13 +781,9 @@ export default function SecretKeys() {
         </TabsContent>
 
         <TabsContent value="certs" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索证书..." className="pl-9" value={certSearch} onChange={(e) => setCertSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={certSearch} onChange={setCertSearch} placeholder="搜索证书..." onReset={() => setCertSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("cert", "create")}><Plus className="w-4 h-4" />申请证书</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">证书列表</CardTitle></CardHeader>
             <CardContent>
@@ -818,12 +810,12 @@ export default function SecretKeys() {
                         {cert.status === "revoked" && <Badge className="bg-red-50 text-red-700 border-red-200 gap-1"><AlertTriangle className="w-3 h-3" />已吊销</Badge>}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("cert", cert)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("cert", "edit", cert)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { navigator.clipboard.writeText(cert.serial); }}><Download className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("cert", "delete", cert)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("cert", cert)),
+                          createEditAction(() => openDialog("cert", "edit", cert)),
+                          { key: "copy", icon: <Download className="w-4 h-4" />, label: "复制序列号", onClick: () => { navigator.clipboard.writeText(cert.serial); } },
+                          createDeleteAction(() => openDialog("cert", "delete", cert)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -854,7 +846,7 @@ export default function SecretKeys() {
                       <TableCell className="text-xs text-gray-500">{entry.revokedAt}</TableCell>
                       <TableCell>{entry.revokedBy}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("crl", entry)}><Eye className="w-4 h-4" /></Button>
+                        <ActionButtons buttons={[createViewAction(() => openDrawer("crl", entry))]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -886,7 +878,7 @@ export default function SecretKeys() {
                       <TableCell className="text-xs text-gray-500">{item.timestamp}</TableCell>
                       <TableCell>{item.operator}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("lifecycle", item)}><Eye className="w-4 h-4" /></Button>
+                        <ActionButtons buttons={[createViewAction(() => openDrawer("lifecycle", item))]} />
                       </TableCell>
                     </TableRow>
                   ))}

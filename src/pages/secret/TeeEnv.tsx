@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import {
-  Shield, ShieldCheck, Search, Plus, CheckCircle2, AlertTriangle, Server, Lock,
-  Play, Square, RotateCcw, Eye, Pencil, Trash2, Settings, FileCheck,
+  Shield, ShieldCheck, Plus, CheckCircle2, AlertTriangle, Server, Lock,
+  Play, Square, RotateCcw, Settings, FileCheck,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -237,13 +239,12 @@ export default function TeeEnv() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">可信执行环境(TEE)</h1>
-          <p className="text-sm text-gray-500 mt-1">TEE环境配置、远程证明与安全飞地管理</p>
-        </div>
-        <Button className="gap-2" onClick={() => openDialog("enclave", "create")}><Plus className="w-4 h-4" />注册飞地</Button>
-      </div>
+      <PageHeader
+        title="可信执行环境(TEE)"
+        actions={
+          <Button className="gap-2" onClick={() => openDialog("enclave", "create")}><Plus className="w-4 h-4" />注册飞地</Button>
+        }
+      />
 
       <div className="grid grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -272,10 +273,7 @@ export default function TeeEnv() {
         </TabsList>
 
         <TabsContent value="enclaves" className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="搜索飞地..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <PageSearchBar value={search} onChange={setSearch} placeholder="搜索飞地..." onReset={() => setSearch("")} />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">安全飞地列表</CardTitle></CardHeader>
             <CardContent>
@@ -299,20 +297,16 @@ export default function TeeEnv() {
                       <TableCell className="text-xs text-gray-500">{e.uptime}</TableCell>
                       <TableCell>{e.tasks}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("enclave", e)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("enclave", "edit", e)}><Pencil className="w-4 h-4" /></Button>
-                          {e.status !== "running" && (
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => toggleEnclaveStatus(e.id, "start")}><Play className="w-4 h-4" /></Button>
-                          )}
-                          {e.status === "running" && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={() => toggleEnclaveStatus(e.id, "restart")}><RotateCcw className="w-4 h-4" /></Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => toggleEnclaveStatus(e.id, "stop")}><Square className="w-4 h-4" /></Button>
-                            </>
-                          )}
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("enclave", "delete", e)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("enclave", e)),
+                          createEditAction(() => openDialog("enclave", "edit", e)),
+                          ...(e.status !== "running" ? [{ key: "start", icon: <Play className="w-4 h-4 text-green-600" />, label: "启动", className: "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => toggleEnclaveStatus(e.id, "start") }] : []),
+                          ...(e.status === "running" ? [
+                            { key: "restart", icon: <RotateCcw className="w-4 h-4 text-amber-600" />, label: "重启", className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50", onClick: () => toggleEnclaveStatus(e.id, "restart") },
+                            { key: "stop", icon: <Square className="w-4 h-4 text-red-600" />, label: "停止", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => toggleEnclaveStatus(e.id, "stop") },
+                          ] : []),
+                          createDeleteAction(() => openDialog("enclave", "delete", e)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -353,7 +347,7 @@ export default function TeeEnv() {
                       <TableCell className="text-xs text-gray-500">{a.time}</TableCell>
                       <TableCell className="font-mono text-xs">{a.quote}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("attestation", a)}><Eye className="w-4 h-4" /></Button>
+                        <ActionButtons buttons={[createViewAction(() => openDrawer("attestation", a))]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -364,13 +358,9 @@ export default function TeeEnv() {
         </TabsContent>
 
         <TabsContent value="configs" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索配置..." className="pl-9" value={configSearch} onChange={e => setConfigSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={configSearch} onChange={setConfigSearch} placeholder="搜索配置..." onReset={() => setConfigSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("config", "create")}><Plus className="w-4 h-4" />添加配置</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">TEE配置列表</CardTitle></CardHeader>
             <CardContent>
@@ -390,11 +380,11 @@ export default function TeeEnv() {
                       <TableCell className="font-mono text-xs">{c.value}</TableCell>
                       <TableCell className="text-xs text-gray-500">{c.description}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("config", c)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("config", "edit", c)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("config", "delete", c)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("config", c)),
+                          createEditAction(() => openDialog("config", "edit", c)),
+                          createDeleteAction(() => openDialog("config", "delete", c)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}

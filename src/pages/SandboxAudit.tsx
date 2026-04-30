@@ -10,9 +10,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Search, Eye, Download, ClipboardList, ShieldCheck, AlertTriangle,
-  CheckCircle2, XCircle, UserCheck, FileText, Clock, Filter,
+  Eye, Download, ClipboardList, ShieldCheck, AlertTriangle,
+  CheckCircle2, XCircle, UserCheck, FileText, Clock,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons from "@/components/ActionButtons";
 
 const auditLogs = [
   { id: "AUD-001", action: "模型提交审查", target: "信用评分模型_v2.1", user: "李四", result: "成功", time: "2024-04-15 10:00:12", ip: "192.168.1.100", detail: "提交模型文件至审查队列，等待审核员A审批" },
@@ -43,20 +46,20 @@ export default function SandboxAudit() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">沙箱审计</h1>
-          <p className="text-sm text-gray-500 mt-1">操作审计、合规检查与安全追溯</p>
-        </div>
-        <Button variant="outline" className="gap-2"><Download className="w-4 h-4" />导出审计报告</Button>
-      </div>
+      <PageHeader
+        title="沙箱审计"
+        actions={
+          <Button variant="outline" className="gap-2"><Download className="w-4 h-4" />导出审计报告</Button>
+        }
+      />
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input placeholder="搜索审计日志..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索审计日志..."
+        onReset={() => setSearch("")}
+        className="max-w-sm"
+      />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">审计日志</CardTitle></CardHeader>
@@ -86,10 +89,12 @@ export default function SandboxAudit() {
                   </TableCell>
                   <TableCell className="text-xs text-gray-500">{log.time}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleView(log)}><Eye className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="w-4 h-4" /></Button>
-                    </div>
+                    <ActionButtons
+                      buttons={[
+                        { key: "view", icon: <Eye className="w-4 h-4" />, label: "查看", onClick: () => handleView(log) },
+                        { key: "download", icon: <Download className="w-4 h-4" />, label: "下载", onClick: () => {} },
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

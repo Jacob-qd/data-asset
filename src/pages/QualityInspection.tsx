@@ -7,6 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction } from "@/components/ActionButtons";
 import {
   ChevronRight, Search, ShieldCheck, CheckCircle, XCircle, Eye, Ban, Clock, BarChart3, AlertTriangle, FileCheck, Play,
 } from "lucide-react";
@@ -44,12 +47,10 @@ export default function QualityInspection() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">质检审核</h1>
-          <p className="text-sm text-gray-500 mt-1.5">对抽样数据进行人工质检审核，支持通过/不通过判定</p>
-        </div>
-      </div>
+      <PageHeader
+        title="质检审核"
+        badge={`${inspectItems.length} 个任务`}
+      />
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-gray-500">质检任务</p><p className="text-lg font-bold">{inspectItems.length}</p></div></CardContent></Card>
@@ -66,9 +67,14 @@ export default function QualityInspection() {
         </TabsList>
 
         <TabsContent value="pending" className="mt-4">
-          <div className="flex gap-3 mb-4">
-            <Input placeholder="搜索任务名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-gray-50 border-gray-200 rounded-lg text-sm" />
-          </div>
+          <PageSearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="搜索任务名称或ID..."
+            onSearch={() => {}}
+            onReset={() => setSearch("")}
+            className="mb-4"
+          />
           <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <Table className="unified-table">
               <TableHeader>
@@ -90,7 +96,11 @@ export default function QualityInspection() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500 max-w-[200px] truncate">{item.details}</TableCell>
                     <TableCell className="py-3.5 px-4">
                       <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}><Eye className="w-4 h-4" /></Button>
+                        <ActionButtons
+                          buttons={[
+                            createViewAction(() => setDetailItem(item)),
+                          ]}
+                        />
                         <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1"><CheckCircle className="w-3.5 h-3.5" />通过</Button>
                         <Button size="sm" variant="outline" className="text-red-600 border-red-200 hover:bg-red-50 gap-1"><Ban className="w-3.5 h-3.5" />驳回</Button>
                       </div>
@@ -103,9 +113,14 @@ export default function QualityInspection() {
         </TabsContent>
 
         <TabsContent value="all" className="mt-4">
-          <div className="flex gap-3 mb-4">
-            <Input placeholder="搜索任务名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-gray-50 border-gray-200 rounded-lg text-sm" />
-          </div>
+          <PageSearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="搜索任务名称或ID..."
+            onSearch={() => {}}
+            onReset={() => setSearch("")}
+            className="mb-4"
+          />
           <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <Table className="unified-table">
               <TableHeader>
@@ -130,7 +145,11 @@ export default function QualityInspection() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{item.inspector}</TableCell>
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{item.inspectTime}</TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <Button size="sm" variant="ghost" onClick={() => setDetailItem(item)}><Eye className="w-4 h-4" /></Button>
+                      <ActionButtons
+                        buttons={[
+                          createViewAction(() => setDetailItem(item)),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

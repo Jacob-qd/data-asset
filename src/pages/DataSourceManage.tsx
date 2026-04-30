@@ -13,6 +13,9 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import {
   Search, Plus, Edit3, Trash2, Eye, Database, RefreshCw, Server,
   CheckCircle2, AlertTriangle, XCircle, FileText, HardDrive, FolderOpen,
@@ -144,18 +147,21 @@ export default function DataSourceManage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">数据源管理</h1>
-          <p className="text-sm text-gray-500 mt-1">管理数据源连接和数据集</p>
-        </div>
-        <Button className="gap-2" onClick={handleAdd}><Plus className="w-4 h-4" />新建数据源</Button>
-      </div>
+      <PageHeader
+        title="数据源管理"
+        badge={`${dataSources.length} 个数据源`}
+        actions={
+          <Button className="gap-2" onClick={handleAdd}><Plus className="w-4 h-4" />新建数据源</Button>
+        }
+      />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <Input placeholder="搜索数据源..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索数据源..."
+        onSearch={() => {}}
+        onReset={() => setSearch("")}
+      />
 
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">数据源列表</CardTitle></CardHeader>
@@ -187,12 +193,19 @@ export default function DataSourceManage() {
                   <TableCell>{ds.tables}</TableCell>
                   <TableCell>{ds.size}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setSelectedSource(ds); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(ds)}><Edit3 className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRefresh(ds)}><RefreshCw className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => handleDelete(ds)}><Trash2 className="w-4 h-4" /></Button>
-                    </div>
+                    <ActionButtons
+                      buttons={[
+                        createViewAction(() => { setSelectedSource(ds); setDetailOpen(true); }),
+                        createEditAction(() => handleEdit(ds)),
+                        {
+                          key: "refresh",
+                          icon: <RefreshCw className="w-4 h-4" />,
+                          label: "刷新",
+                          onClick: () => handleRefresh(ds),
+                        },
+                        createDeleteAction(() => handleDelete(ds)),
+                      ]}
+                    />
                   </TableCell>
                 </TableRow>
               ))}

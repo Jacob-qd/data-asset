@@ -12,10 +12,12 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
-  Search, Plus, Edit, Eye, Trash2, Network, Server,
+  Plus, Edit, Eye, Trash2, Network, Server,
   CheckCircle, XCircle, Activity, Cpu, HardDrive, Wifi,
   ArrowRight, Shield, Globe
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CrudDialog } from "@/components/CrudDialog";
@@ -275,32 +277,22 @@ export default function PrivacyNodeManagement() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Server className="w-6 h-6 text-indigo-600" />
-          <h1 className="text-2xl font-bold">隐私计算节点管理</h1>
-        </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          新增隐私计算节点
-        </Button>
-      </div>
+      <PageHeader
+        title="隐私计算节点管理"
+        actions={
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            新增隐私计算节点
+          </Button>
+        }
+      />
 
-      {/* Search */}
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg border">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="搜索节点名称或版本号..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline" size="sm">查询</Button>
-        <Button variant="ghost" size="sm" onClick={() => setSearchTerm("")}>重置</Button>
-      </div>
+      <PageSearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="搜索节点名称或版本号..."
+        onReset={() => setSearchTerm("")}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">

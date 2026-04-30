@@ -11,6 +11,9 @@ import {
   FileCheck, ArrowRight, Server, Zap, RotateCcw, Settings, SlidersHorizontal,
   Pencil, AlertTriangle,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -402,15 +405,14 @@ export default function SecretResourcePool() {
 
   return (
     <div className="p-6 space-y-6 max-w-[1440px] mx-auto">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">资源与调度</h1>
-          <p className="text-sm text-gray-500 mt-1.5">资源池、配额策略、调度策略管理</p>
-        </div>
-        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={() => openDialog("resource", "create")}>
-          <Plus className="mr-2 h-4 w-4" />申请资源
-        </Button>
-      </div>
+      <PageHeader
+        title="资源与调度"
+        actions={
+          <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={() => openDialog("resource", "create")}>
+            <Plus className="mr-2 h-4 w-4" />申请资源
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Server className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-gray-500">资源总数</p><p className="text-lg font-bold">{resources.length}</p></div></CardContent></Card>
@@ -430,9 +432,7 @@ export default function SecretResourcePool() {
         </TabsList>
 
         <TabsContent value="resources" className="mt-4">
-          <div className="flex gap-3 mb-4">
-            <Input placeholder="搜索资源名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-gray-50 border-gray-200 rounded-lg text-sm" />
-          </div>
+          <PageSearchBar value={search} onChange={setSearch} placeholder="搜索资源名称或ID" onReset={() => setSearch("")} className="mb-4" />
           <div className="grid grid-cols-3 gap-4">
             {filtered.map((r) => (
               <Card key={r.id} className="bg-white rounded-xl border border-gray-100 shadow-sm">
@@ -464,12 +464,15 @@ export default function SecretResourcePool() {
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <span className="text-xs text-gray-500">负责人: {r.owner}</span>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" onClick={() => openDrawer("resource", r)}><Eye className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all" onClick={() => openDialog("resource", "edit", r)}><Pencil className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all" title="释放资源" onClick={() => releaseResource(r.id)}><RotateCcw className="h-3.5 w-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all" title="回收资源" onClick={() => recycleResource(r.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
-                    </div>
+                    <ActionButtons
+                      size="sm"
+                      buttons={[
+                        { key: "view", icon: <Eye className="h-3.5 w-3.5" />, label: "查看", className: "h-7 w-7 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg", onClick: () => openDrawer("resource", r) },
+                        { key: "edit", icon: <Pencil className="h-3.5 w-3.5" />, label: "编辑", className: "h-7 w-7 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg", onClick: () => openDialog("resource", "edit", r) },
+                        { key: "release", icon: <RotateCcw className="h-3.5 w-3.5" />, label: "释放", className: "h-7 w-7 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg", onClick: () => releaseResource(r.id) },
+                        { key: "recycle", icon: <Trash2 className="h-3.5 w-3.5" />, label: "回收", className: "h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg", onClick: () => recycleResource(r.id) },
+                      ]}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -538,16 +541,14 @@ export default function SecretResourcePool() {
                       </span>
                     </TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("request", req)}><Eye className="w-4 h-4" /></Button>
-                        {req.status === "pending" && (
-                          <>
-                            <Button size="sm" className="h-7 text-xs bg-emerald-600" onClick={() => approveRequest(req.id)}><FileCheck className="h-3 w-3 mr-1" />通过</Button>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => rejectRequest(req.id)}>驳回</Button>
-                          </>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("request", "delete", req)}><Trash2 className="w-4 h-4" /></Button>
-                      </div>
+                    <ActionButtons buttons={[
+                      createViewAction(() => openDrawer("request", req)),
+                      ...(req.status === "pending" ? [
+                        { key: "approve", icon: <FileCheck className="w-4 h-4 text-green-600" />, label: "通过", className: "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => approveRequest(req.id) },
+                        { key: "reject", icon: <Trash2 className="w-4 h-4 text-red-600" />, label: "驳回", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => rejectRequest(req.id) },
+                      ] : []),
+                      createDeleteAction(() => openDialog("request", "delete", req)),
+                    ]} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -557,13 +558,9 @@ export default function SecretResourcePool() {
         </TabsContent>
 
         <TabsContent value="quotas" className="mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索配额..." className="pl-9" value={quotaSearch} onChange={(e) => setQuotaSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={quotaSearch} onChange={setQuotaSearch} placeholder="搜索配额..." onReset={() => setQuotaSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("quota", "create")}><Plus className="w-4 h-4" />新建配额</Button>
-          </div>
+          } />
           <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <Table>
               <TableHeader>
@@ -585,11 +582,11 @@ export default function SecretResourcePool() {
                     <TableCell>{q.maxTasks}</TableCell>
                     <TableCell><Badge variant="outline">{q.period}</Badge></TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("quota", q)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("quota", "edit", q)}><Pencil className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("quota", "delete", q)}><Trash2 className="w-4 h-4" /></Button>
-                      </div>
+                    <ActionButtons buttons={[
+                      createViewAction(() => openDrawer("quota", q)),
+                      createEditAction(() => openDialog("quota", "edit", q)),
+                      createDeleteAction(() => openDialog("quota", "delete", q)),
+                    ]} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -621,14 +618,12 @@ export default function SecretResourcePool() {
                     <TableCell>{s.enabled ? <Badge className="bg-green-50 text-green-700">已启用</Badge> : <Badge className="bg-gray-50 text-gray-700">已禁用</Badge>}</TableCell>
                     <TableCell className="text-xs text-gray-500">{s.description}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("schedule", s)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("schedule", "edit", s)}><Pencil className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className={`h-8 w-8 ${s.enabled ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}`} onClick={() => toggleSchedule(s.id)}>
-                          {s.enabled ? <Zap className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("schedule", "delete", s)}><Trash2 className="w-4 h-4" /></Button>
-                      </div>
+                    <ActionButtons buttons={[
+                      createViewAction(() => openDrawer("schedule", s)),
+                      createEditAction(() => openDialog("schedule", "edit", s)),
+                      { key: "toggle", icon: <Zap className="w-4 h-4" />, label: s.enabled ? "禁用" : "启用", className: s.enabled ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => toggleSchedule(s.id) },
+                      createDeleteAction(() => openDialog("schedule", "delete", s)),
+                    ]} />
                     </TableCell>
                   </TableRow>
                 ))}

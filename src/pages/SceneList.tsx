@@ -64,6 +64,7 @@ export default function SceneList() {
     { key: "productName", label: "数据产品名称", type: "text", required: true },
     { key: "productForm", label: "产品形态", type: "select", options: productFormOptions },
     { key: "devMethod", label: "开发方式", type: "select", options: devMethodOptions },
+    { key: "description", label: "场景描述", type: "textarea" },
     { key: "samplingReq", label: "数据抽样需求", type: "textarea" },
     { key: "maskingRules", label: "数据脱敏规则", type: "textarea" },
   ];
@@ -76,6 +77,7 @@ export default function SceneList() {
     { key: "productName", label: "数据产品名称", type: "text" as const },
     { key: "productForm", label: "产品形态", type: "badge" as const },
     { key: "devMethod", label: "开发方式", type: "badge" as const },
+    { key: "description", label: "场景描述", type: "text" as const },
     { key: "samplingReq", label: "数据抽样需求", type: "text" as const },
     { key: "maskingRules", label: "数据脱敏规则", type: "text" as const },
     { key: "createdBy", label: "创建机构", type: "text" as const },

@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import ActionButtons from "@/components/ActionButtons";
 
 interface DataSource {
   id: string;
@@ -832,16 +834,15 @@ export default function SandboxDataPreview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">数据探查</h1>
-          <p className="text-sm text-gray-500 mt-1">浏览数据源、预览数据内容、管理表结构</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2"><RefreshCw className="w-4 h-4" />刷新</Button>
-          <Button className="gap-2" onClick={() => setExportOpen(true)}><Download className="w-4 h-4" />导出</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="数据探查"
+        actions={
+          <>
+            <Button variant="outline" className="gap-2"><RefreshCw className="w-4 h-4" />刷新</Button>
+            <Button className="gap-2" onClick={() => setExportOpen(true)}><Download className="w-4 h-4" />导出</Button>
+          </>
+        }
+      />
 
       {/* Data Source Selector */}
       <div className="flex items-center gap-3">
@@ -870,7 +871,6 @@ export default function SandboxDataPreview() {
           <TabsTrigger value="tables" className="gap-2"><FileSpreadsheet className="w-4 h-4" />表管理</TabsTrigger>
           <TabsTrigger value="columns" className="gap-2"><Settings className="w-4 h-4" />字段管理</TabsTrigger>
           <TabsTrigger value="profile" className="gap-2"><BarChart3 className="w-4 h-4" />数据画像</TabsTrigger>
-          <TabsTrigger value="lineage" className="gap-2"><GitBranch className="w-4 h-4" />数据血缘</TabsTrigger>
           <TabsTrigger value="quality" className="gap-2"><Gauge className="w-4 h-4" />质量规则</TabsTrigger>
         </TabsList>
 
@@ -1033,11 +1033,13 @@ export default function SandboxDataPreview() {
                       <TableCell>{ds.records}</TableCell>
                       <TableCell className="text-xs text-gray-500">{ds.updated}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail("ds", ds)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("edit", "ds", ds)}><Edit3 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => openDialog("delete", "ds", ds)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons
+                          buttons={[
+                            { key: "view", icon: <Eye className="w-4 h-4" />, label: "查看", onClick: () => openDetail("ds", ds) },
+                            { key: "edit", icon: <Edit3 className="w-4 h-4" />, label: "编辑", onClick: () => openDialog("edit", "ds", ds) },
+                            { key: "delete", icon: <Trash2 className="w-4 h-4" />, label: "删除", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => openDialog("delete", "ds", ds) },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1069,11 +1071,13 @@ export default function SandboxDataPreview() {
                       <TableCell>{t.size}</TableCell>
                       <TableCell className="text-xs text-gray-500">{t.updated}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail("table", t)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("edit", "table", t)}><Edit3 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => openDialog("delete", "table", t)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons
+                          buttons={[
+                            { key: "view", icon: <Eye className="w-4 h-4" />, label: "查看", onClick: () => openDetail("table", t) },
+                            { key: "edit", icon: <Edit3 className="w-4 h-4" />, label: "编辑", onClick: () => openDialog("edit", "table", t) },
+                            { key: "delete", icon: <Trash2 className="w-4 h-4" />, label: "删除", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => openDialog("delete", "table", t) },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1110,11 +1114,13 @@ export default function SandboxDataPreview() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail("column", col)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("edit", "column", col)}><Edit3 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500" onClick={() => openDialog("delete", "column", col)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons
+                          buttons={[
+                            { key: "view", icon: <Eye className="w-4 h-4" />, label: "查看", onClick: () => openDetail("column", col) },
+                            { key: "edit", icon: <Edit3 className="w-4 h-4" />, label: "编辑", onClick: () => openDialog("edit", "column", col) },
+                            { key: "delete", icon: <Trash2 className="w-4 h-4" />, label: "删除", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => openDialog("delete", "column", col) },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1177,6 +1183,105 @@ export default function SandboxDataPreview() {
             </CardContent>
           </Card>
 
+          {/* 数据类型分布与敏感字段统计 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">数据类型分布</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {["int", "varchar", "decimal", "boolean", "date"].map(type => {
+                    const count = profile.columnStats.filter(c => c.type === type).length;
+                    const percentage = profile.totalColumns > 0 ? (count / profile.totalColumns * 100).toFixed(1) : "0";
+                    return (
+                      <div key={type} className="flex items-center gap-3">
+                        <Badge variant="outline" className="w-20 justify-center">{type}</Badge>
+                        <div className="flex-1">
+                          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                        <span className="text-sm text-gray-600 w-16 text-right">{count} 列 ({percentage}%)</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">敏感字段统计</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {(() => {
+                    const sensitiveCols = columnsMeta.filter(c => c.sensitive);
+                    const nonSensitiveCols = columnsMeta.filter(c => !c.sensitive);
+                    return (
+                      <>
+                        <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <Shield className="w-5 h-5 text-red-500" />
+                            <span className="font-medium text-red-700">敏感字段</span>
+                          </div>
+                          <span className="text-2xl font-bold text-red-700">{sensitiveCols.length}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {sensitiveCols.map(col => (
+                            <Badge key={col.name} variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                              {col.label}
+                            </Badge>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            <span className="font-medium text-green-700">非敏感字段</span>
+                          </div>
+                          <span className="text-2xl font-bold text-green-700">{nonSensitiveCols.length}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {nonSensitiveCols.slice(0, 6).map(col => (
+                            <Badge key={col.name} variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              {col.label}
+                            </Badge>
+                          ))}
+                          {nonSensitiveCols.length > 6 && (
+                            <Badge variant="outline" className="bg-gray-50 text-gray-600">+{nonSensitiveCols.length - 6} 更多</Badge>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 数据质量评估维度 */}
+          <Card>
+            <CardHeader className="pb-3"><CardTitle className="text-base">数据质量评估</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "完整性", score: 96.8, desc: "空值率控制良好" },
+                  { label: "唯一性", score: 92.5, desc: "主键唯一性达标" },
+                  { label: "有效性", score: 88.3, desc: "数据格式规范" },
+                  { label: "一致性", score: 91.2, desc: "跨字段一致性" },
+                ].map(item => (
+                  <div key={item.label} className="text-center p-4 bg-gray-50 rounded-lg">
+                    <div className="text-3xl font-bold mb-1" style={{ color: item.score >= 90 ? '#16a34a' : item.score >= 80 ? '#ca8a04' : '#dc2626' }}>
+                      {item.score}
+                    </div>
+                    <div className="text-sm font-medium text-gray-700 mb-1">{item.label}</div>
+                    <div className="text-xs text-gray-500">{item.desc}</div>
+                    <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${item.score}%`, backgroundColor: item.score >= 90 ? '#16a34a' : item.score >= 80 ? '#ca8a04' : '#dc2626' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Boxplot */}
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">数值列箱线图</CardTitle></CardHeader>
@@ -1230,56 +1335,6 @@ export default function SandboxDataPreview() {
           </Card>
         </TabsContent>
 
-        {/* Data Lineage Tab */}
-        <TabsContent value="lineage" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">数据血缘图谱</CardTitle></CardHeader>
-            <CardContent><div ref={lineageRef} className="w-full h-[500px]" /></CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">上游依赖</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow><TableHead>表名</TableHead><TableHead>类型</TableHead><TableHead>血缘路径</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineageNodes.filter(n => n.type === "upstream").map(n => (
-                      <TableRow key={n.id}>
-                        <TableCell className="font-medium">{n.name}</TableCell>
-                        <TableCell><Badge variant="outline">上游</Badge></TableCell>
-                        <TableCell className="text-sm text-gray-500">{n.name} → {lineageEdges.filter(e => e.source === n.id).map(e => lineageNodes.find(node => node.id === e.target)?.name).join(" → ")}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">下游影响</CardTitle></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow><TableHead>表名</TableHead><TableHead>类型</TableHead><TableHead>影响分析</TableHead></TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineageNodes.filter(n => n.type === "downstream").map(n => (
-                      <TableRow key={n.id}>
-                        <TableCell className="font-medium">{n.name}</TableCell>
-                        <TableCell><Badge variant="outline" className="bg-green-50">下游</Badge></TableCell>
-                        <TableCell className="text-sm text-gray-500">直接依赖 customers 表</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
         {/* Data Quality Tab */}
         <TabsContent value="quality" className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1331,9 +1386,11 @@ export default function SandboxDataPreview() {
                           </TableCell>
                           <TableCell className="text-xs text-gray-500">{rule.lastRun}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setQualityDialogMode("edit"); setQualityForm(rule); setQualityDialogOpen(true); }}><Edit3 className="w-4 h-4" /></Button>
-                            </div>
+                            <ActionButtons
+                              buttons={[
+                                { key: "edit", icon: <Edit3 className="w-4 h-4" />, label: "编辑", onClick: () => { setQualityDialogMode("edit"); setQualityForm(rule); setQualityDialogOpen(true); } },
+                              ]}
+                            />
                           </TableCell>
                         </TableRow>
                       ))}

@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
 import {
-  Fingerprint, Key, Search, Plus, CheckCircle2, Zap, BarChart3,
-  RotateCcw, Eye, Pencil, Trash2, Calculator, History, AlertTriangle,
+  Fingerprint, Key, Plus, CheckCircle2, Zap, BarChart3,
+  RotateCcw, Calculator, History, AlertTriangle, Eye,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -291,19 +293,18 @@ export default function HeEngine() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">同态加密引擎</h1>
-          <p className="text-sm text-gray-500 mt-1">密钥管理、参数配置与加密运算调度</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => {
-            const activeKey = keys.find(k => k.status === "active");
-            if (activeKey) rotateKey(activeKey.id);
-          }}><RotateCcw className="w-4 h-4" />轮转密钥</Button>
-          <Button className="gap-2" onClick={() => openDialog("key", "create")}><Plus className="w-4 h-4" />新建密钥</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="同态加密引擎"
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const activeKey = keys.find(k => k.status === "active");
+              if (activeKey) rotateKey(activeKey.id);
+            }}><RotateCcw className="w-4 h-4" />轮转密钥</Button>
+            <Button className="gap-2" onClick={() => openDialog("key", "create")}><Plus className="w-4 h-4" />新建密钥</Button>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -333,10 +334,7 @@ export default function HeEngine() {
         </TabsList>
 
         <TabsContent value="keys" className="space-y-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input placeholder="搜索密钥..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <PageSearchBar value={search} onChange={setSearch} placeholder="搜索密钥..." onReset={() => setSearch("")} />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">同态密钥</CardTitle></CardHeader>
             <CardContent>
@@ -359,12 +357,12 @@ export default function HeEngine() {
                       <TableCell>{k.ops.toLocaleString()}</TableCell>
                       <TableCell className="text-xs text-gray-500">{k.created}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("key", k)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("key", "edit", k)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => rotateKey(k.id)}><RotateCcw className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("key", "delete", k)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("key", k)),
+                          createEditAction(() => openDialog("key", "edit", k)),
+                          { key: "rotate", icon: <RotateCcw className="w-4 h-4" />, label: "轮转", onClick: () => rotateKey(k.id) },
+                          createDeleteAction(() => openDialog("key", "delete", k)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -375,13 +373,9 @@ export default function HeEngine() {
         </TabsContent>
 
         <TabsContent value="params" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索参数..." className="pl-9" value={paramSearch} onChange={e => setParamSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={paramSearch} onChange={setParamSearch} placeholder="搜索参数..." onReset={() => setParamSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("param", "create")}><Plus className="w-4 h-4" />新建参数</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">参数配置</CardTitle></CardHeader>
             <CardContent>
@@ -402,11 +396,11 @@ export default function HeEngine() {
                       <TableCell className="font-mono text-xs">{p.scale}</TableCell>
                       <TableCell><Badge variant="outline">{p.scheme}</Badge></TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("param", p)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("param", "edit", p)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("param", "delete", p)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("param", p)),
+                          createEditAction(() => openDialog("param", "edit", p)),
+                          createDeleteAction(() => openDialog("param", "delete", p)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -417,13 +411,9 @@ export default function HeEngine() {
         </TabsContent>
 
         <TabsContent value="operations" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索任务..." className="pl-9" value={opSearch} onChange={e => setOpSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={opSearch} onChange={setOpSearch} placeholder="搜索任务..." onReset={() => setOpSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("operation", "create")}><Plus className="w-4 h-4" />新建任务</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">运算任务</CardTitle></CardHeader>
             <CardContent>
@@ -445,10 +435,10 @@ export default function HeEngine() {
                       <TableCell><div className="flex items-center gap-2"><Progress value={o.progress} className="w-20 h-1.5" /><span className="text-xs">{o.progress}%</span></div></TableCell>
                       <TableCell className="text-xs text-gray-500">{o.created}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("operation", o)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("operation", "delete", o)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("operation", o)),
+                          createDeleteAction(() => openDialog("operation", "delete", o)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}

@@ -155,12 +155,12 @@ export default function SceneCreateWizard() {
           <div className="space-y-2">
             <Label>应用场景名称 <span className="text-red-500">*</span></Label>
             <Input
-              value={formData.sceneName || ""}
-              onChange={(e) => updateField("sceneName", e.target.value)}
+              value={formData.name || ""}
+              onChange={(e) => updateField("name", e.target.value)}
               placeholder="请输入应用场景名称"
               maxLength={20}
             />
-            <div className="text-xs text-gray-400 text-right">{(formData.sceneName || "").length}/20</div>
+            <div className="text-xs text-gray-400 text-right">{(formData.name || "").length}/20</div>
           </div>
 
           <div className="space-y-2">
@@ -180,13 +180,13 @@ export default function SceneCreateWizard() {
           <div className="space-y-2">
             <Label>应用场景描述 <span className="text-red-500">*</span></Label>
             <Textarea
-              value={formData.sceneDesc || ""}
-              onChange={(e) => updateField("sceneDesc", e.target.value)}
+              value={formData.description || ""}
+              onChange={(e) => updateField("description", e.target.value)}
               placeholder="请描述应用场景..."
               maxLength={2000}
               className="min-h-[120px]"
             />
-            <div className="text-xs text-gray-400 text-right">{(formData.sceneDesc || "").length}/2000</div>
+            <div className="text-xs text-gray-400 text-right">{(formData.description || "").length}/2000</div>
           </div>
 
           <div className="space-y-2">
@@ -218,7 +218,7 @@ export default function SceneCreateWizard() {
         </div>
       ),
       validate: () => {
-        if (!formData.sceneName) {
+        if (!formData.name) {
           toast.error("请输入应用场景名称");
           return false;
         }
@@ -226,7 +226,7 @@ export default function SceneCreateWizard() {
           toast.error("请选择场景所属领域");
           return false;
         }
-        if (!formData.sceneDesc) {
+        if (!formData.description) {
           toast.error("请输入应用场景描述");
           return false;
         }

@@ -25,6 +25,9 @@ import {
 import { cn } from "@/lib/utils";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 
 /* ─── Types ─── */
 interface ContractStage {
@@ -614,6 +617,7 @@ const detailFields = [
   { key: "versionCount", label: "版本数量", type: "text" as const },
   { key: "deployCount", label: "部署数量", type: "text" as const },
   { key: "testCount", label: "测试数量", type: "text" as const },
+  { key: "auditOpinion", label: "审计意见", type: "text" as const },
 ];
 
 export default function ContractLifecycle() {
@@ -995,15 +999,15 @@ export default function ContractLifecycle() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">合约全生命周期视图</h1>
-          <p className="text-sm text-gray-500 mt-1.5">追踪智能合约从开发→测试→部署→审计→市场的完整生命周期状态</p>
-        </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
-          <Plus className="w-4 h-4" /> 新建合约
-        </Button>
-      </div>
+      <PageHeader
+        title="合约全生命周期视图"
+        actions={
+          <Button className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2" onClick={handleCreate}>
+            <Plus className="w-4 h-4" /> 新建合约
+          </Button>
+        }
+      />
+      <p className="text-sm text-gray-500 mt-1.5">追踪智能合约从开发→测试→部署→审计→市场的完整生命周期状态</p>
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><FileCode className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-gray-500">合约总数</p><p className="text-2xl font-bold">{contracts.length}</p></div></CardContent></Card>
@@ -1013,12 +1017,12 @@ export default function ContractLifecycle() {
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><ShoppingCart className="h-5 w-5 text-emerald-600" /><div><p className="text-sm text-gray-500">已上架</p><p className="text-2xl font-bold">{contracts.filter(c => c.currentStage === "market").length}</p></div></CardContent></Card>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input placeholder="搜索合约名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索合约名称或ID"
+        onReset={() => setSearch("")}
+      />
 
       {/* Overdue Alerts */}
       {(() => {
@@ -1068,12 +1072,12 @@ export default function ContractLifecycle() {
                 </div>
                 <Badge variant="outline">{stageConfig[contract.currentStage].label}</Badge>
               </div>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" onClick={() => openDetail(contract)}><Eye className="w-4 h-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => openLifecycle(contract)}><Globe className="w-4 h-4" /></Button>
-                <Button size="sm" variant="ghost" onClick={() => handleEdit(contract)}><Pencil className="w-4 h-4" /></Button>
-                <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(contract)}><Trash className="w-4 h-4" /></Button>
-              </div>
+              <ActionButtons buttons={[
+                createViewAction(() => openDetail(contract)),
+                { key: "lifecycle", icon: <Globe className="w-4 h-4" />, label: "生命周期", onClick: () => openLifecycle(contract) },
+                createEditAction(() => handleEdit(contract)),
+                createDeleteAction(() => handleDelete(contract)),
+              ]} />
             </CardHeader>
             <CardContent className="p-5">
               {/* Lifecycle Pipeline */}

@@ -20,17 +20,23 @@ import SceneList from "./pages/SceneList";
 import SceneCreateWizard from "./pages/SceneCreateWizard";
 
 // 数据沙箱
-import SandboxProjectList from "./pages/SandboxProjectList";
 import MyDevResources from "./pages/MyDevResources";
 import SandboxProductVerify from "./pages/SandboxProductVerify";
 import SandboxDataPreview from "./pages/SandboxDataPreview";
 import SandboxPreprocess from "./pages/SandboxPreprocess";
 import SandboxModelTrain from "./pages/SandboxModelTrain";
+import SandboxEnvList from "./pages/SandboxEnvList";
+import SandboxIDE from "./pages/SandboxIDE";
 import SandboxAudit from "./pages/SandboxAudit";
 import SandboxResultReview from "./pages/SandboxResultReview";
 
 // 隐私计算
 import PrivacyTaskCenter from "./pages/PrivacyTaskCenter";
+import PSITaskPage from "./pages/PSITaskPage";
+import PIRTaskPage from "./pages/PIRTaskPage";
+import StatsTaskPage from "./pages/StatsTaskPage";
+import SQLTaskPage from "./pages/SQLTaskPage";
+import ModelingTaskPage from "./pages/ModelingTaskPage";
 import VisualModelingIDE from "./pages/VisualModelingIDE";
 import ModelManagement from "./pages/ModelManagement";
 import ModelEvaluation from "./pages/ModelEvaluation";
@@ -52,6 +58,7 @@ import ContractLifecycle from "./pages/ContractLifecycle";
 import GovernanceChain from "./pages/GovernanceChain";
 import BlockchainSystem from "./pages/BlockchainSystem";
 import BlockchainOps from "./pages/BlockchainOps";
+import BlockchainNetworks from "./pages/BlockchainNetworks";
 
 // 抽样管理
 import SamplingTasks from "./pages/SamplingTasks";
@@ -108,18 +115,23 @@ export default function App() {
         <Route path="/scenes/create" element={<Layout><SceneCreateWizard /></Layout>} />
 
         {/* 数据沙箱 */}
-        <Route path="/sandbox/projects" element={<Layout><SandboxProjectList /></Layout>} />
         <Route path="/sandbox/resources" element={<Layout><MyDevResources /></Layout>} />
         <Route path="/sandbox/verify" element={<Layout><SandboxProductVerify /></Layout>} />
         <Route path="/sandbox/preview" element={<Layout><SandboxDataPreview /></Layout>} />
         <Route path="/sandbox/preprocess" element={<Layout><SandboxPreprocess /></Layout>} />
         <Route path="/sandbox/train" element={<Layout><SandboxModelTrain /></Layout>} />
+        <Route path="/sandbox/ide" element={<Layout><SandboxEnvList /></Layout>} />
+        <Route path="/sandbox/ide/:envId" element={<Layout><SandboxIDE /></Layout>} />
         <Route path="/sandbox/audit" element={<Layout><SandboxAudit /></Layout>} />
         <Route path="/sandbox/review" element={<Layout><SandboxResultReview /></Layout>} />
 
         {/* 隐私计算 */}
         <Route path="/privacy/tasks" element={<Layout><PrivacyTaskCenter /></Layout>} />
-        <Route path="/privacy/tasks/:type" element={<Layout><PrivacyTaskCenter /></Layout>} />
+        <Route path="/privacy/tasks/psi" element={<Layout><PSITaskPage /></Layout>} />
+        <Route path="/privacy/tasks/pir" element={<Layout><PIRTaskPage /></Layout>} />
+        <Route path="/privacy/tasks/stats" element={<Layout><StatsTaskPage /></Layout>} />
+        <Route path="/privacy/tasks/sql" element={<Layout><SQLTaskPage /></Layout>} />
+        <Route path="/privacy/tasks/modeling" element={<Layout><ModelingTaskPage /></Layout>} />
         <Route path="/privacy/tasks/modeling/visual" element={<Layout><VisualModelingIDE /></Layout>} />
         <Route path="/privacy/models" element={<Layout><ModelManagement /></Layout>} />
         <Route path="/privacy/models/evaluation/:modelId" element={<Layout><ModelEvaluation /></Layout>} />
@@ -141,6 +153,7 @@ export default function App() {
         <Route path="/blockchain/governance" element={<Layout><GovernanceChain /></Layout>} />
         <Route path="/blockchain/system" element={<Layout><BlockchainSystem /></Layout>} />
         <Route path="/blockchain/ops" element={<Layout><BlockchainOps /></Layout>} />
+        <Route path="/blockchain/networks" element={<Layout><BlockchainNetworks /></Layout>} />
 
         {/* 抽样管理 */}
         <Route path="/sampling/tasks" element={<Layout><SamplingTasks /></Layout>} />

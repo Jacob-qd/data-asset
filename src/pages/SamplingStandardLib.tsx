@@ -7,6 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import {
   ChevronRight, Plus, Search, BookOpen, Filter, CheckCircle, Hash, FileText, Eye, AlertTriangle, Link2, Pencil, Trash2, Power, PowerOff,
 } from "lucide-react";
@@ -192,15 +195,15 @@ export default function SamplingStandardLib() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">抽样标准库</h1>
-          <p className="text-sm text-gray-500 mt-1.5">基于GB/T 2828.1-2012 建立抽样标准库，支持批量大小/检查水平/AQL配置</p>
-        </div>
-        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleAdd}>
-          <Plus className="mr-2 h-4 w-4" />添加标准
-        </Button>
-      </div>
+      <PageHeader
+        title="抽样标准库"
+        badge={`${standards.length} 个标准`}
+        actions={
+          <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleAdd}>
+            <Plus className="mr-2 h-4 w-4" />添加标准
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><BookOpen className="h-5 w-5 text-blue-600" /><div><p className="text-sm text-gray-500">标准总数</p><p className="text-lg font-bold">{standards.length}</p></div></CardContent></Card>
@@ -210,9 +213,13 @@ export default function SamplingStandardLib() {
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><FileText className="h-5 w-5 text-cyan-600" /><div><p className="text-sm text-gray-500">来源标准</p><p className="text-lg font-bold">GB/T 2828.1</p></div></CardContent></Card>
       </div>
 
-      <div className="flex gap-3 items-center">
-        <Input placeholder="搜索标准名称或ID" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-gray-50 border-gray-200 rounded-lg text-sm" />
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索标准名称或ID..."
+        onSearch={() => {}}
+        onReset={() => setSearch("")}
+      />
 
       <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
         <Table className="unified-table">
@@ -247,14 +254,19 @@ export default function SamplingStandardLib() {
                   </span>
                 </TableCell>
                 <TableCell className="py-3.5 px-4">
-                  <div className="flex items-center gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setDetailStd(s)}><Eye className="w-4 h-4" /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleToggleStatus(s)}>
-                      {s.status === "已启用" ? <PowerOff className="w-4 h-4 text-amber-600" /> : <Power className="w-4 h-4 text-emerald-600" />}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(s)}><Trash2 className="w-4 h-4 text-red-600" /></Button>
-                  </div>
+                  <ActionButtons
+                    buttons={[
+                      createViewAction(() => setDetailStd(s)),
+                      createEditAction(() => handleEdit(s)),
+                      {
+                        key: "toggle",
+                        icon: s.status === "已启用" ? <PowerOff className="w-4 h-4 text-amber-600" /> : <Power className="w-4 h-4 text-emerald-600" />,
+                        label: s.status === "已启用" ? "禁用" : "启用",
+                        onClick: () => handleToggleStatus(s),
+                      },
+                      createDeleteAction(() => handleDelete(s)),
+                    ]}
+                  />
                 </TableCell>
               </TableRow>
             ))}

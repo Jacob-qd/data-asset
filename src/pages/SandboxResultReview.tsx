@@ -10,12 +10,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Search, CheckCircle2, XCircle, Eye, FileText, ShieldCheck,
+  CheckCircle2, XCircle, Eye, FileText, ShieldCheck,
   ThumbsUp, ThumbsDown, AlertTriangle, Clock, Download,
   Plus, Pencil, Trash,
 } from "lucide-react";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons from "@/components/ActionButtons";
 
 /* ─── Types ─── */
 interface ReviewItem {
@@ -201,23 +204,23 @@ export default function SandboxResultReview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">结果审查</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">模型与报告的审批管理</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="gap-2 dark:border-gray-700 dark:text-gray-300"><Download className="w-4 h-4" />导出</Button>
-          <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700" onClick={handleCreate}><Plus className="w-4 h-4" />新建</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="结果审查"
+        actions={
+          <>
+            <Button variant="outline" className="gap-2 dark:border-gray-700 dark:text-gray-300"><Download className="w-4 h-4" />导出</Button>
+            <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700" onClick={handleCreate}><Plus className="w-4 h-4" />新建</Button>
+          </>
+        }
+      />
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input placeholder="搜索审查项..." className="pl-9 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索审查项..."
+        onReset={() => setSearch("")}
+        className="max-w-sm"
+      />
 
       <Card className="dark:bg-[#1e293b] dark:border-gray-700">
         <CardHeader className="pb-3"><CardTitle className="text-base dark:text-gray-100">审查列表</CardTitle></CardHeader>
@@ -248,17 +251,17 @@ export default function SandboxResultReview() {
                     <TableCell><Badge variant="outline" className={`gap-1 ${s.color}`}>{s.icon}{s.label}</Badge></TableCell>
                     <TableCell className="text-xs text-gray-500 dark:text-gray-400">{item.submitTime}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => openDetail(item)}><Eye className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 dark:text-gray-400 dark:hover:text-gray-200" onClick={() => handleEdit(item)}><Pencil className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 dark:text-red-400" onClick={() => handleDelete(item)}><Trash className="w-4 h-4" /></Button>
-                        {item.status === "pending" && (
-                          <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 dark:text-green-400" onClick={() => handleApprove(item.id)}><ThumbsUp className="w-4 h-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 dark:text-red-400" onClick={() => { setDetailItem(item); handleReject(item.id); }}><ThumbsDown className="w-4 h-4" /></Button>
-                          </>
-                        )}
-                      </div>
+                      <ActionButtons
+                        buttons={[
+                          { key: "view", icon: <Eye className="w-4 h-4" />, label: "查看", onClick: () => openDetail(item) },
+                          { key: "edit", icon: <Pencil className="w-4 h-4" />, label: "编辑", onClick: () => handleEdit(item) },
+                          { key: "delete", icon: <Trash className="w-4 h-4" />, label: "删除", className: "text-red-600 hover:text-red-700 hover:bg-red-50", onClick: () => handleDelete(item) },
+                          ...(item.status === "pending" ? [
+                            { key: "approve", icon: <ThumbsUp className="w-4 h-4" />, label: "通过", className: "text-green-600", onClick: () => handleApprove(item.id) },
+                            { key: "reject", icon: <ThumbsDown className="w-4 h-4" />, label: "驳回", className: "text-red-600", onClick: () => { setDetailItem(item); handleReject(item.id); } },
+                          ] : []),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );

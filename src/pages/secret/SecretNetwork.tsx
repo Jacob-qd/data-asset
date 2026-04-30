@@ -2,13 +2,15 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Radio, Wifi, Search, Plus, CheckCircle2, AlertTriangle, Globe, Lock,
-  Eye, Pencil, Trash2, Play, Square, Settings, Network, Shield,
+  Radio, Wifi, Plus, CheckCircle2, AlertTriangle, Globe, Lock,
+  Play, Square, Settings, Network, Shield,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import {
@@ -295,13 +297,12 @@ export default function SecretNetwork() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">网络通信</h1>
-          <p className="text-sm text-gray-500 mt-1">网络拓扑、通信协议与加密通道配置</p>
-        </div>
-        <Button className="gap-2" onClick={() => openDialog("node", "create")}><Plus className="w-4 h-4" />添加节点</Button>
-      </div>
+      <PageHeader
+        title="网络通信"
+        actions={
+          <Button className="gap-2" onClick={() => openDialog("node", "create")}><Plus className="w-4 h-4" />添加节点</Button>
+        }
+      />
 
       <div className="grid grid-cols-4 gap-4">
         <Card><CardContent className="p-4 flex items-center gap-3">
@@ -330,13 +331,9 @@ export default function SecretNetwork() {
         </TabsList>
 
         <TabsContent value="nodes" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索节点..." className="pl-9" value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={search} onChange={setSearch} placeholder="搜索节点..." onReset={() => setSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("node", "create")}><Plus className="w-4 h-4" />添加节点</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">网络节点</CardTitle></CardHeader>
             <CardContent>
@@ -359,14 +356,12 @@ export default function SecretNetwork() {
                       <TableCell>{n.status === "online" ? <Badge className="bg-green-50 text-green-700 gap-1"><CheckCircle2 className="w-3 h-3" />在线</Badge> : n.status === "offline" ? <Badge className="bg-red-50 text-red-700 gap-1"><AlertTriangle className="w-3 h-3" />离线</Badge> : <Badge className="bg-amber-50 text-amber-700">维护中</Badge>}</TableCell>
                       <TableCell>{n.encrypted ? <Badge className="bg-green-50 text-green-700">已加密</Badge> : <Badge className="bg-red-50 text-red-700">未加密</Badge>}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("node", n)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("node", "edit", n)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className={`h-8 w-8 ${n.status === "online" ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}`} onClick={() => toggleNodeStatus(n.id)}>
-                            {n.status === "online" ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("node", "delete", n)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("node", n)),
+                          createEditAction(() => openDialog("node", "edit", n)),
+                          { key: "toggle", icon: n.status === "online" ? <Square className="w-4 h-4 text-red-600" /> : <Play className="w-4 h-4 text-green-600" />, label: n.status === "online" ? "停止" : "启动", className: n.status === "online" ? "text-red-600 hover:text-red-700 hover:bg-red-50" : "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => toggleNodeStatus(n.id) },
+                          createDeleteAction(() => openDialog("node", "delete", n)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -377,13 +372,9 @@ export default function SecretNetwork() {
         </TabsContent>
 
         <TabsContent value="channels" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索通道..." className="pl-9" value={channelSearch} onChange={e => setChannelSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={channelSearch} onChange={setChannelSearch} placeholder="搜索通道..." onReset={() => setChannelSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("channel", "create")}><Plus className="w-4 h-4" />创建通道</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">加密通道</CardTitle></CardHeader>
             <CardContent>
@@ -408,14 +399,12 @@ export default function SecretNetwork() {
                       <TableCell className={c.errors > 0 ? "text-red-600" : "text-green-600"}>{c.errors}</TableCell>
                       <TableCell>{c.status === "active" ? <Badge className="bg-green-50 text-green-700">启用</Badge> : <Badge className="bg-gray-50 text-gray-700">禁用</Badge>}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("channel", c)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("channel", "edit", c)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className={`h-8 w-8 ${c.status === "active" ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}`} onClick={() => toggleChannelStatus(c.id)}>
-                            {c.status === "active" ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("channel", "delete", c)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("channel", c)),
+                          createEditAction(() => openDialog("channel", "edit", c)),
+                          { key: "toggle", icon: c.status === "active" ? <Square className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4 text-green-600" />, label: c.status === "active" ? "禁用" : "启用", className: c.status === "active" ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => toggleChannelStatus(c.id) },
+                          createDeleteAction(() => openDialog("channel", "delete", c)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}
@@ -426,13 +415,9 @@ export default function SecretNetwork() {
         </TabsContent>
 
         <TabsContent value="protocols" className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="搜索协议..." className="pl-9" value={protocolSearch} onChange={e => setProtocolSearch(e.target.value)} />
-            </div>
+          <PageSearchBar value={protocolSearch} onChange={setProtocolSearch} placeholder="搜索协议..." onReset={() => setProtocolSearch("")} extraFilters={
             <Button variant="outline" className="gap-2" onClick={() => openDialog("protocol", "create")}><Plus className="w-4 h-4" />添加协议</Button>
-          </div>
+          } />
           <Card>
             <CardHeader className="pb-3"><CardTitle className="text-base">通信协议配置</CardTitle></CardHeader>
             <CardContent>
@@ -455,14 +440,12 @@ export default function SecretNetwork() {
                       <TableCell><Badge variant="secondary">{p.encryption}</Badge></TableCell>
                       <TableCell>{p.status === "enabled" ? <Badge className="bg-green-50 text-green-700">已启用</Badge> : <Badge className="bg-gray-50 text-gray-700">已禁用</Badge>}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDrawer("protocol", p)}><Eye className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog("protocol", "edit", p)}><Pencil className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" className={`h-8 w-8 ${p.status === "enabled" ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50"}`} onClick={() => toggleProtocolStatus(p.id)}>
-                            {p.status === "enabled" ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => openDialog("protocol", "delete", p)}><Trash2 className="w-4 h-4" /></Button>
-                        </div>
+                        <ActionButtons buttons={[
+                          createViewAction(() => openDrawer("protocol", p)),
+                          createEditAction(() => openDialog("protocol", "edit", p)),
+                          { key: "toggle", icon: p.status === "enabled" ? <Square className="w-4 h-4 text-amber-600" /> : <Play className="w-4 h-4 text-green-600" />, label: p.status === "enabled" ? "禁用" : "启用", className: p.status === "enabled" ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50" : "text-green-600 hover:text-green-700 hover:bg-green-50", onClick: () => toggleProtocolStatus(p.id) },
+                          createDeleteAction(() => openDialog("protocol", "delete", p)),
+                        ]} />
                       </TableCell>
                     </TableRow>
                   ))}

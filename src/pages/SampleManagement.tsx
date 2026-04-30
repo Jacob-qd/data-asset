@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import {
   ChevronRight, Plus, Search, FlaskConical, Package, Trash2, Clock, CheckCircle, AlertTriangle, Eye, Thermometer, CalendarDays, Pencil, Trash, XCircle, StickyNote,
 } from "lucide-react";
@@ -274,15 +277,15 @@ export default function SampleManagement() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">样品管理</h1>
-          <p className="text-sm text-gray-500 mt-1.5">取样/留样/样品销毁管理，支持定期/不定期观察检验</p>
-        </div>
-        <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleCreate}>
-          <Plus className="mr-2 h-4 w-4" />登记样品
-        </Button>
-      </div>
+      <PageHeader
+        title="样品管理"
+        badge={`${samples.length} 个样品`}
+        actions={
+          <Button className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200" onClick={handleCreate}>
+            <Plus className="mr-2 h-4 w-4" />登记样品
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-5 gap-4">
         <Card className="bg-white rounded-xl border border-gray-100 shadow-sm"><CardContent className="p-4 flex items-center gap-3"><Package className="h-5 w-5 text-indigo-600" /><div><p className="text-sm text-gray-500">样品总数</p><p className="text-lg font-bold">{samples.length}</p></div></CardContent></Card>
@@ -301,9 +304,13 @@ export default function SampleManagement() {
         </TabsList>
 
         <TabsContent value="all" className="mt-4 space-y-4">
-          <div className="flex gap-3">
-            <Input placeholder="搜索样品名称/批次号/ID" value={search} onChange={(e) => setSearch(e.target.value)} className="w-64 h-9 bg-gray-50 border-gray-200 rounded-lg text-sm" />
-          </div>
+          <PageSearchBar
+            value={search}
+            onChange={setSearch}
+            placeholder="搜索样品名称/批次号/ID..."
+            onSearch={() => {}}
+            onReset={() => setSearch("")}
+          />
           <Card className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <Table className="unified-table">
               <TableHeader>
@@ -330,17 +337,28 @@ export default function SampleManagement() {
                       <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span>
                     </TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
-                        {s.status !== "已销毁" && (
-                          <>
-                            <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
-                            <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDestroy(s)}><XCircle className="w-4 h-4" /></Button>
-                          </>
-                        )}
-                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
-                      </div>
+                      <ActionButtons
+                        buttons={[
+                          createViewAction(() => { setDetailSample(s); setDetailOpen(true); }),
+                          createEditAction(() => handleEdit(s)),
+                          ...(s.status !== "已销毁" ? [
+                            {
+                              key: "observe",
+                              icon: <CalendarDays className="w-4 h-4" />,
+                              label: "观察",
+                              onClick: () => openObserveDialog(s.id),
+                            },
+                            {
+                              key: "destroy",
+                              icon: <XCircle className="w-4 h-4 text-red-600" />,
+                              label: "销毁",
+                              className: "text-red-600 hover:text-red-700 hover:bg-red-50",
+                              onClick: () => handleDestroy(s),
+                            },
+                          ] : []),
+                          createDeleteAction(() => handleDelete(s)),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -369,13 +387,26 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.expireDate}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDestroy(s)}><XCircle className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
-                      </div>
+                      <ActionButtons
+                        buttons={[
+                          createViewAction(() => { setDetailSample(s); setDetailOpen(true); }),
+                          createEditAction(() => handleEdit(s)),
+                          {
+                            key: "observe",
+                            icon: <CalendarDays className="w-4 h-4" />,
+                            label: "观察",
+                            onClick: () => openObserveDialog(s.id),
+                          },
+                          {
+                            key: "destroy",
+                            icon: <XCircle className="w-4 h-4 text-red-600" />,
+                            label: "销毁",
+                            className: "text-red-600 hover:text-red-700 hover:bg-red-50",
+                            onClick: () => handleDestroy(s),
+                          },
+                          createDeleteAction(() => handleDelete(s)),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -405,12 +436,19 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.expireDate}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => openObserveDialog(s.id)}><CalendarDays className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" onClick={() => handleEdit(s)}><Pencil className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
-                      </div>
+                      <ActionButtons
+                        buttons={[
+                          createViewAction(() => { setDetailSample(s); setDetailOpen(true); }),
+                          {
+                            key: "observe",
+                            icon: <CalendarDays className="w-4 h-4" />,
+                            label: "观察",
+                            onClick: () => openObserveDialog(s.id),
+                          },
+                          createEditAction(() => handleEdit(s)),
+                          createDeleteAction(() => handleDelete(s)),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -439,10 +477,12 @@ export default function SampleManagement() {
                     <TableCell className="py-3.5 px-4 text-xs text-gray-500">{s.inspector}</TableCell>
                     <TableCell className="py-3.5 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor[s.status]}`}>{s.status}</span></TableCell>
                     <TableCell className="py-3.5 px-4">
-                      <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" onClick={() => { setDetailSample(s); setDetailOpen(true); }}><Eye className="w-4 h-4" /></Button>
-                        <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => handleDelete(s)}><Trash className="w-4 h-4" /></Button>
-                      </div>
+                      <ActionButtons
+                        buttons={[
+                          createViewAction(() => { setDetailSample(s); setDetailOpen(true); }),
+                          createDeleteAction(() => handleDelete(s)),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

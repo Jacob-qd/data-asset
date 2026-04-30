@@ -60,6 +60,9 @@ import {
 import { cn } from "@/lib/utils";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction, createExecuteAction } from "@/components/ActionButtons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -505,25 +508,21 @@ function AlertRules() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between">
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="搜索告警规则..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className={cn("w-full pl-9 pr-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")}
-          />
-        </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          新建规则
-        </button>
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索告警规则..."
+        onReset={() => setSearch("")}
+        extraFilters={
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            新建规则
+          </button>
+        }
+      />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -553,21 +552,12 @@ function AlertRules() {
                   {r.status === "active" ? <CheckCircle2 className="w-4 h-4 text-emerald-500 inline" /> : <Pause className="w-4 h-4 text-amber-500 inline" />}
                 </td>
                 <td className="py-3 px-3 text-center">
-                  <button onClick={() => openView(r)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                    <Eye className="w-3 h-3" /> 查看
-                  </button>
-                  <button onClick={() => openEdit(r)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                    <Pencil className="w-3 h-3" /> 编辑
-                  </button>
-                  <button
-                    onClick={() => { setTestDialog({ open: true, rule: r }); runTest(r); }}
-                    className="text-xs text-indigo-600 mr-2 inline-flex items-center gap-0.5"
-                  >
-                    <TestTube className="w-3 h-3" /> 测试
-                  </button>
-                  <button onClick={() => openDelete(r)} className="text-xs text-red-600 inline-flex items-center gap-0.5">
-                    <Trash2 className="w-3 h-3" /> 删除
-                  </button>
+                  <ActionButtons buttons={[
+                    createViewAction(() => openView(r)),
+                    createEditAction(() => openEdit(r)),
+                    { key: "test", icon: <TestTube className="w-4 h-4" />, label: "测试", onClick: () => { setTestDialog({ open: true, rule: r }); runTest(r); } },
+                    createDeleteAction(() => openDelete(r)),
+                  ]} />
                 </td>
               </tr>
             ))}
@@ -852,18 +842,12 @@ function NotificationChannels() {
                   {c.schedule === "work_hours" ? "工作时间" : c.schedule === "24x7" ? "全天候" : c.scheduleWindow}
                 </td>
                 <td className="py-3 px-3 text-center">
-                  <button onClick={() => openView(c)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                    <Eye className="w-3 h-3" /> 查看
-                  </button>
-                  <button onClick={() => openEdit(c)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                    <Pencil className="w-3 h-3" /> 编辑
-                  </button>
-                  <button onClick={() => testChannel(c)} className="text-xs text-indigo-600 mr-2 inline-flex items-center gap-0.5">
-                    <Send className="w-3 h-3" /> 测试
-                  </button>
-                  <button onClick={() => openDelete(c)} className="text-xs text-red-600 inline-flex items-center gap-0.5">
-                    <Trash2 className="w-3 h-3" /> 删除
-                  </button>
+                  <ActionButtons buttons={[
+                    createViewAction(() => openView(c)),
+                    createEditAction(() => openEdit(c)),
+                    { key: "test", icon: <Send className="w-4 h-4" />, label: "测试", onClick: () => testChannel(c) },
+                    createDeleteAction(() => openDelete(c)),
+                  ]} />
                 </td>
               </tr>
             ))}
@@ -1701,20 +1685,14 @@ function ScheduledTasks() {
                       </button>
                     </td>
                     <td className="py-3 px-3 text-center text-xs text-slate-600">{t.executeCount}</td>
-                    <td className="py-3 px-3 text-center">
-                      <button onClick={() => openView(t)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                        <Eye className="w-3 h-3" /> 查看
-                      </button>
-                      <button onClick={() => openEdit(t)} className="text-xs text-primary-600 mr-2 inline-flex items-center gap-0.5">
-                        <Pencil className="w-3 h-3" /> 编辑
-                      </button>
-                      <button onClick={() => manualRun(t)} className="text-xs text-indigo-600 mr-2 inline-flex items-center gap-0.5">
-                        <PlayCircle className="w-3 h-3" /> 执行
-                      </button>
-                      <button onClick={() => openDelete(t)} className="text-xs text-red-600 inline-flex items-center gap-0.5">
-                        <Trash2 className="w-3 h-3" /> 删除
-                      </button>
-                    </td>
+                <td className="py-3 px-3 text-center">
+                  <ActionButtons buttons={[
+                    createViewAction(() => openView(t)),
+                    createEditAction(() => openEdit(t)),
+                    createExecuteAction(() => manualRun(t)),
+                    createDeleteAction(() => openDelete(t)),
+                  ]} />
+                </td>
                   </tr>
                 ))}
               </tbody>
@@ -2018,10 +1996,8 @@ export default function BlockchainOps() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">运维监控</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">日志配置、告警规则、审计策略、备份恢复、快照归档、性能调优</p>
-      </div>
+      <PageHeader title="运维监控" />
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">日志配置、告警规则、审计策略、备份恢复、快照归档、性能调优</p>
 
       <div className={cn("rounded-xl border overflow-hidden", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
         <div className="flex border-b border-slate-200 dark:border-[#334155] overflow-x-auto">

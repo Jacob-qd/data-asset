@@ -64,15 +64,14 @@ const menuStructure = [
     label: "数据沙箱",
     icon: <Cpu className="w-5 h-5" />,
     children: [
-      { label: "沙箱项目", icon: <FolderOpen className="w-4 h-4" />, path: "/sandbox/projects" },
-      { label: "我的开发资源", icon: <Server className="w-4 h-4" />, path: "/sandbox/resources" },
+      { label: "沙箱IDE", icon: <Terminal className="w-4 h-4" />, path: "/sandbox/ide" },
       { label: "产品验证", icon: <ShieldCheck className="w-4 h-4" />, path: "/sandbox/verify" },
       { label: "数据探查", icon: <Search className="w-4 h-4" />, path: "/sandbox/preview" },
       { label: "数据加工", icon: <Wand2 className="w-4 h-4" />, path: "/sandbox/preprocess" },
       { label: "模型开发", icon: <BrainCircuit className="w-4 h-4" />, path: "/sandbox/train" },
+      { label: "资源审批", icon: <Server className="w-4 h-4" />, path: "/sandbox/resources" },
       { label: "结果审查", icon: <ShieldCheck className="w-4 h-4" />, path: "/sandbox/review" },
       { label: "沙箱审计", icon: <ClipboardList className="w-4 h-4" />, path: "/sandbox/audit" },
-      { label: "数据源管理", icon: <Database className="w-4 h-4" />, path: "/sampling/datasources" },
     ],
   },
   // ====== 隐私计算：任务分类中心 ======
@@ -81,8 +80,8 @@ const menuStructure = [
     icon: <ShieldCheck className="w-5 h-5" />,
     children: [
       { label: "任务中心", icon: <ClipboardList className="w-4 h-4" />, path: "/privacy/tasks" },
-      { label: "隐私求交(PSI)", icon: <Eye className="w-4 h-4" />, path: "/privacy/tasks/psi" },
-      { label: "隐匿查询(PIR)", icon: <Search className="w-4 h-4" />, path: "/privacy/tasks/pir" },
+      { label: "隐私求交（PSI）", icon: <Eye className="w-4 h-4" />, path: "/privacy/tasks/psi" },
+      { label: "隐匿查询（PIR）", icon: <Search className="w-4 h-4" />, path: "/privacy/tasks/pir" },
       { label: "联合统计", icon: <BarChart3 className="w-4 h-4" />, path: "/privacy/tasks/stats" },
       { label: "联合SQL", icon: <Terminal className="w-4 h-4" />, path: "/privacy/tasks/sql" },
       { label: "联合建模", icon: <BrainCircuit className="w-4 h-4" />, path: "/privacy/tasks/modeling" },
@@ -90,15 +89,16 @@ const menuStructure = [
       { label: "模型管理", icon: <Package className="w-4 h-4" />, path: "/privacy/models" },
     ],
   },
-  // ====== 抽样管理：4项（保持不变） ======
+  // ====== 数据抽样管理 ======
   {
-    label: "抽样管理",
+    label: "数据抽样管理",
     icon: <FlaskConical className="w-5 h-5" />,
     children: [
       { label: "标准与规则", icon: <BookOpen className="w-4 h-4" />, path: "/sampling/standards" },
       { label: "抽样任务", icon: <ClipboardList className="w-4 h-4" />, path: "/sampling/tasks" },
       { label: "质检中心", icon: <ShieldCheck className="w-4 h-4" />, path: "/sampling/inspection" },
       { label: "样品管理", icon: <Package className="w-4 h-4" />, path: "/sampling/samples" },
+      { label: "数据源管理", icon: <Database className="w-4 h-4" />, path: "/sampling/datasources" },
     ],
   },
   // ====== 密态计算：6项（去除业务层和通用功能，保留纯技术引擎） ======
@@ -107,7 +107,7 @@ const menuStructure = [
     icon: <Lock className="w-5 h-5" />,
     children: [
       { label: "密码协议引擎", icon: <CircuitBoard className="w-4 h-4" />, path: "/secret/mpc-engine" },
-      { label: "可信执行环境(TEE)", icon: <Shield className="w-4 h-4" />, path: "/secret/tee" },
+      { label: "可信执行环境（TEE）", icon: <Shield className="w-4 h-4" />, path: "/secret/tee" },
       { label: "同态加密引擎", icon: <Fingerprint className="w-4 h-4" />, path: "/secret/he-engine" },
       { label: "密钥与证书", icon: <Key className="w-4 h-4" />, path: "/secret/keys" },
       { label: "资源与调度", icon: <Server className="w-4 h-4" />, path: "/secret/resources" },

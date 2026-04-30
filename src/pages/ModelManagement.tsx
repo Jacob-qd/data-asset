@@ -4,10 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import DataTable from "@/components/DataTable";
+import { CrudDialog } from "@/components/CrudDialog";
+import type { FieldConfig } from "@/components/CrudDialog";
+import { DetailDrawer } from "@/components/DetailDrawer";
 import {
-  Search, Plus, Rocket, Undo2, Download, Combine,
-  Eye, Trash2, BarChart3
+  Plus, Rocket, BarChart3,
 } from "lucide-react";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -63,10 +68,42 @@ const mockModels: Model[] = [
   },
 ];
 
+const modelFormFields: FieldConfig[] = [
+  { key: "name", label: "模型名称", type: "text", required: true },
+  { key: "type", label: "模型类型", type: "select", required: true, options: [
+    { label: "纵向逻辑回归", value: "纵向逻辑回归" },
+    { label: "横向逻辑回归", value: "横向逻辑回归" },
+    { label: "XGBoost", value: "XGBoost" },
+    { label: "神经网络", value: "神经网络" },
+    { label: "决策树", value: "决策树" },
+  ]},
+  { key: "deployStatus", label: "部署状态", type: "select", options: [
+    { label: "已部署", value: "deployed" },
+    { label: "未部署", value: "undeployed" },
+  ]},
+  { key: "inferenceService", label: "联合推理服务", type: "select", options: [
+    { label: "启用", value: "true" },
+    { label: "禁用", value: "false" },
+  ]},
+];
+
+const modelDetailFields = [
+  { key: "id", label: "模型ID", type: "text" as const },
+  { key: "name", label: "模型名称", type: "text" as const },
+  { key: "type", label: "模型类型", type: "badge" as const },
+  { key: "deployStatus", label: "部署状态", type: "badge" as const },
+  { key: "inferenceService", label: "联合推理服务", type: "badge" as const },
+  { key: "createdAt", label: "建模时间", type: "date" as const },
+];
+
 export default function ModelManagement() {
   const navigate = useNavigate();
   const [models, setModels] = useState<Model[]>(mockModels);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const filteredModels = models.filter((m) =>
     m.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -84,6 +121,40 @@ export default function ModelManagement() {
       m.id === id ? { ...m, deployStatus: "undeployed" } : m
     ));
     toast.success("模型已撤销部署");
+  };
+
+  const handleCreate = (data: Record<string, any>) => {
+    const newModel: Model = {
+      id: `MODEL-${Date.now().toString(36).toUpperCase()}`,
+      name: data.name,
+      type: data.type,
+      createdAt: new Date().toLocaleString("zh-CN"),
+      deployStatus: data.deployStatus || "undeployed",
+      inferenceService: data.inferenceService === "true",
+    };
+    setModels([newModel, ...models]);
+    setEditOpen(false);
+    toast.success("模型创建成功");
+  };
+
+  const handleEdit = (data: Record<string, any>) => {
+    if (selectedModel) {
+      setModels(models.map((m) =>
+        m.id === selectedModel.id
+          ? { ...m, ...data, inferenceService: data.inferenceService === "true" }
+          : m
+      ));
+      setEditOpen(false);
+      toast.success("模型更新成功");
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedModel) {
+      setModels(models.filter((m) => m.id !== selectedModel.id));
+      setDeleteOpen(false);
+      toast.success("模型已删除");
+    }
   };
 
   const columns = [
@@ -138,54 +209,75 @@ export default function ModelManagement() {
     {
       key: "actions",
       title: "操作",
-      width: "w-64",
+      width: "w-72",
       render: (row: Model) => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={() => navigate(`/privacy/models/evaluation/${row.id}`)}>
-            <BarChart3 className="w-4 h-4" />
-            评估
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Rocket className="w-4 h-4" />
-            去推理
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Download className="w-4 h-4" />
-            模型下载
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Combine className="w-4 h-4" />
-            合并下载
-          </Button>
-        </div>
+        <ActionButtons buttons={[
+          createViewAction(() => { setSelectedModel(row); setDetailOpen(true); }),
+          createEditAction(() => { setSelectedModel(row); setEditOpen(true); }),
+          { key: "evaluate", icon: <BarChart3 className="w-4 h-4" />, label: "评估", onClick: () => navigate(`/privacy/models/evaluation/${row.id}`) },
+          { key: "inference", icon: <Rocket className="w-4 h-4" />, label: "去推理", onClick: () => {} },
+          createDeleteAction(() => { setSelectedModel(row); setDeleteOpen(true); }),
+        ]} />
       ),
     },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">模型管理</h1>
-      </div>
+      <PageHeader
+        title="模型管理"
+        actions={
+          <Button onClick={() => { setSelectedModel(null); setEditOpen(true); }}>
+            <Plus className="w-4 h-4 mr-2" />
+            新建模型
+          </Button>
+        }
+      />
 
-      <div className="flex items-center gap-4 bg-white p-4 rounded-lg border">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            placeholder="搜索模型名称..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline" size="sm">查询</Button>
-        <Button variant="ghost" size="sm">重置</Button>
-      </div>
+      <PageSearchBar
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="搜索模型名称..."
+        onReset={() => setSearchTerm("")}
+      />
 
       <DataTable
         data={filteredModels}
         columns={columns}
         rowKey={(row) => row.id}
+      />
+
+      {/* Detail Drawer */}
+      <DetailDrawer
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+        title="模型详情"
+        data={selectedModel || {}}
+        fields={modelDetailFields}
+        onEdit={() => { setDetailOpen(false); setEditOpen(true); }}
+        onDelete={() => { setDetailOpen(false); setDeleteOpen(true); }}
+      />
+
+      {/* Create/Edit Dialog */}
+      <CrudDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="模型"
+        fields={modelFormFields}
+        data={selectedModel || {}}
+        onSubmit={selectedModel ? handleEdit : handleCreate}
+        mode={selectedModel ? "edit" : "create"}
+      />
+
+      {/* Delete Dialog */}
+      <CrudDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title="模型"
+        fields={[]}
+        onSubmit={() => {}}
+        onDelete={handleDelete}
+        mode="delete"
       />
     </div>
   );

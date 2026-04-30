@@ -32,6 +32,7 @@ import {
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
 import * as echarts from "echarts";
+import { toast } from "sonner";
 
 /* ─── Types ─── */
 interface Project {
@@ -292,14 +293,29 @@ const algorithmOptions = [
 
 const partyList = ["Party A - 银行", "Party B - 保险", "Party C - 电商", "Party D - 运营商"];
 
+// 快捷操作 — 仅保留工作台特有的高频操作（不在左侧菜单中重复）
 const quickActions = [
-  { label: "沙箱IDE", desc: "进入在线开发环境", icon: <Terminal className="w-5 h-5" />, path: "/sandbox/ide", color: "bg-blue-50 text-blue-600 hover:bg-blue-100" },
-  { label: "数据探查", desc: "浏览数据源", icon: <BookOpen className="w-5 h-5" />, path: "/sandbox/preview", color: "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" },
-  { label: "数据加工", desc: "数据清洗与转换", icon: <Zap className="w-5 h-5" />, path: "/sandbox/preprocess", color: "bg-amber-50 text-amber-600 hover:bg-amber-100" },
-  { label: "模型开发", desc: "算法训练与评估", icon: <FlaskConical className="w-5 h-5" />, path: "/sandbox/train", color: "bg-purple-50 text-purple-600 hover:bg-purple-100" },
-  { label: "结果审查", desc: "审批与发布", icon: <CheckCircle2 className="w-5 h-5" />, path: "/sandbox/review", color: "bg-rose-50 text-rose-600 hover:bg-rose-100" },
-  { label: "运行环境", desc: "查看环境状态", icon: <HardDrive className="w-5 h-5" />, path: "/sandbox/run", color: "bg-cyan-50 text-cyan-600 hover:bg-cyan-100" },
-  { label: "隐私计算", desc: "将沙箱成果发布到隐私计算平台", icon: <Share className="w-5 h-5" />, path: "/sandbox/privacy-computing", color: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100" },
+  {
+    label: "新建项目",
+    desc: "快速创建沙箱项目",
+    icon: <Plus className="w-5 h-5" />,
+    action: "create",
+    color: "bg-blue-50 text-blue-600 hover:bg-blue-100",
+  },
+  {
+    label: "发布成果",
+    desc: "将项目发布到隐私计算",
+    icon: <Share className="w-5 h-5" />,
+    action: "publish",
+    color: "bg-indigo-50 text-indigo-600 hover:bg-indigo-100",
+  },
+  {
+    label: "新建任务",
+    desc: "创建定时调度任务",
+    icon: <Clock className="w-5 h-5" />,
+    action: "task",
+    color: "bg-emerald-50 text-emerald-600 hover:bg-emerald-100",
+  },
 ];
 
 /* ─── Main Component ─── */
@@ -319,13 +335,8 @@ export default function SandboxProjectList() {
   const [dialogData, setDialogData] = useState<Record<string, any>>({});
   const [selectedTemplate, setSelectedTemplate] = useState("empty");
 
-  // Publish dialog state
-  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
-  const [publishProject, setPublishProject] = useState<Project | null>(null);
-  const [publishAlgorithm, setPublishAlgorithm] = useState("PSI隐私求交");
-  const [publishTaskName, setPublishTaskName] = useState("");
-  const [publishDescription, setPublishDescription] = useState("");
   const [publishSuccess, setPublishSuccess] = useState<string | null>(null);
+  const [publishProject, setPublishProject] = useState<Project | null>(null);
 
   // Enhanced publish wizard
   const [publishWizardOpen, setPublishWizardOpen] = useState(false);
@@ -460,14 +471,6 @@ export default function SandboxProjectList() {
     ]);
   };
 
-  const openPublishDialog = (project: Project) => {
-    setPublishProject(project);
-    setPublishAlgorithm("PSI隐私求交");
-    setPublishTaskName(`${project.name}-隐私计算`);
-    setPublishDescription("");
-    setPublishDialogOpen(true);
-  };
-
   const openPublishWizard = (project: Project) => {
     setPublishProject(project);
     setWizardStep(1);
@@ -477,18 +480,6 @@ export default function SandboxProjectList() {
     setWizardSensitivity("medium");
     setWizardOutputRestrict(true);
     setPublishWizardOpen(true);
-  };
-
-  const handlePublishConfirm = () => {
-    if (!publishProject) return;
-    setPublishedIds(prev => new Set(prev).add(publishProject.id));
-    setRecentActivities(prev => [
-      { id: `ACT-${genId()}`, action: `发布到隐私计算: ${publishAlgorithm}`, target: publishProject.name, user: publishProject.owner, time: "刚刚", type: "success" },
-      ...prev,
-    ]);
-    setPublishSuccess(`项目"${publishProject.name}"已成功发布到隐私计算平台`);
-    setPublishDialogOpen(false);
-    setTimeout(() => setPublishSuccess(null), 4000);
   };
 
   const handleWizardConfirm = () => {
@@ -564,11 +555,20 @@ export default function SandboxProjectList() {
   };
 
   const handleInviteMember = () => {
-    if (!memberInviteEmail.trim()) return;
+    const email = memberInviteEmail.trim();
+    if (!email) {
+      toast.error("请输入邮箱或用户名");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("请输入有效的邮箱地址");
+      return;
+    }
     const newMember: Member = {
       id: `M-${genId()}`,
-      name: memberInviteEmail.split("@")[0],
-      email: memberInviteEmail,
+      name: email.split("@")[0],
+      email: email,
       role: memberInviteRole,
       joinTime: new Date().toISOString().slice(0, 16).replace("T", " "),
     };
@@ -576,6 +576,7 @@ export default function SandboxProjectList() {
     setMemberDialogOpen(false);
     setMemberInviteEmail("");
     setMemberInviteRole("Viewer");
+    toast.success(`已成功邀请 ${email}`);
   };
 
   const handleRemoveMember = (id: string) => {
@@ -595,7 +596,21 @@ export default function SandboxProjectList() {
   };
 
   const handleCreateTask = () => {
+    if (!taskName.trim()) {
+      toast.error("请输入任务名称");
+      return;
+    }
+    if (!taskScript) {
+      toast.error("请选择脚本");
+      return;
+    }
     const cron = `${taskCron.minute} ${taskCron.hour} ${taskCron.day} ${taskCron.month} ${taskCron.weekday}`;
+    // Basic cron validation: should have 5 parts
+    const cronParts = cron.trim().split(/\s+/);
+    if (cronParts.length !== 5) {
+      toast.error("Cron 表达式格式不正确，需要5个字段");
+      return;
+    }
     const newTask: ScheduledTask = {
       id: `T-${genId()}`,
       name: taskName,
@@ -612,6 +627,7 @@ export default function SandboxProjectList() {
     setTaskName("");
     setTaskScript("");
     setTaskCron({ minute: "0", hour: "2", day: "*", month: "*", weekday: "*" });
+    toast.success("调度任务创建成功");
   };
 
   const handleSaveQuota = () => {
@@ -627,6 +643,7 @@ export default function SandboxProjectList() {
     { key: "name", label: "项目名称" },
     { key: "owner", label: "负责人" },
     { key: "type", label: "项目类型", type: "badge" as const },
+    { key: "status", label: "状态", type: "badge" as const },
     { key: "env", label: "运行环境" },
     { key: "startTime", label: "创建时间", type: "date" as const },
     { key: "progress", label: "当前进度" },
@@ -697,11 +714,7 @@ export default function SandboxProjectList() {
       <Tabs defaultValue="projects" className="space-y-4">
         <TabsList className="flex flex-wrap gap-1">
           <TabsTrigger value="projects" className="gap-2"><FolderKanban className="w-4 h-4" />我的项目</TabsTrigger>
-          <TabsTrigger value="quick" className="gap-2"><Zap className="w-4 h-4" />快速入口</TabsTrigger>
-          <TabsTrigger value="activities" className="gap-2"><Clock className="w-4 h-4" />最近动态</TabsTrigger>
-          <TabsTrigger value="members" className="gap-2"><Users className="w-4 h-4" />成员管理</TabsTrigger>
-          <TabsTrigger value="resources" className="gap-2"><Server className="w-4 h-4" />资源监控</TabsTrigger>
-          <TabsTrigger value="audit" className="gap-2"><FileText className="w-4 h-4" />操作日志</TabsTrigger>
+          <TabsTrigger value="quick" className="gap-2"><Zap className="w-4 h-4" />工作台</TabsTrigger>
           <TabsTrigger value="schedule" className="gap-2"><Clock className="w-4 h-4" />调度任务</TabsTrigger>
         </TabsList>
 
@@ -865,7 +878,19 @@ export default function SandboxProjectList() {
             <h3 className="text-sm font-semibold text-gray-700 mb-3">快捷操作</h3>
             <div className="grid grid-cols-3 gap-4">
               {quickActions.map((action) => (
-                <Card key={action.label} className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${action.color}`} onClick={() => navigate(action.path)}>
+                <Card
+                  key={action.label}
+                  className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${action.color}`}
+                  onClick={() => {
+                    if (action.action === "create") openCreate();
+                    else if (action.action === "publish") {
+                      const completed = projects.filter((p) => p.status === "completed" || p.progress >= 80)[0];
+                      if (completed) openPublishWizard(completed);
+                      else toast.info("暂无可发布的已完成项目");
+                    }
+                    else if (action.action === "task") setTaskDialogOpen(true);
+                  }}
+                >
                   <CardContent className="p-4 flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-white/80 flex items-center justify-center shadow-sm">
                       {action.icon}
@@ -980,7 +1005,18 @@ export default function SandboxProjectList() {
                     </TableHeader>
                     <TableBody>
                       {recentSandboxes.map((sb) => (
-                        <TableRow key={sb.id} className="cursor-pointer hover:bg-gray-50">
+                        <TableRow
+                          key={sb.id}
+                          className="cursor-pointer hover:bg-gray-50"
+                          onClick={() => {
+                            const project = projects.find(p => p.id === sb.id || p.name === sb.name);
+                            if (project) {
+                              openView(project);
+                            } else {
+                              toast.info("该项目详情不可用");
+                            }
+                          }}
+                        >
                           <TableCell className="text-sm font-medium py-2">{sb.name}</TableCell>
                           <TableCell className="text-xs py-2">{sb.user}</TableCell>
                           <TableCell className="text-xs py-2">{sb.env}</TableCell>
@@ -1197,7 +1233,24 @@ export default function SandboxProjectList() {
                 <SelectItem value="导出">导出</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" className="gap-2" onClick={() => alert("日志导出功能（模拟）")}>
+            <Button variant="outline" className="gap-2" onClick={() => {
+              const csv = [
+                ["时间", "操作人", "操作类型", "操作对象", "结果", "IP地址"].join(","),
+                ...filteredAudit.map(a => [
+                  `"${a.time}"`, `"${a.operator}"`, `"${a.action}"`, `"${a.target}"`, `"${a.result}"`, `"${a.ip}"`
+                ].join(",")),
+              ].join("\n");
+              const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              URL.revokeObjectURL(url);
+              toast.success("日志导出成功");
+            }}>
               <Download className="w-4 h-4" />导出日志
             </Button>
           </div>
@@ -1334,42 +1387,6 @@ export default function SandboxProjectList() {
           )}
         </TabsContent>
       </Tabs>
-
-      {/* ─── Publish Dialog (legacy simple) ─── */}
-      <Dialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>发布到隐私计算</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="algorithm">算法类型</Label>
-              <Select value={publishAlgorithm} onValueChange={setPublishAlgorithm}>
-                <SelectTrigger id="algorithm">
-                  <SelectValue placeholder="选择算法类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  {algorithmOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="taskName">任务名称</Label>
-              <Input id="taskName" value={publishTaskName} onChange={(e) => setPublishTaskName(e.target.value)} placeholder="请输入任务名称" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">描述（可选）</Label>
-              <Textarea id="description" value={publishDescription} onChange={(e) => setPublishDescription(e.target.value)} placeholder="请输入任务描述" rows={3} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPublishDialogOpen(false)}>取消</Button>
-            <Button onClick={handlePublishConfirm}>确认发布</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* ─── Publish Wizard Dialog ─── */}
       <Dialog open={publishWizardOpen} onOpenChange={setPublishWizardOpen}>

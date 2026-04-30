@@ -18,6 +18,9 @@ import {
 import { cn } from "@/lib/utils";
 import { CrudDialog, type FieldConfig } from "@/components/CrudDialog";
 import { DetailDrawer } from "@/components/DetailDrawer";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createEditAction, createDeleteAction } from "@/components/ActionButtons";
 
 /* ─── Types ─── */
 type User = {
@@ -159,16 +162,18 @@ function UserManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="搜索用户..." value={search} onChange={(e) => setSearch(e.target.value)} className={cn("w-full pl-9 pr-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")} />
-        </div>
-        <button onClick={handleCreate} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
-          <Plus className="w-3.5 h-3.5" />
-          添加用户
-        </button>
-      </div>
+      <PageSearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="搜索用户..."
+        onReset={() => setSearch("")}
+        extraFilters={
+          <button onClick={handleCreate} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary-600 text-white text-xs hover:bg-primary-700">
+            <Plus className="w-3.5 h-3.5" />
+            添加用户
+          </button>
+        }
+      />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -196,17 +201,11 @@ function UserManagement() {
                 </td>
                 <td className="py-3 px-3 text-xs text-slate-500">{u.lastLogin}</td>
                 <td className="py-3 px-3 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <button onClick={() => handleView(u)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#334155]">
-                      <Eye className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                    <button onClick={() => handleEdit(u)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#334155]">
-                      <Edit className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                    <button onClick={() => handleDelete(u)} className="p-1 rounded hover:bg-slate-100 dark:hover:bg-[#334155]">
-                      <Trash2 className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                  </div>
+                  <ActionButtons buttons={[
+                    createViewAction(() => handleView(u)),
+                    createEditAction(() => handleEdit(u)),
+                    createDeleteAction(() => handleDelete(u)),
+                  ]} />
                 </td>
               </tr>
             ))}
@@ -331,16 +330,17 @@ function RoleManagement() {
 function OperationLogs() {
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input type="text" placeholder="搜索操作记录..." className={cn("w-full pl-9 pr-3 py-2 rounded-lg border text-sm", "bg-white border-slate-200 dark:bg-[#0F172A] dark:border-[#334155] dark:text-slate-100")} />
-        </div>
-        <button className="flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-600 dark:border-[#334155] dark:text-slate-400">
-          <FileText className="w-3.5 h-3.5" />
-          导出
-        </button>
-      </div>
+      <PageSearchBar
+        value=""
+        onChange={() => {}}
+        placeholder="搜索操作记录..."
+        extraFilters={
+          <button className="flex items-center gap-1 px-3 py-2 rounded-lg border border-slate-200 text-xs text-slate-600 dark:border-[#334155] dark:text-slate-400">
+            <FileText className="w-3.5 h-3.5" />
+            导出
+          </button>
+        }
+      />
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -413,7 +413,7 @@ function AccessControl() {
                 <td className="py-3 px-3"><span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{acl.role}</span></td>
                 <td className="py-3 px-3"><span className={cn("px-2 py-0.5 rounded-full text-[10px]", acl.action === "读写" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30" : "bg-slate-50 text-slate-600 dark:bg-[#334155]")}>{acl.action}</span></td>
                 <td className="py-3 px-3 text-center"><CheckCircle2 className="w-4 h-4 text-emerald-500 inline" /></td>
-                <td className="py-3 px-3 text-center"><button className="text-xs text-primary-600">编辑</button></td>
+                <td className="py-3 px-3 text-center"><ActionButtons buttons={[createEditAction(() => alert("编辑"))]} /></td>
               </tr>
             ))}
           </tbody>
@@ -512,10 +512,8 @@ export default function BlockchainSystem() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-slate-800 dark:text-slate-100">系统管理</h1>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">用户管理、角色管理、权限模块、操作记录、访问控制与安全配置</p>
-      </div>
+      <PageHeader title="系统管理" />
+      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">用户管理、角色管理、权限模块、操作记录、访问控制与安全配置</p>
 
       <div className={cn("rounded-xl border overflow-hidden", "bg-white border-slate-200 dark:bg-[#1E293B] dark:border-[#334155]")}>
         <div className="flex border-b border-slate-200 dark:border-[#334155]">

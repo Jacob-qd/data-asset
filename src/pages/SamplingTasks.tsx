@@ -39,6 +39,9 @@ import Drawer from "@/components/Drawer";
 import Modal from "@/components/Modal";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import PageHeader from "@/components/PageHeader";
+import PageSearchBar from "@/components/PageSearchBar";
+import ActionButtons, { createViewAction, createDeleteAction } from "@/components/ActionButtons";
 
 /* ───────────────────────────────────────────────
    Types
@@ -986,43 +989,64 @@ export default function SamplingTasks() {
       render: (_row: SamplingTask, idx: number) => {
         const task = filtered[idx];
         return (
-          <div className="flex items-center gap-0.5">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openDetail(task); }} title="查看详情">
-              <Eye className="w-3.5 h-3.5 text-slate-400" />
-            </Button>
-            {task.status === "pending" && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); executeTask(task); }} title="执行">
-                <Play className="w-3.5 h-3.5 text-emerald-500" />
-              </Button>
-            )}
-            {task.status === "running" && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); cancelTask(task); }} title="取消">
-                <Square className="w-3.5 h-3.5 text-amber-500" />
-              </Button>
-            )}
-            {task.status === "failed" && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); retryTask(task); }} title="重试">
-                <RotateCw className="w-3.5 h-3.5 text-primary-500" />
-              </Button>
-            )}
-            {task.status === "completed" && (!task.qcStatus || task.qcStatus === "not_triggered") && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1" onClick={(e) => { e.stopPropagation(); triggerQC(task); }} title="触发质检">
-                <ShieldCheck className="w-3 h-3" />质检
-              </Button>
-            )}
-            {task.status === "completed" && !sentToSandboxIds.has(task.id) && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-amber-500 hover:bg-amber-600 text-white gap-1" onClick={(e) => { e.stopPropagation(); openSandboxConfirm(task); }} title="发送到沙箱">
-                <Upload className="w-3 h-3" />发送到沙箱
-              </Button>
-            )}
-            {task.status === "completed" && sentToSandboxIds.has(task.id) && (
-              <Button size="sm" className="h-7 px-2 text-xs bg-slate-200 text-slate-500 cursor-not-allowed gap-1" disabled title="已发送到沙箱">
-                <Box className="w-3 h-3" />已发送到沙箱
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); confirmDelete(task); }} title="删除">
-              <Trash2 className="w-3.5 h-3.5 text-red-400" />
-            </Button>
+          <div onClick={(e) => e.stopPropagation()}>
+            <ActionButtons
+              buttons={[
+                createViewAction(() => openDetail(task)),
+                ...(task.status === "pending"
+                  ? [{
+                      key: "execute" as const,
+                      icon: <Play className="w-4 h-4 text-green-600" />,
+                      label: "执行",
+                      onClick: () => executeTask(task),
+                    }]
+                  : []),
+                ...(task.status === "running"
+                  ? [{
+                      key: "cancel" as const,
+                      icon: <Square className="w-4 h-4 text-amber-500" />,
+                      label: "取消",
+                      onClick: () => cancelTask(task),
+                    }]
+                  : []),
+                ...(task.status === "failed"
+                  ? [{
+                      key: "retry" as const,
+                      icon: <RotateCw className="w-4 h-4" />,
+                      label: "重试",
+                      onClick: () => retryTask(task),
+                    }]
+                  : []),
+                ...(task.status === "completed" && (!task.qcStatus || task.qcStatus === "not_triggered")
+                  ? [{
+                      key: "qc" as const,
+                      icon: <ShieldCheck className="w-4 h-4" />,
+                      label: "质检",
+                      className: "text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50",
+                      onClick: () => triggerQC(task),
+                    }]
+                  : []),
+                ...(task.status === "completed" && !sentToSandboxIds.has(task.id)
+                  ? [{
+                      key: "sandbox" as const,
+                      icon: <Upload className="w-4 h-4" />,
+                      label: "发送到沙箱",
+                      className: "text-amber-600 hover:text-amber-700 hover:bg-amber-50",
+                      onClick: () => openSandboxConfirm(task),
+                    }]
+                  : []),
+                ...(task.status === "completed" && sentToSandboxIds.has(task.id)
+                  ? [{
+                      key: "sandbox-sent" as const,
+                      icon: <Box className="w-4 h-4" />,
+                      label: "已发送到沙箱",
+                      className: "text-slate-400 cursor-not-allowed",
+                      onClick: () => {},
+                    }]
+                  : []),
+                createDeleteAction(() => confirmDelete(task)),
+              ]}
+            />
           </div>
         );
       },
@@ -1034,27 +1058,27 @@ export default function SamplingTasks() {
   return (
     <div className="space-y-5 animate-fadeIn">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">抽样任务管理</h1>
-          <p className="text-sm text-slate-500 mt-1">抽样任务列表，任务状态监控、执行历史、结果查看</p>
-        </div>
-        <Button
-          size="sm"
-          className="h-9 gap-1.5 bg-primary-500 hover:bg-primary-600 text-white"
-          onClick={() => {
-            setWizardOpen(true);
-            setWizardStep(0);
-            setWizardRule("");
-            setWizardName("");
-            setWizardSchedule("immediate");
-            setWizardPriority("normal");
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          新建任务
-        </Button>
-      </div>
+      <PageHeader
+        title="抽样任务管理"
+        badge={`${tasks.length} 个任务`}
+        actions={
+          <Button
+            size="sm"
+            className="h-9 gap-1.5 bg-primary-500 hover:bg-primary-600 text-white"
+            onClick={() => {
+              setWizardOpen(true);
+              setWizardStep(0);
+              setWizardRule("");
+              setWizardName("");
+              setWizardSchedule("immediate");
+              setWizardPriority("normal");
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            新建任务
+          </Button>
+        }
+      />
 
       {/* Status Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -1065,66 +1089,60 @@ export default function SamplingTasks() {
       </div>
 
       {/* Search + Advanced Filter */}
-      <div className="space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder="搜索任务名称、编号、数据源..."
-              className="pl-9 pr-4 h-9 text-sm dark:bg-[#1E293B] dark:border-[#334155] dark:text-slate-200"
-            />
-          </div>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            高级筛选
-          </Button>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={resetFilters}>
-            <RotateCcw className="w-3.5 h-3.5" />
-            重置
-          </Button>
-          {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 ml-auto">
-              <span className="text-xs text-slate-500">已选 {selectedIds.size} 项</span>
-              <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={batchDelete}>
-                <Trash2 className="w-3.5 h-3.5 mr-1" />
-                批量删除
-              </Button>
-              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleExport("csv")}>
-                <Download className="w-3.5 h-3.5 mr-1" />
-                批量导出
-              </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setSelectedIds(new Set()); setBatchMode(false); }}>
-                <X className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          )}
-        </div>
+      <PageSearchBar
+        value={searchQuery}
+        onChange={handleSearch}
+        placeholder="搜索任务名称、编号、数据源..."
+        onSearch={() => {}}
+        onReset={resetFilters}
+        extraFilters={
+          <>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => setShowFilters(!showFilters)}>
+              <SlidersHorizontal className="w-3.5 h-3.5" />
+              高级筛选
+            </Button>
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-xs text-slate-500">已选 {selectedIds.size} 项</span>
+                <Button variant="outline" size="sm" className="h-8 text-xs text-red-500 border-red-200 hover:bg-red-50" onClick={batchDelete}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  批量删除
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => handleExport("csv")}>
+                  <Download className="w-3.5 h-3.5 mr-1" />
+                  批量导出
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => { setSelectedIds(new Set()); setBatchMode(false); }}>
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            )}
+          </>
+        }
+      />
 
-        {showFilters && (
-          <div className="p-4 bg-slate-50 dark:bg-[#1E293B] rounded-lg border border-slate-200 dark:border-[#334155] animate-slideDown">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">任务状态</label>
-                <FieldSelect value={filterStatus} onChange={(v) => handleFilterChange("status", v)} options={["pending", "running", "completed", "failed", "cancelled"]} placeholder="全部状态" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">关联规则</label>
-                <FieldSelect value={filterType} onChange={(v) => handleFilterChange("type", v)} options={RULES_LIST.map((r) => r.name)} placeholder="全部规则" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">日期范围</label>
-                <FieldSelect value={filterDateRange} onChange={(v) => handleFilterChange("date", v)} options={["today", "yesterday", "week", "month", "quarter"]} placeholder="全部时间" />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">创建人</label>
-                <FieldSelect value={filterCreator} onChange={(v) => handleFilterChange("creator", v)} options={[...CREATORS]} placeholder="全部创建人" />
-              </div>
+      {showFilters && (
+        <div className="p-4 bg-slate-50 dark:bg-[#1E293B] rounded-lg border border-slate-200 dark:border-[#334155] animate-slideDown">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">任务状态</label>
+              <FieldSelect value={filterStatus} onChange={(v) => handleFilterChange("status", v)} options={["pending", "running", "completed", "failed", "cancelled"]} placeholder="全部状态" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">关联规则</label>
+              <FieldSelect value={filterType} onChange={(v) => handleFilterChange("type", v)} options={RULES_LIST.map((r) => r.name)} placeholder="全部规则" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">日期范围</label>
+              <FieldSelect value={filterDateRange} onChange={(v) => handleFilterChange("date", v)} options={["today", "yesterday", "week", "month", "quarter"]} placeholder="全部时间" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">创建人</label>
+              <FieldSelect value={filterCreator} onChange={(v) => handleFilterChange("creator", v)} options={[...CREATORS]} placeholder="全部创建人" />
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Tasks Table */}
       <DataTable
